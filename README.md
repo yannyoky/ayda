@@ -12,6 +12,7 @@ Social quest app: every morning an AI assistant turns your day into a few quests
 | `ios/` | native iOS client | Kotlin Multiplatform shared code, SwiftUI |
 | `contracts/` | OpenAPI spec shared by all clients | OpenAPI 3.1 |
 | `docs/` | PRD, roadmap, architecture, ADRs, design | Markdown |
+| `deploy/`, `infra/` | production on a Russian VPS (`docs/deploy.md`) | Docker Compose, Caddy, GitHub Actions |
 
 Stack and architecture: `docs/decisions/0002-tech-stack.md`, `docs/decisions/0003-modular-monolith.md`.
 

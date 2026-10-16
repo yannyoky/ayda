@@ -1,0 +1,156 @@
+# Production on the Russian VPS (docs/deploy.md). Lives in /opt/ayda next to `.env`.
+# Images come from GHCR; AYDA_TAG is the git sha the deploy workflow rolls out.
+name: ayda
+
+x-backend: &backend
+  image: ghcr.io/yannyoky/ayda-backend:${AYDA_TAG:?set AYDA_TAG}
+  env_file: .env
+  environment:
+    ENVIRONMENT: prod
+    DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:?}@postgres:5432/ayda
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options: { max-size: 20m, max-file: "5" }
+
+services:
+  postgres:
+    image: ghcr.io/yannyoky/ayda-postgres:${AYDA_TAG}
+    environment:
+      POSTGRES_USER: ayda
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ayda
+      GLITCHTIP_DB_PASSWORD: ${GLITCHTIP_DB_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/20-glitchtip.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ayda -d ayda"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    logging: *logging
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *backend
+    command:
+      [
+        "uvicorn", "ayda.main:app", "--host", "0.0.0.0", "--port", "8000",
+        "--proxy-headers", "--forwarded-allow-ips", "*", "--no-access-log",
+      ]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        [
+          "CMD", "python", "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "ayda.worker"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # Webhook mode: Telegram posts to https://$AYDA_DOMAIN/telegram/webhook (proxied by Caddy).
+  bot:
+    <<: *backend
+    command: ["python", "-m", "ayda.bot"]
+    environment:
+      ENVIRONMENT: prod
+      DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:?}@postgres:5432/ayda
+      TELEGRAM_WEBHOOK_URL: https://${AYDA_DOMAIN:?}/telegram/webhook
+      MINIAPP_URL: https://${AYDA_DOMAIN:?}/
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # Realtime for M2 (direct messages, co-op chats); reachable only through Caddy.
+  centrifugo:
+    image: centrifugo/centrifugo:v6
+    command: centrifugo
+    environment:
+      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_SECRET:?}
+      CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_API_KEY:?}
+      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: '["https://${AYDA_DOMAIN}"]'
+    restart: unless-stopped
+    logging: *logging
+
+  # TLS (Let's Encrypt), the Mini App's static files and the reverse proxy.
+  caddy:
+    image: ghcr.io/yannyoky/ayda-web:${AYDA_TAG}
+    environment:
+      AYDA_DOMAIN: ${AYDA_DOMAIN:?}
+      ERRORS_DOMAIN: ${ERRORS_DOMAIN:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - bot
+    restart: unless-stopped
+    logging: *logging
+
+  # Error tracking (self-hosted GlitchTip, Sentry-compatible); data stays on this VPS.
+  glitchtip:
+    image: glitchtip/glitchtip:v4.1.3
+    environment: &glitchtip_env
+      DATABASE_URL: postgres://glitchtip:${GLITCHTIP_DB_PASSWORD:?}@postgres:5432/glitchtip
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?}
+      REDIS_URL: redis://valkey:6379/0
+      PORT: "8000"
+      GLITCHTIP_DOMAIN: https://${ERRORS_DOMAIN:?}
+      DEFAULT_FROM_EMAIL: errors@${AYDA_DOMAIN}
+      EMAIL_URL: consolemail://
+      ENABLE_USER_REGISTRATION: "false"
+      GLITCHTIP_MAX_EVENT_LIFE_DAYS: "30"
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_started }
+    restart: unless-stopped
+    logging: *logging
+
+  glitchtip-worker:
+    image: glitchtip/glitchtip:v4.1.3
+    command: ./bin/run-celery-with-beat.sh
+    environment:
+      <<: *glitchtip_env
+      CELERY_WORKER_AUTOSCALE: "1,2"
+    depends_on:
+      - glitchtip
+    restart: unless-stopped
+    logging: *logging
+
+  glitchtip-migrate:
+    image: glitchtip/glitchtip:v4.1.3
+    command: ./bin/run-migrate.sh
+    environment: *glitchtip_env
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
