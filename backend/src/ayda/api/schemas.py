@@ -268,3 +268,10 @@ class LadderEntry(BaseModel):
 class Ladder(BaseModel):
     week_start: date
     entries: list[LadderEntry]
+
+
+class RealtimeToken(BaseModel):
+    token: str
+    expires_at: datetime
+    url: str
+    channel: str

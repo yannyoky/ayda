@@ -9,7 +9,7 @@ from typing import Any
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.app import notifications, privacy, reminders
+from ayda.app import notifications, privacy, realtime, reminders
 from ayda.bot.sender import AiogramSender
 from ayda.core import backup
 from ayda.core.config import Settings, get_settings
@@ -17,6 +17,7 @@ from ayda.core.db import Database
 from ayda.core.errors import init_error_tracking
 from ayda.core.jobs import Handler, Periodic, Worker
 from ayda.core.logging import configure_logging
+from ayda.core.realtime import Realtime
 from ayda.core.storage import Storage
 from ayda.modules import social
 
@@ -32,8 +33,10 @@ def build_worker(
     db: Database,
     storage: Storage | None = None,
     sender: notifications.Sender | None = None,
+    realtime_client: Realtime | None = None,
 ) -> Worker:
     storage = storage or Storage(settings)
+    publisher = realtime_client or Realtime(settings)
     sender = sender or default_sender(settings)
     reminders.register(settings)
 
@@ -58,7 +61,11 @@ def build_worker(
     async def run_backup(session: AsyncSession, payload: dict[str, Any]) -> None:
         await backup.create_backup(settings)
 
+    async def publish_event(session: AsyncSession, payload: dict[str, Any]) -> None:
+        await realtime.deliver(session, publisher, payload["kind"], payload["params"])
+
     handlers: dict[str, Handler] = {
+        realtime.PUBLISH_JOB: publish_event,
         backup.BACKUP_JOB: run_backup,
         privacy.ERASE_JOB: erase_account,
         social.PROCESS_JOB: process_media,

@@ -57,8 +57,21 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      # Same channel config as docker-compose.yml (ADR 0007); test-only secrets.
+      centrifugo:
+        image: centrifugo/centrifugo:v6
+        env:
+          CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: test-centrifugo-token-secret-0123456789
+          CENTRIFUGO_HTTP_API_KEY: test-centrifugo-api-key
+          CENTRIFUGO_CHANNEL_NAMESPACES: '[{"name":"personal","allow_user_limited_channels":true,"history_size":100,"history_ttl":"1h","force_recovery":true}]'
+        ports:
+          - 8001:8000
     env:
       TEST_DATABASE_URL: postgresql+asyncpg://ayda:ayda@localhost:5432/ayda_test
+      TEST_CENTRIFUGO_URL: http://localhost:8001
+      TEST_CENTRIFUGO_API_KEY: test-centrifugo-api-key
+      TEST_CENTRIFUGO_TOKEN_SECRET: test-centrifugo-token-secret-0123456789
+      REQUIRE_CENTRIFUGO: '1'
     defaults:
       run:
         working-directory: backend

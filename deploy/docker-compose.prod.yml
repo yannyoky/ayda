@@ -8,6 +8,8 @@ x-backend: &backend
   environment:
     ENVIRONMENT: prod
     DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:?}@postgres:5432/ayda
+    CENTRIFUGO_API_URL: http://centrifugo:8000/api
+    CENTRIFUGO_PUBLIC_URL: wss://${AYDA_DOMAIN:?}/connection/websocket
   restart: unless-stopped
   logging: &logging
     driver: json-file
@@ -76,7 +78,8 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
-  # Realtime for M2 (direct messages, co-op chats); reachable only through Caddy.
+  # Realtime for M2 (direct messages, co-op chats): personal channels, ADR 0007.
+  # Clients reach it only through Caddy; history stays in memory for at most an hour.
   centrifugo:
     image: centrifugo/centrifugo:v6
     command: centrifugo
@@ -84,6 +87,7 @@ services:
       CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_SECRET:?}
       CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_API_KEY:?}
       CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: '["https://${AYDA_DOMAIN}"]'
+      CENTRIFUGO_CHANNEL_NAMESPACES: '[{"name":"personal","allow_user_limited_channels":true,"history_size":100,"history_ttl":"1h","force_recovery":true}]'
     restart: unless-stopped
     logging: *logging
 

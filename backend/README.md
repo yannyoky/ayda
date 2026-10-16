@@ -20,7 +20,7 @@ uv run python -m ayda.bot          # Telegram bot, polling (needs TELEGRAM_BOT_T
 
 ## Checks (same as CI)
 
-Tests need PostgreSQL with PostGIS; they use `TEST_DATABASE_URL` (default `postgresql+asyncpg://ayda:ayda@localhost:5432/ayda_test`, created by the compose service). Each run drops and re-migrates the module schemas of that database.
+Tests need PostgreSQL with PostGIS; realtime integration tests also need Centrifugo (`docker compose up -d centrifugo`) and are skipped without it, except in CI. They use `TEST_DATABASE_URL` (default `postgresql+asyncpg://ayda:ayda@localhost:5432/ayda_test`, created by the compose service). Each run drops and re-migrates the module schemas of that database.
 
 ```sh
 uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run lint-imports && uv run pytest
