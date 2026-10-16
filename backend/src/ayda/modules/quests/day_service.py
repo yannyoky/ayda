@@ -177,7 +177,7 @@ async def rebuild_pool(
     kept = await day_quests(session, pool.id)
     start = max((q.position for q in kept), default=-1) + 1
     added = [
-        _new_day_quest(pool, q, start + i, "offered", expires_at, now) for i, q in enumerate(quests)
+        new_day_quest(pool, q, start + i, "offered", expires_at, now) for i, q in enumerate(quests)
     ]
     session.add_all(added)
     pool.checkin_id = checkin.id
@@ -191,7 +191,7 @@ async def rebuild_pool(
     return added
 
 
-def _new_day_quest(
+def new_day_quest(
     pool: DayPool, quest: NewQuest, position: int, state: str, expires_at: datetime, now: datetime
 ) -> DayQuest:
     return DayQuest(
@@ -224,7 +224,7 @@ async def taken_count(session: AsyncSession, pool_id: uuid.UUID) -> int:
     return count or 0
 
 
-async def _quest_for_update(
+async def quest_for_update(
     session: AsyncSession, user_id: uuid.UUID, quest_id: uuid.UUID, day: date
 ) -> tuple[DayPool, DayQuest]:
     """Lock today's pool first (it serializes the limits), then read the quest."""
@@ -238,7 +238,7 @@ async def _quest_for_update(
 async def take_quest(
     session: AsyncSession, user_id: uuid.UUID, quest_id: uuid.UUID, day: date, now: datetime
 ) -> DayQuest:
-    pool, quest = await _quest_for_update(session, user_id, quest_id, day)
+    pool, quest = await quest_for_update(session, user_id, quest_id, day)
     if quest.state != "offered":
         raise DayError("quest-not-offered")
     if await taken_count(session, pool.id) >= scoring_config().max_taken_per_day:
@@ -263,7 +263,7 @@ async def add_own_quest(
     position = await session.scalar(
         select(func.coalesce(func.max(DayQuest.position), -1)).where(DayQuest.pool_id == pool.id)
     )
-    row = _new_day_quest(pool, quest, (position or 0) + 1, "taken", expires_at, now)
+    row = new_day_quest(pool, quest, (position or 0) + 1, "taken", expires_at, now)
     session.add(row)
     await session.flush()
     return row
@@ -283,7 +283,7 @@ async def replace_quest(
     now: datetime,
 ) -> tuple[DayQuest, DayQuest | None, DayPool]:
     """Mark an offered quest replaced and offer an alternative from the day's candidates."""
-    pool, quest = await _quest_for_update(session, user_id, quest_id, day)
+    pool, quest = await quest_for_update(session, user_id, quest_id, day)
     if quest.state != "offered":
         raise DayError("quest-not-offered")
     if replacements_left(pool) == 0:
@@ -308,7 +308,7 @@ async def replace_quest(
     replacement: DayQuest | None = None
     if alternative is not None:
         new = quest_from_template(alternative, CODE_WHY.get(alternative.category))
-        replacement = _new_day_quest(pool, new, quest.position, "offered", quest.expires_at, now)
+        replacement = new_day_quest(pool, new, quest.position, "offered", quest.expires_at, now)
         session.add(replacement)
         quest.replaced_by_id = replacement.id
     await session.flush()

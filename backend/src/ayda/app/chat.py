@@ -16,7 +16,7 @@ from ayda.app.realtime import BUILDERS, Delivery, publish
 from ayda.core.config import Settings
 from ayda.core.problems import Problem
 from ayda.core.realtime import Realtime
-from ayda.modules import analytics, auth, chat, social
+from ayda.modules import analytics, auth, chat, quests, social
 from ayda.modules.analytics import EventType
 
 MESSAGE_CREATED = "chat.message_created"
@@ -70,6 +70,9 @@ async def build_conversations(
     unread = await chat.unread_counts(session, user_id, ids)
     people = {u for us in members.values() for u in us} | {m.author_id for m in last.values()}
     users = await auth.get_users(session, list(people))
+    titles = await quests.coop.coop_titles(
+        session, [c.coop_id for c, _ in rows if c.coop_id is not None]
+    )
     alive = {u: users[u].deletion_requested_at is None for u in users}
     out: list[Conversation] = []
     for conversation, member in rows:
@@ -82,7 +85,11 @@ async def build_conversations(
             Conversation(
                 id=conversation.id,
                 kind="dm" if dm else "coop",
-                title=peer.first_name if peer else (DELETED_NAME if dm else COOP_TITLE),
+                title=peer.first_name
+                if peer
+                else DELETED_NAME
+                if dm
+                else titles.get(conversation.coop_id or conversation.id, COOP_TITLE),
                 peer=peer,
                 coop_id=conversation.coop_id,
                 members=summaries,
@@ -302,7 +309,12 @@ def message_renderer(settings: Settings) -> Renderer:
             if author is None or author.deletion_requested_at is not None:
                 return None
             return BotMessage(f"Тебе пишет {author.first_name} 💬", button)
-        return BotMessage("Новое сообщение в чате совместного квеста 💬", button)
+        titles = await quests.coop.coop_titles(
+            session, [conversation.coop_id] if conversation.coop_id else []
+        )
+        title = titles.get(conversation.coop_id) if conversation.coop_id else None
+        where = f"«{title}»" if title else "совместного квеста"
+        return BotMessage(f"Новое сообщение в чате {where} 💬", button)
 
     return render
 

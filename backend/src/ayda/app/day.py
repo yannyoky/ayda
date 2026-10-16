@@ -27,8 +27,12 @@ from ayda.api.schemas import (
     Streak,
     Weather,
 )
+from ayda.app.coop import COOP_UPDATED, record_bonuses
+from ayda.app.day_problems import day_problem
+from ayda.app.realtime import publish
 from ayda.core import jobs
 from ayda.core.problems import Problem
+from ayda.core.realtime import Realtime
 from ayda.modules import analytics, assistant, auth, events, habits, quests, social
 from ayda.modules.analytics import EventType
 from ayda.modules.quests import days as day_clock
@@ -47,22 +51,6 @@ PARSE_DEADLINE_S = 4.0
 MAX_TASK_QUESTS = 5
 DAY_MINUTES = 15 * 60  # 08:00-23:00
 TASK_WHY = "Это из твоего плана на сегодня."
-
-PROBLEMS: dict[str, tuple[int, str]] = {
-    "quest-not-found": (404, "Такого квеста сегодня нет"),
-    "quest-not-offered": (409, "Этот квест уже не предлагается"),
-    "daily-limit-reached": (409, "Сегодня уже взято 3 квеста"),
-    "no-replacements-left": (409, "Замены на сегодня закончились"),
-    "too-many-checkins": (429, "Слишком много чек-инов за день"),
-    "quest-not-taken": (409, "Сначала возьми этот квест"),
-    "quest-already-completed": (409, "Квест уже выполнен"),
-    "quest-expired": (409, "День этого квеста уже закончился"),
-}
-
-
-def _problem(error: DayError) -> Problem:
-    status, detail = PROBLEMS[error.code]
-    return Problem(status, error.code, detail=detail)
 
 
 @dataclass(frozen=True)
@@ -132,7 +120,9 @@ def max_duration(parsed: assistant.ParsedCheckin) -> int:
 # --- reading the day --------------------------------------------------------------------
 
 
-def quest_schema(quest: quests.DayQuest, points: int | None = None) -> DayQuest:
+def quest_schema(
+    quest: quests.DayQuest, points: int | None = None, coop_id: uuid.UUID | None = None
+) -> DayQuest:
     return DayQuest(
         id=quest.id,
         source=quest.source,  # pyright: ignore[reportArgumentType]
@@ -147,6 +137,7 @@ def quest_schema(quest: quests.DayQuest, points: int | None = None) -> DayQuest:
         visibility=quest.visibility,  # pyright: ignore[reportArgumentType]
         points_awarded=points,
         expires_at=quest.expires_at,
+        coop_id=coop_id,
     )
 
 
@@ -164,6 +155,7 @@ async def build_day(session: AsyncSession, user: auth.User, now: datetime) -> Da
     pool = await quests.get_pool(session, user.id, day)
     rows = await quests.day_quests(session, pool.id) if pool else []
     awarded = await quests.points_by_quest(session, [q.id for q in rows])
+    coops = await quests.coop.coops_by_quest(session, [q.id for q in rows])
     points_today, points_week = await quests.points_summary(session, user.id, day)
     streak = await quests.streak_view(session, user.id, day)
     weather = pool.weather if pool and pool.weather else None
@@ -183,7 +175,11 @@ async def build_day(session: AsyncSession, user: auth.User, now: datetime) -> Da
         )
         if weather
         else None,
-        quests=[quest_schema(q, awarded.get(q.id)) for q in rows if q.state != "replaced"],
+        quests=[
+            quest_schema(q, awarded.get(q.id), coops.get(q.id))
+            for q in rows
+            if q.state != "replaced"
+        ],
         limits=DayLimits(
             taken=sum(q.state in quests.ACTIVE_STATES for q in rows),
             max_taken=scoring_config().max_taken_per_day,
@@ -216,7 +212,7 @@ async def submit_checkin(
     day = day_clock.local_day(now, user.timezone)
     existing = await quests.get_checkin(session, user.id, day)
     if existing is not None and existing.submissions >= quests.MAX_CHECKINS_PER_DAY:
-        raise _problem(DayError("too-many-checkins"))
+        raise day_problem(DayError("too-many-checkins"))
 
     text = body.text.strip()
     parsed: assistant.ParsedCheckin | None = None
@@ -307,7 +303,7 @@ async def submit_checkin(
             session, user.id, day, text, body.mood, parsed.model_dump(), now
         )
     except DayError as exc:
-        raise _problem(exc) from None
+        raise day_problem(exc) from None
     pool = await quests.ensure_pool(session, user.id, day, now)
     await quests.rebuild_pool(
         session,
@@ -382,7 +378,7 @@ async def take_quest(
     try:
         quest = await quests.take_quest(session, user.id, quest_id, day, now)
     except DayError as exc:
-        raise _problem(exc) from None
+        raise day_problem(exc) from None
     await analytics.record(
         session, EventType.QUEST_TAKEN, user.id, _taken_payload(quest), occurred_at=now
     )
@@ -401,7 +397,7 @@ async def add_own_quest(
             session, user.id, day, new, day_clock.day_expires_at(day, user.timezone), now
         )
     except DayError as exc:
-        raise _problem(exc) from None
+        raise day_problem(exc) from None
     await analytics.record(
         session, EventType.QUEST_TAKEN, user.id, _taken_payload(quest), occurred_at=now
     )
@@ -421,7 +417,7 @@ async def replace_quest(
             session, user.id, quest_id, reason, day, now
         )
     except DayError as exc:
-        raise _problem(exc) from None
+        raise day_problem(exc) from None
     await analytics.record(
         session,
         EventType.QUEST_REJECTED,
@@ -446,13 +442,16 @@ async def replace_quest(
 
 async def complete_quest(
     session: AsyncSession,
+    realtime: Realtime,
     user: auth.User,
     quest_id: uuid.UUID,
     body: CompleteQuestInput,
     now: datetime,
 ) -> Completion:
     """Visibility `friends` needs 1-3 photos and posts a proof; `routine` posts the fact
-    without details; `personal` posts nothing. Points stay even if the post is deleted."""
+    without details; `personal` posts nothing. Points stay even if the post is deleted.
+    In a co-op, the last one to complete brings everyone the bonus (committed here, then
+    published)."""
     if body.visibility == "friends" and not body.media_ids:
         raise Problem(422, "photo-required", detail="Для друзей нужно хотя бы одно фото")
     if body.visibility != "friends" and (body.media_ids or body.caption):
@@ -464,7 +463,7 @@ async def complete_quest(
     try:
         quest, award = await quests.complete_quest(session, user.id, quest_id, body.visibility, now)
     except DayError as exc:
-        raise _problem(exc) from None
+        raise day_problem(exc) from None
 
     post_id: uuid.UUID | None = None
     if body.visibility != "personal":
@@ -516,8 +515,19 @@ async def complete_quest(
         },
         occurred_at=now,
     )
+    in_coop = await quests.coop.after_completion(session, quest, now)
+    bonus = 0
+    if in_coop is not None:
+        coop, bonuses = in_coop
+        bonus = bonuses.get(quest.id, 0)
+        await record_bonuses(session, coop, bonuses, user.id, now)
+    await session.commit()
+    if in_coop is not None:
+        await publish(session, realtime, COOP_UPDATED, {"coop_id": str(in_coop[0].id)})
     return Completion(
-        quest=quest_schema(quest, award.points),
+        quest=quest_schema(
+            quest, award.points + bonus, in_coop[0].id if in_coop is not None else None
+        ),
         points_awarded=award.points,
         points_breakdown=PointsBreakdown(
             base=award.base,
@@ -526,4 +536,5 @@ async def complete_quest(
         ),
         streak=streak_schema(award.streak),
         post_id=post_id,
+        coop_bonus=bonus,
     )

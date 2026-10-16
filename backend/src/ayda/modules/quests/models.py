@@ -97,7 +97,9 @@ class PointsEntry(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
-    day_quest_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(DayQuest.id), unique=True)
+    day_quest_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(DayQuest.id))
+    # 'quest' (one per completed quest) or 'coop_bonus' (one per quest of a finished co-op)
+    kind: Mapped[str] = mapped_column(Text, default="quest")
     local_date: Mapped[date] = mapped_column(Date)
     week_start: Mapped[date] = mapped_column(Date)
     points: Mapped[int] = mapped_column(Integer)
@@ -114,3 +116,32 @@ class Streak(Base):
     last_counted_date: Mapped[date | None] = mapped_column(Date)
     freeze_week_start: Mapped[date | None] = mapped_column(Date)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Coop(Base):
+    """A co-op quest (US-18): the owner's taken quest that friends do too, each on their own."""
+
+    __tablename__ = "coops"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    title: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(Text)
+    duration_min: Mapped[int] = mapped_column(SmallInteger)
+    outdoor: Mapped[bool] = mapped_column(Boolean)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    bonus_awarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CoopParticipant(Base):
+    __tablename__ = "coop_participants"
+
+    coop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(Coop.id), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    # 'owner', 'invited', 'accepted' or 'declined'
+    status: Mapped[str] = mapped_column(Text)
+    day_quest_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(DayQuest.id))
+    invited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

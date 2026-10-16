@@ -1,10 +1,8 @@
 import uuid
-from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-import pytest
 from fastapi import FastAPI
 from sqlalchemy import select, update
 
@@ -16,30 +14,11 @@ from ayda.core.jobs import Job
 from ayda.core.realtime import Realtime
 from ayda.modules import auth, chat
 from ayda.worker import build_worker
+from tests.conftest import FakeRealtime
 from tests.contract import assert_matches
 from tests.helpers import SignedIn, sign_in
 from tests.test_bot import FakeSender
 from tests.test_feed import befriend
-
-
-class FakeRealtime(Realtime):
-    def __init__(self, settings: Settings) -> None:
-        super().__init__(settings)
-        self.sent: list[tuple[set[str], dict[str, Any]]] = []
-
-    @property
-    def enabled(self) -> bool:
-        return True
-
-    async def broadcast(self, user_ids: Iterable[uuid.UUID], event: Mapping[str, Any]) -> None:
-        self.sent.append(({str(u) for u in user_ids}, dict(event)))
-
-
-@pytest.fixture
-def realtime(app: FastAPI, settings: Settings) -> FakeRealtime:
-    fake = FakeRealtime(settings)
-    app.state.realtime = fake
-    return fake
 
 
 async def open_dm(client: httpx.AsyncClient, a: SignedIn, b: SignedIn) -> dict[str, Any]:

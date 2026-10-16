@@ -4,7 +4,15 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.modules.quests.models import Checkin, DayPool, DayQuest, PointsEntry, Streak
+from ayda.modules.quests.models import (
+    Checkin,
+    Coop,
+    CoopParticipant,
+    DayPool,
+    DayQuest,
+    PointsEntry,
+    Streak,
+)
 
 CHECKIN_TEXT_TTL = timedelta(days=30)
 
@@ -13,6 +21,9 @@ async def erase_user(session: AsyncSession, user_id: uuid.UUID) -> None:
     # The ledger is append-only; account erasure is its one maintenance path.
     await session.execute(text("SET LOCAL ayda.points_maintenance = 'on'"))
     await session.execute(delete(PointsEntry).where(PointsEntry.user_id == user_id))
+    # Co-ops the user started go with their participants; in others the user's place goes.
+    await session.execute(delete(Coop).where(Coop.owner_id == user_id))
+    await session.execute(delete(CoopParticipant).where(CoopParticipant.user_id == user_id))
     await session.execute(delete(Streak).where(Streak.user_id == user_id))
     await session.execute(delete(DayQuest).where(DayQuest.user_id == user_id))
     await session.execute(delete(DayPool).where(DayPool.user_id == user_id))

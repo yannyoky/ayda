@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from ayda.api import (
     auth,
     chat,
+    coop,
     days,
     feed,
     friends,
@@ -72,6 +73,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ladder.router,
         realtime.router,
         chat.router,
+        coop.router,
     ):
         app.include_router(router, prefix=API_PREFIX)
     return app

@@ -2,8 +2,9 @@ import asyncio
 import os
 import socket
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterable, Iterator, Mapping
 from pathlib import Path
+from typing import Any
 
 import boto3
 import httpx
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from ayda.core.config import Settings
 from ayda.core.db import Database
 from ayda.core.models import ALL_SCHEMAS
+from ayda.core.realtime import Realtime
 from ayda.main import create_app
 from tests.helpers import TEST_BOT_TOKEN
 
@@ -144,3 +146,23 @@ def s3_settings(settings: Settings, s3_url: str) -> Settings:
     s3.create_bucket(Bucket=updated.s3_bucket)
     s3.create_bucket(Bucket=updated.backup_bucket)
     return updated
+
+
+class FakeRealtime(Realtime):
+    def __init__(self, settings: Settings) -> None:
+        super().__init__(settings)
+        self.sent: list[tuple[set[str], dict[str, Any]]] = []
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    async def broadcast(self, user_ids: Iterable[uuid.UUID], event: Mapping[str, Any]) -> None:
+        self.sent.append(({str(u) for u in user_ids}, dict(event)))
+
+
+@pytest.fixture
+def realtime(app: FastAPI, settings: Settings) -> FakeRealtime:
+    fake = FakeRealtime(settings)
+    app.state.realtime = fake
+    return fake

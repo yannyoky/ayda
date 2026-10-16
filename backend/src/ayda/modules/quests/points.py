@@ -111,6 +111,7 @@ async def award(session: AsyncSession, quest: DayQuest, visibility: str, now: da
         PointsEntry(
             user_id=quest.user_id,
             day_quest_id=quest.id,
+            kind="quest",
             local_date=quest.local_date,
             week_start=week_start(quest.local_date),
             points=points,
@@ -149,11 +150,11 @@ async def points_by_quest(
     if not quest_ids:
         return {}
     rows = await session.execute(
-        select(PointsEntry.day_quest_id, PointsEntry.points).where(
-            PointsEntry.day_quest_id.in_(quest_ids)
-        )
+        select(PointsEntry.day_quest_id, func.sum(PointsEntry.points))
+        .where(PointsEntry.day_quest_id.in_(quest_ids))
+        .group_by(PointsEntry.day_quest_id)
     )
-    return {quest_id: points for quest_id, points in rows}
+    return {quest_id: int(points) for quest_id, points in rows}
 
 
 async def complete_quest(

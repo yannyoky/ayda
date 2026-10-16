@@ -23,6 +23,9 @@ class EventType(StrEnum):
     REMINDER_SENT = "reminder_sent"
     REMINDER_OPENED = "reminder_opened"
     MESSAGE_SENT = "message_sent"
+    COOP_CREATED = "coop_created"
+    COOP_ANSWERED = "coop_answered"
+    COOP_BONUS = "coop_bonus"
 
 
 SCHEMA_VERSIONS: dict[EventType, int] = dict.fromkeys(EventType, 1)

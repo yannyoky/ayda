@@ -115,7 +115,7 @@ No session table: the API issues short-lived signed tokens after the initData ch
 | pool_id | uuid FK | → quests.day_pools |
 | user_id | uuid | → auth.users |
 | local_date | date | |
-| source | enum | `catalog`, `checkin_task`, `custom`; later `event`, `coop` |
+| source | enum | `catalog`, `checkin_task`, `custom`, `coop` (joined from a friend's co-op); later `event` |
 | template_id | int FK null | for `catalog` |
 | title | text | snapshot, so catalog edits don't rewrite history |
 | category | enum | |
@@ -137,7 +137,8 @@ At most 3 rows per user and day in `taken` or `completed` (checked in a transact
 | --- | --- | --- |
 | id | bigint identity PK | |
 | user_id | uuid | |
-| day_quest_id | uuid FK unique | one award per quest |
+| day_quest_id | uuid FK | unique with kind |
+| kind | text | `quest` (one award per quest) or `coop_bonus` (one bonus per quest of a finished co-op) |
 | local_date | date | |
 | week_start | date | Monday of the user's local week, for the ladder |
 | points | int | final value |
@@ -146,7 +147,9 @@ At most 3 rows per user and day in `taken` or `completed` (checked in a transact
 
 **quests.streaks**: user_id PK, current_days int, best_days int, last_counted_date date null, freeze_week_start date null (the week in which the free freeze was used), updated_at.
 
-M2 adds **quests.coop_quests** (id, owner_id, title, category, duration_min, local_date, created_at) and **quests.coop_participants** (coop_id FK, user_id, status `invited` \| `accepted` \| `declined`, day_quest_id FK null; PK coop_id + user_id).
+M2 adds **quests.coops** (id, owner_id, title, description, category, duration_min, outdoor, expires_at = the end of the owner's day, bonus_awarded_at null, created_at) and **quests.coop_participants** (coop_id FK cascade, user_id, status `owner` \| `invited` \| `accepted` \| `declined`, day_quest_id FK unique null, invited_at, answered_at; PK coop_id + user_id).
+
+Co-op quests (US-18): the owner turns a taken quest of today into a co-op and invites 1-3 friends. Whoever accepts before the owner's day ends gets the same quest in their own day as taken (it counts toward the limit of 3) and joins the co-op chat. Once everyone who joined (at least two people) has completed it, each of them gets a `coop_bonus` ledger row worth 50% of their quest points (`coop_bonus_share` in the scoring config); a late joiner gets theirs when they complete. Completing locks the day pool, then the co-op row, so two last completions at once still award the bonus exactly once. Participants get `coop.updated` over Centrifugo; invitees and those who get the bonus while away get a bot message. Erasing an account deletes the co-ops it started and its places in others.
 
 ### assistant
 

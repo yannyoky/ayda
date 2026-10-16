@@ -9,7 +9,7 @@ from typing import Any
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.app import chat, notifications, privacy, realtime, reminders
+from ayda.app import chat, coop, notifications, privacy, realtime, reminders
 from ayda.bot.sender import AiogramSender
 from ayda.core import backup
 from ayda.core.config import Settings, get_settings
@@ -40,6 +40,7 @@ def build_worker(
     sender = sender or default_sender(settings)
     reminders.register(settings)
     chat.register(settings)
+    coop.register(settings)
 
     async def send_notification(session: AsyncSession, payload: dict[str, Any]) -> None:
         await notifications.send(session, sender, payload)

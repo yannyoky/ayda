@@ -98,6 +98,18 @@ async def conversation_for_coop(session: AsyncSession, coop_id: uuid.UUID) -> Co
     return await session.scalar(select(Conversation).where(Conversation.coop_id == coop_id))
 
 
+async def conversations_for_coops(
+    session: AsyncSession, coop_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """coop id -> its chat id."""
+    if not coop_ids:
+        return {}
+    rows = await session.execute(
+        select(Conversation.coop_id, Conversation.id).where(Conversation.coop_id.in_(coop_ids))
+    )
+    return {c: i for c, i in rows if c is not None}
+
+
 async def membership(
     session: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID
 ) -> tuple[Conversation, Member] | None:
