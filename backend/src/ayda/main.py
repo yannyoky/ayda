@@ -1,13 +1,30 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from ayda.api import system
+from ayda.core.config import Settings, get_settings
+from ayda.core.db import Database
+from ayda.core.problems import install_problem_handlers
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="Ayda API")
+API_PREFIX = "/api/v1"
 
-    @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
 
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    db = Database(settings.database_url, echo=settings.database_echo)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        yield
+        await db.dispose()
+
+    app = FastAPI(title="Ayda API", version="0.1.0", lifespan=lifespan)
+    app.state.settings = settings
+    app.state.db = db
+    install_problem_handlers(app)
+    app.include_router(system.router, prefix=API_PREFIX)
     return app
 
 
