@@ -13,9 +13,10 @@ uv sync
 uv run alembic upgrade head
 uv run uvicorn ayda.main:app --reload
 uv run python -m ayda.worker       # background jobs (ADR 0006), in another terminal
+uv run python -m ayda.bot          # Telegram bot, polling (needs TELEGRAM_BOT_TOKEN)
 ```
 
-`docker compose up` starts the API, the worker and Centrifugo too.
+`docker compose up` starts the API, the worker, the bot, MinIO and Centrifugo too.
 
 ## Checks (same as CI)
 

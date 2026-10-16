@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # Telegram bot (created with @BotFather); also signs Mini App initData.
     telegram_bot_token: SecretStr | None = None
     telegram_bot_username: str = "ayda_quest_bot"
+    # Mini App URL for the bot's buttons; without it the buttons use t.me/<bot>?startapp.
+    miniapp_url: str | None = None
+    # Production: Telegram calls this URL (proxied to the bot process); empty: polling.
+    telegram_webhook_url: str | None = None
+    telegram_webhook_secret: SecretStr | None = None
+    bot_port: int = 8081
     # Signs API access tokens. Required in prod; dev and test get a random one per process.
     auth_token_secret: SecretStr | None = None
 
