@@ -532,6 +532,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/realtime/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Centrifugo connection token for the user's personal channel (ADR 0007)
+         * @description Connect to `url` with `token`, subscribe to `channel` with recovery on, and call this
+         *     again when Centrifugo asks to refresh the token. Events on the channel are
+         *     `RealtimeEvent` objects.
+         */
+        post: operations["getRealtimeToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's chats with unread counts, latest activity first (US-17) */
+        get: operations["listConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/direct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open the direct chat with a friend, creating it on first use (idempotent, US-17) */
+        post: operations["openDirectConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One conversation of the user */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversation_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Message history, newest first; pass `next_cursor` for older pages (US-17) */
+        get: operations["listMessages"];
+        put?: never;
+        /**
+         * Send a message; members get it over Centrifugo (US-17)
+         * @description `client_id` makes retries safe: a second request with the same `client_id` returns the
+         *     message saved the first time with status 200. The bot tells offline members that a new
+         *     message arrived, without its text.
+         */
+        post: operations["sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversation_id}/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete own message for everyone */
+        delete: operations["deleteMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversation_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark messages up to `last_read_message_id` as read (never moves back) */
+        post: operations["markConversationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -826,6 +956,114 @@ export interface components {
             week_start: string;
             entries: components["schemas"]["LadderEntry"][];
         };
+        RealtimeToken: {
+            /** @description Centrifugo connection JWT. */
+            token: string;
+            /** Format: date-time */
+            expires_at: string;
+            /**
+             * @description Centrifugo WebSocket endpoint.
+             * @example wss://ayda.example/connection/websocket
+             */
+            url: string;
+            /**
+             * @description The user's personal channel.
+             * @example personal:#01890a5d-ac96-774b-bcce-b302099a8057
+             */
+            channel: string;
+        };
+        /** @enum {string} */
+        ConversationKind: "dm" | "coop";
+        Conversation: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ConversationKind"];
+            /** @description The friend's name for `dm`, the quest title for `coop`. */
+            title: string;
+            /** @description The other person in a `dm`; null for `coop`. */
+            peer?: components["schemas"]["UserSummary"] | null;
+            /** Format: uuid */
+            coop_id?: string | null;
+            /** @description Everyone in the chat except the user. */
+            members: components["schemas"]["UserSummary"][];
+            /** @description False once a `dm` friendship is removed; history stays readable. */
+            can_send: boolean;
+            last_message: components["schemas"]["Message"] | null;
+            unread_count: number;
+            /** Format: int64 */
+            last_read_message_id: number | null;
+            /**
+             * Format: date-time
+             * @description Time of the last message, or of creation for an empty chat.
+             */
+            updated_at: string;
+        };
+        MessageInput: {
+            text: string;
+            /**
+             * Format: uuid
+             * @description Generated by the client once per message; makes retries idempotent.
+             */
+            client_id: string;
+        };
+        Message: {
+            /**
+             * Format: int64
+             * @description Grows with time inside a conversation.
+             */
+            id: number;
+            /** Format: uuid */
+            conversation_id: string;
+            author: components["schemas"]["UserSummary"];
+            text: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            client_id: string | null;
+        };
+        MessagePage: {
+            items: components["schemas"]["Message"][];
+            next_cursor: string | null;
+        };
+        /**
+         * @description A publication on the personal channel (ADR 0007). Clients ignore unknown `type`
+         *     values, so new kinds of events can be added without breaking them.
+         */
+        RealtimeEvent: components["schemas"]["MessageCreatedEvent"] | components["schemas"]["MessageDeletedEvent"] | components["schemas"]["ConversationReadEvent"];
+        MessageCreatedEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "message.created";
+            /** Format: uuid */
+            conversation_id: string;
+            message: components["schemas"]["Message"];
+        };
+        MessageDeletedEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "message.deleted";
+            /** Format: uuid */
+            conversation_id: string;
+            /** Format: int64 */
+            message_id: number;
+        };
+        ConversationReadEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "conversation.read";
+            /** Format: uuid */
+            conversation_id: string;
+            /** Format: uuid */
+            user_id: string;
+            /** Format: int64 */
+            last_read_message_id: number;
+        };
     };
     responses: {
         /** @description Error (RFC 9457 problem details) */
@@ -842,6 +1080,8 @@ export interface components {
         QuestId: string;
         PostId: string;
         UserId: string;
+        ConversationId: string;
+        MessageId: number;
         HabitId: string;
         /** @description Opaque cursor from the previous page's `next_cursor`. */
         Cursor: string;
@@ -1729,6 +1969,243 @@ export interface operations {
                 };
             };
             401: components["responses"]["Problem"];
+        };
+    };
+    getRealtimeToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RealtimeToken"];
+                };
+            };
+            401: components["responses"]["Problem"];
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Conversation"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+        };
+    };
+    openDirectConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    user_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The direct conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description Not friends (only friends can start a chat) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listMessages: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from the previous page's `next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of messages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePage"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    sendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageInput"];
+            };
+        };
+        responses: {
+            /** @description Already saved earlier with this `client_id` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Saved and sent */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description The chat is closed for new messages (the friendship was removed) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    deleteMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+                message_id: components["parameters"]["MessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    markConversationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    last_read_message_id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }
