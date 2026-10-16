@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Integer, SmallInteger, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -13,6 +13,23 @@ class Base(DeclarativeBase):
     metadata = module_metadata("social")
 
 
+class Post(Base):
+    """A proof (friends visibility) or a routine entry; personal quests never create one."""
+
+    __tablename__ = "posts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    author_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    day_quest_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True)
+    kind: Mapped[str] = mapped_column(Text)
+    quest_title: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(Text)
+    caption: Mapped[str | None] = mapped_column(String(500))
+    local_date: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Media(Base):
     """A photo. `storage_key` is the upload while pending and the cleaned copy once ready."""
 
@@ -20,7 +37,7 @@ class Media(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
-    post_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    post_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(Post.id))
     storage_key: Mapped[str] = mapped_column(Text)
     content_type: Mapped[str] = mapped_column(Text)
     size_bytes: Mapped[int] = mapped_column(Integer)

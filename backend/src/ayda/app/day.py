@@ -16,16 +16,20 @@ from ayda.api.schemas import (
     Category,
     Checkin,
     CheckinInput,
+    CompleteQuestInput,
+    Completion,
     Day,
     DayLimits,
     DayQuest,
     OwnQuestInput,
+    PointsBreakdown,
     Replacement,
     Streak,
     Weather,
 )
+from ayda.core import jobs
 from ayda.core.problems import Problem
-from ayda.modules import analytics, assistant, auth, events, habits, quests
+from ayda.modules import analytics, assistant, auth, events, habits, quests, social
 from ayda.modules.analytics import EventType
 from ayda.modules.quests import days as day_clock
 from ayda.modules.quests.day_service import DayError, NewQuest
@@ -50,6 +54,9 @@ PROBLEMS: dict[str, tuple[int, str]] = {
     "daily-limit-reached": (409, "Сегодня уже взято 3 квеста"),
     "no-replacements-left": (409, "Замены на сегодня закончились"),
     "too-many-checkins": (429, "Слишком много чек-инов за день"),
+    "quest-not-taken": (409, "Сначала возьми этот квест"),
+    "quest-already-completed": (409, "Квест уже выполнен"),
+    "quest-expired": (409, "День этого квеста уже закончился"),
 }
 
 
@@ -125,7 +132,7 @@ def max_duration(parsed: assistant.ParsedCheckin) -> int:
 # --- reading the day --------------------------------------------------------------------
 
 
-def quest_schema(quest: quests.DayQuest) -> DayQuest:
+def quest_schema(quest: quests.DayQuest, points: int | None = None) -> DayQuest:
     return DayQuest(
         id=quest.id,
         source=quest.source,  # pyright: ignore[reportArgumentType]
@@ -138,8 +145,16 @@ def quest_schema(quest: quests.DayQuest) -> DayQuest:
         outdoor=quest.outdoor,
         state=quest.state,  # pyright: ignore[reportArgumentType]
         visibility=quest.visibility,  # pyright: ignore[reportArgumentType]
-        points_awarded=None,
+        points_awarded=points,
         expires_at=quest.expires_at,
+    )
+
+
+def streak_schema(streak: quests.StreakView) -> Streak:
+    return Streak(
+        current_days=streak.current_days,
+        best_days=streak.best_days,
+        freeze_available=streak.freeze_available,
     )
 
 
@@ -148,6 +163,9 @@ async def build_day(session: AsyncSession, user: auth.User, now: datetime) -> Da
     checkin = await quests.get_checkin(session, user.id, day)
     pool = await quests.get_pool(session, user.id, day)
     rows = await quests.day_quests(session, pool.id) if pool else []
+    awarded = await quests.points_by_quest(session, [q.id for q in rows])
+    points_today, points_week = await quests.points_summary(session, user.id, day)
+    streak = await quests.streak_view(session, user.id, day)
     weather = pool.weather if pool and pool.weather else None
     return Day(
         local_date=day,
@@ -165,16 +183,15 @@ async def build_day(session: AsyncSession, user: auth.User, now: datetime) -> Da
         )
         if weather
         else None,
-        quests=[quest_schema(q) for q in rows if q.state != "replaced"],
+        quests=[quest_schema(q, awarded.get(q.id)) for q in rows if q.state != "replaced"],
         limits=DayLimits(
             taken=sum(q.state in quests.ACTIVE_STATES for q in rows),
             max_taken=scoring_config().max_taken_per_day,
             replacements_left=quests.replacements_left(pool),
         ),
-        # Points and streaks arrive with the points ledger (#29).
-        points_today=0,
-        points_week=0,
-        streak=Streak(current_days=0, best_days=0, freeze_available=True),
+        points_today=points_today,
+        points_week=points_week,
+        streak=streak_schema(streak),
     )
 
 
@@ -424,4 +441,89 @@ async def replace_quest(
         replaced=quest_schema(replaced),
         replacement=quest_schema(replacement) if replacement else None,
         replacements_left=quests.replacements_left(pool),
+    )
+
+
+async def complete_quest(
+    session: AsyncSession,
+    user: auth.User,
+    quest_id: uuid.UUID,
+    body: CompleteQuestInput,
+    now: datetime,
+) -> Completion:
+    """Visibility `friends` needs 1-3 photos and posts a proof; `routine` posts the fact
+    without details; `personal` posts nothing. Points stay even if the post is deleted."""
+    if body.visibility == "friends" and not body.media_ids:
+        raise Problem(422, "photo-required", detail="Для друзей нужно хотя бы одно фото")
+    if body.visibility != "friends" and (body.media_ids or body.caption):
+        raise Problem(
+            422, "validation-failed", detail="Фото и подпись только для видимости «друзья»"
+        )
+    if len(set(body.media_ids)) != len(body.media_ids):
+        raise Problem(422, "validation-failed", detail="Фото повторяются")
+    try:
+        quest, award = await quests.complete_quest(session, user.id, quest_id, body.visibility, now)
+    except DayError as exc:
+        raise _problem(exc) from None
+
+    post_id: uuid.UUID | None = None
+    if body.visibility != "personal":
+        kind = "proof" if body.visibility == "friends" else "routine"
+        try:
+            post, to_process = await social.create_post(
+                session,
+                author_id=user.id,
+                day_quest_id=quest.id,
+                kind=kind,
+                quest_title=quest.title,
+                category=quest.category,
+                caption=body.caption.strip() if body.caption else None,
+                local_date=quest.local_date,
+                media_ids=body.media_ids,
+                now=now,
+            )
+        except social.MediaError:
+            raise Problem(
+                422, "invalid-media", detail="Фото не найдено или уже использовано"
+            ) from None
+        for media_id in to_process:
+            await jobs.enqueue(session, social.PROCESS_JOB, {"media_id": str(media_id)})
+        post_id = post.id
+        await analytics.record(
+            session,
+            EventType.PROOF_POSTED,
+            user.id,
+            {
+                "post_id": post.id,
+                "day_quest_id": quest.id,
+                "kind": kind,
+                "photos": len(body.media_ids),
+            },
+            occurred_at=now,
+        )
+    await analytics.record(
+        session,
+        EventType.QUEST_COMPLETED,
+        user.id,
+        {
+            "day_quest_id": quest.id,
+            "template_id": quest.template_id,
+            "source": quest.source,
+            "category": quest.category,
+            "visibility": body.visibility,
+            "points": award.points,
+            "streak_days": award.streak.current_days,
+        },
+        occurred_at=now,
+    )
+    return Completion(
+        quest=quest_schema(quest, award.points),
+        points_awarded=award.points,
+        points_breakdown=PointsBreakdown(
+            base=award.base,
+            visibility_multiplier=award.visibility_multiplier,
+            streak_multiplier=award.streak_multiplier,
+        ),
+        streak=streak_schema(award.streak),
+        post_id=post_id,
     )

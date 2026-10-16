@@ -88,3 +88,29 @@ class DayQuest(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PointsEntry(Base):
+    """Append-only: a row is never updated or deleted, so points stay when a post goes."""
+
+    __tablename__ = "points_ledger"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    day_quest_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(DayQuest.id), unique=True)
+    local_date: Mapped[date] = mapped_column(Date)
+    week_start: Mapped[date] = mapped_column(Date)
+    points: Mapped[int] = mapped_column(Integer)
+    breakdown: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Streak(Base):
+    __tablename__ = "streaks"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    current_days: Mapped[int] = mapped_column(Integer)
+    best_days: Mapped[int] = mapped_column(Integer)
+    last_counted_date: Mapped[date | None] = mapped_column(Date)
+    freeze_week_start: Mapped[date | None] = mapped_column(Date)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

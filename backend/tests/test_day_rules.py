@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -7,6 +7,7 @@ from ayda.app.day import guess_category, max_duration, parse_without_llm
 from ayda.modules.assistant import ParsedCheckin
 from ayda.modules.quests import Template
 from ayda.modules.quests.days import day_expires_at, local_day, week_start
+from ayda.modules.quests.points import StreakState, count_day, view
 from ayda.modules.quests.scoring import ScoringConfig, base_points, quest_points, streak_multiplier
 from ayda.modules.quests.selection import (
     DayConditions,
@@ -198,3 +199,54 @@ def test_streak_multiplier(days: int, multiplier: float) -> None:
 )
 def test_quest_points(duration: int, visibility: str, streak: int, points: int) -> None:
     assert quest_points(duration, visibility, streak, ScoringConfig())[0] == points
+
+
+D = date(2026, 10, 14)  # a Wednesday
+
+
+def streak(current: int, best: int, last: date | None, freeze: date | None = None) -> StreakState:
+    return StreakState(current, best, last, freeze)
+
+
+@pytest.mark.parametrize(
+    ("before", "day", "after"),
+    [
+        (streak(0, 0, None), D, streak(1, 1, D)),
+        (streak(3, 5, D - timedelta(days=1)), D, streak(4, 5, D)),
+        (streak(5, 5, D - timedelta(days=1)), D, streak(6, 6, D)),
+        (streak(4, 4, D), D, streak(4, 4, D)),  # second quest the same day
+        # One missed day is frozen once per week of the missed day.
+        (streak(4, 4, D - timedelta(days=2)), D, streak(5, 5, D, week_start(D))),
+        (
+            streak(4, 4, D - timedelta(days=2), week_start(D)),
+            D,
+            streak(1, 4, D, week_start(D)),
+        ),
+        # The freeze of last week does not block a freeze this week.
+        (
+            streak(4, 4, D - timedelta(days=2), week_start(D) - timedelta(days=7)),
+            D,
+            streak(5, 5, D, week_start(D)),
+        ),
+        (streak(9, 9, D - timedelta(days=3)), D, streak(1, 9, D)),  # two missed days
+    ],
+)
+def test_streak_counting(before: StreakState, day: date, after: StreakState) -> None:
+    assert count_day(before, day) == after
+
+
+@pytest.mark.parametrize(
+    ("state", "today", "current", "freeze_available"),
+    [
+        (streak(5, 5, D), D, 5, True),
+        (streak(5, 5, D - timedelta(days=1)), D, 5, True),  # not done yet today
+        (streak(5, 5, D - timedelta(days=2)), D, 5, True),  # a freeze would cover yesterday
+        (streak(5, 5, D - timedelta(days=2), week_start(D)), D, 0, False),
+        (streak(5, 8, D - timedelta(days=3)), D, 0, True),
+        (streak(0, 0, None), D, 0, True),
+    ],
+)
+def test_streak_view(state: StreakState, today: date, current: int, freeze_available: bool) -> None:
+    shown = view(state, today)
+    assert (shown.current_days, shown.freeze_available) == (current, freeze_available)
+    assert shown.best_days == state.best_days
