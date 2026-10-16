@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from ayda.api import auth, me, system
+from ayda.api import auth, me, reference, system
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
 from ayda.core.problems import install_problem_handlers
@@ -24,7 +24,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.db = db
     install_problem_handlers(app)
-    for router in (system.router, auth.router, me.router):
+    for router in (system.router, auth.router, me.router, reference.router):
         app.include_router(router, prefix=API_PREFIX)
     return app
 

@@ -27,7 +27,7 @@ TEST_DATABASE_URL = os.environ.get(
 )
 
 # Reference data loaded by migrations; kept between tests.
-REFERENCE_TABLES: set[str] = set()
+REFERENCE_TABLES = {"events.cities"}
 
 
 async def _reset_schemas(url: str) -> None:
