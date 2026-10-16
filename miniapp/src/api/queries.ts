@@ -196,3 +196,16 @@ export function useAddOwnQuest() {
     onSettled: () => client.invalidateQueries({ queryKey: dayKey }),
   })
 }
+
+export function useCompleteQuest() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Schemas['CompleteQuestInput'] }) =>
+      unwrap(api.POST('/day-quests/{quest_id}/complete', { params: { path: { quest_id: id } }, body })),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: dayKey })
+      void client.invalidateQueries({ queryKey: ['feed'] })
+      void client.invalidateQueries({ queryKey: ['ladder'] })
+    },
+  })
+}
