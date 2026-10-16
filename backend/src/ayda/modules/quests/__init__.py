@@ -29,11 +29,20 @@ from ayda.modules.quests.day_service import (
     take_quest,
 )
 from ayda.modules.quests.models import Checkin, DayPool, DayQuest, Template
+from ayda.modules.quests.points import (
+    Award,
+    StreakView,
+    complete_quest,
+    points_by_quest,
+    points_summary,
+    streak_view,
+)
 
 __all__ = [
     "ACTIVE_STATES",
     "CATEGORIES",
     "MAX_CHECKINS_PER_DAY",
+    "Award",
     "Catalog",
     "CatalogQuest",
     "Category",
@@ -42,21 +51,26 @@ __all__ = [
     "DayPool",
     "DayQuest",
     "NewQuest",
+    "StreakView",
     "Template",
     "WeatherRule",
     "active_templates",
     "add_own_quest",
+    "complete_quest",
     "day_quests",
     "ensure_pool",
     "excluded_template_ids",
     "get_checkin",
     "get_pool",
     "load_catalog",
+    "points_by_quest",
+    "points_summary",
     "quest_from_template",
     "rebuild_pool",
     "replace_quest",
     "replacements_left",
     "save_checkin",
+    "streak_view",
     "sync_catalog",
     "take_quest",
 ]

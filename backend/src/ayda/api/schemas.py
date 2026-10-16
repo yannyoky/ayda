@@ -176,3 +176,23 @@ class UploadSlot(BaseModel):
     upload_url: str
     headers: dict[str, str]
     expires_at: datetime
+
+
+class CompleteQuestInput(BaseModel):
+    visibility: Visibility
+    caption: str | None = Field(default=None, max_length=500)
+    media_ids: list[uuid.UUID] = Field(default_factory=lambda: [], max_length=3)
+
+
+class PointsBreakdown(BaseModel):
+    base: int
+    visibility_multiplier: float
+    streak_multiplier: float
+
+
+class Completion(BaseModel):
+    quest: DayQuest
+    points_awarded: int
+    points_breakdown: PointsBreakdown
+    streak: Streak
+    post_id: uuid.UUID | None

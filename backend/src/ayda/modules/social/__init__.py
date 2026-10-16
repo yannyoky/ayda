@@ -13,7 +13,8 @@ from ayda.modules.social.media import (
     photo_url,
     process,
 )
-from ayda.modules.social.models import Media
+from ayda.modules.social.models import Media, Post
+from ayda.modules.social.posts import create_post
 
 __all__ = [
     "CONTENT_TYPES",
@@ -21,9 +22,11 @@ __all__ = [
     "PROCESS_JOB",
     "Media",
     "MediaError",
+    "Post",
     "UploadLimitError",
     "UploadSlot",
     "claim_media",
+    "create_post",
     "create_upload",
     "delete_unattached",
     "photo_url",

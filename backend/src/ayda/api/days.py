@@ -5,7 +5,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from ayda.api.deps import CurrentUser, DbSession
-from ayda.api.schemas import CheckinInput, Day, DayQuest, OwnQuestInput, ReplaceInput, Replacement
+from ayda.api.schemas import (
+    CheckinInput,
+    CompleteQuestInput,
+    Completion,
+    Day,
+    DayQuest,
+    OwnQuestInput,
+    ReplaceInput,
+    Replacement,
+)
 from ayda.app import day
 from ayda.app.day import DayTools
 
@@ -61,5 +70,14 @@ async def replace_quest(
 ) -> Replacement:
     reason = body.reason if body else None
     result = await day.replace_quest(session, user, quest_id, reason, _now())
+    await session.commit()
+    return result
+
+
+@router.post("/day-quests/{quest_id}/complete", operation_id="completeQuest")
+async def complete_quest(
+    quest_id: uuid.UUID, body: CompleteQuestInput, user: CurrentUser, session: DbSession
+) -> Completion:
+    result = await day.complete_quest(session, user, quest_id, body, _now())
     await session.commit()
     return result
