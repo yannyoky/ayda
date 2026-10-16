@@ -10,7 +10,7 @@ from typing import Any
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.app import notifications
+from ayda.app import notifications, reminders
 from ayda.bot.sender import AiogramSender
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
@@ -33,6 +33,7 @@ def build_worker(
 ) -> Worker:
     storage = storage or Storage(settings)
     sender = sender or default_sender(settings)
+    reminders.register(settings)
 
     async def send_notification(session: AsyncSession, payload: dict[str, Any]) -> None:
         await notifications.send(session, sender, payload)
@@ -51,7 +52,22 @@ def build_worker(
         social.DELETE_FILES_JOB: delete_files,
         notifications.SEND_JOB: send_notification,
     }
-    periodic = [Periodic("media.delete_unattached", 3600, delete_unattached_media)]
+
+    async def schedule_reminders(session: AsyncSession, now: datetime) -> None:
+        await reminders.schedule_reminders(session, now)
+
+    async def schedule_digests(session: AsyncSession, now: datetime) -> None:
+        await reminders.schedule_digests(session, now)
+
+    async def schedule_weekly(session: AsyncSession, now: datetime) -> None:
+        await reminders.schedule_weekly(session, now)
+
+    periodic = [
+        Periodic("media.delete_unattached", 3600, delete_unattached_media),
+        Periodic("reminders", 60, schedule_reminders),
+        Periodic("digests", 300, schedule_digests),
+        Periodic("weekly", 60, schedule_weekly),
+    ]
     return Worker(db.sessionmaker, handlers, periodic)
 
 

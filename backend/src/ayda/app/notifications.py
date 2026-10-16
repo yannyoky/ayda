@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core import jobs
 from ayda.core.config import Settings
-from ayda.modules import auth
+from ayda.modules import analytics, auth
+from ayda.modules.analytics import EventType
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +72,6 @@ async def notify(
     dedupe_key: str | None = None,
     run_at: datetime | None = None,
 ) -> bool:
-    assert kind in RENDERERS, kind
     return await jobs.enqueue(
         session,
         SEND_JOB,
@@ -102,6 +102,7 @@ async def send(session: AsyncSession, sender: Sender, payload: Mapping[str, Any]
     except Unreachable:
         user.bot_reachable = False
         return SendResult(False, "unreachable")
+    await analytics.record(session, EventType.REMINDER_SENT, user.id, {"kind": payload["kind"]})
     return SendResult(True)
 
 
