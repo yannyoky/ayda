@@ -12,9 +12,10 @@ cd backend
 uv sync
 uv run alembic upgrade head
 uv run uvicorn ayda.main:app --reload
+uv run python -m ayda.worker       # background jobs (ADR 0006), in another terminal
 ```
 
-`docker compose up` starts the API and Centrifugo too.
+`docker compose up` starts the API, the worker and Centrifugo too.
 
 ## Checks (same as CI)
 

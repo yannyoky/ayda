@@ -20,7 +20,16 @@ MODULE_SCHEMAS = (
     "analytics",
 )
 
+# Shared infrastructure owned by `ayda.core` rather than a module.
+CORE_SCHEMAS = ("jobs",)
+ALL_SCHEMAS = MODULE_SCHEMAS + CORE_SCHEMAS
+
 
 def module_metadata(schema: str) -> MetaData:
     assert schema in MODULE_SCHEMAS, schema
+    return MetaData(schema=schema, naming_convention=NAMING_CONVENTION)
+
+
+def core_metadata(schema: str) -> MetaData:
+    assert schema in CORE_SCHEMAS, schema
     return MetaData(schema=schema, naming_convention=NAMING_CONVENTION)
