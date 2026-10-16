@@ -1990,6 +1990,15 @@ export interface operations {
                 };
             };
             401: components["responses"]["Problem"];
+            /** @description Realtime is not configured on this server */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     listConversations: {

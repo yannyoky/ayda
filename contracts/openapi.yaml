@@ -861,6 +861,12 @@ paths:
                 $ref: '#/components/schemas/RealtimeToken'
         '401':
           $ref: '#/components/responses/Problem'
+        '503':
+          description: Realtime is not configured on this server
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
   /conversations:
     get:
