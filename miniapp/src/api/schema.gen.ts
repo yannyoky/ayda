@@ -332,6 +332,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/day-quests/{quest_id}/coop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite 1-3 friends to do a taken quest together, each on their own (US-18)
+         * @description The quest must be the user's own taken quest of today that is not part of a co-op yet.
+         *     Friends get a bot message and a `coop.updated` event; the co-op gets a shared chat.
+         */
+        post: operations["createCoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Co-op quests of the user that are not over yet, invitations first (US-18)
+         * @description Declined invitations are left out.
+         */
+        get: operations["listCoops"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coops/{coop_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One co-op quest the user owns or is invited to */
+        get: operations["getCoop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coops/{coop_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join a co-op quest; it is added to today's quests as taken (US-18)
+         * @description Counts toward the daily limit of taken quests. Joins the co-op chat.
+         */
+        post: operations["acceptCoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coops/{coop_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline an invitation to a co-op quest */
+        post: operations["declineCoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/media/uploads": {
         parameters: {
             query?: never;
@@ -773,8 +868,11 @@ export interface components {
         RejectReason: "no_time" | "dont_want" | "cant";
         /** @enum {string} */
         QuestState: "offered" | "taken" | "replaced" | "completed" | "expired";
-        /** @enum {string} */
-        QuestSource: "catalog" | "checkin_task" | "custom";
+        /**
+         * @description `coop`: joined from a friend's co-op invitation.
+         * @enum {string}
+         */
+        QuestSource: "catalog" | "checkin_task" | "custom" | "coop";
         DayQuest: {
             /** Format: uuid */
             id: string;
@@ -790,7 +888,13 @@ export interface components {
             outdoor?: boolean;
             state: components["schemas"]["QuestState"];
             visibility?: components["schemas"]["Visibility"] | null;
+            /** @description Includes the co-op bonus once it is awarded. */
             points_awarded?: number | null;
+            /**
+             * Format: uuid
+             * @description The co-op this quest belongs to (as its owner or a participant).
+             */
+            coop_id?: string | null;
             /** Format: date-time */
             expires_at: string;
         };
@@ -854,6 +958,11 @@ export interface components {
              * @description The feed post, or null for personal visibility.
              */
             post_id: string | null;
+            /**
+             * @description Co-op bonus awarded to the user with this completion (+50% of `points_awarded`)
+             *     when it was the last one the co-op waited for; 0 otherwise.
+             */
+            coop_bonus?: number;
         };
         UploadSlot: {
             /** Format: uuid */
@@ -973,6 +1082,41 @@ export interface components {
             channel: string;
         };
         /** @enum {string} */
+        CoopStatus: "owner" | "invited" | "accepted" | "declined";
+        CoopParticipant: {
+            user: components["schemas"]["UserSummary"];
+            status: components["schemas"]["CoopStatus"];
+            completed: boolean;
+        };
+        Coop: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            category: components["schemas"]["Category"];
+            duration_min: number;
+            owner: components["schemas"]["UserSummary"];
+            my_status: components["schemas"]["CoopStatus"];
+            /** @description Everyone invited, the owner first; declined ones included. */
+            participants: components["schemas"]["CoopParticipant"][];
+            /**
+             * Format: uuid
+             * @description The user's day quest for this co-op, once owner or accepted.
+             */
+            my_quest_id: string | null;
+            /**
+             * Format: uuid
+             * @description The shared chat, for the owner and accepted participants.
+             */
+            conversation_id: string | null;
+            /**
+             * Format: date-time
+             * @description Invitations can be accepted until then (the end of the owner's day).
+             */
+            expires_at: string;
+            /** @description Every participant who joined has completed it, and the +50% was awarded. */
+            bonus_awarded: boolean;
+        };
+        /** @enum {string} */
         ConversationKind: "dm" | "coop";
         Conversation: {
             /** Format: uuid */
@@ -1029,7 +1173,7 @@ export interface components {
          * @description A publication on the personal channel (ADR 0007). Clients ignore unknown `type`
          *     values, so new kinds of events can be added without breaking them.
          */
-        RealtimeEvent: components["schemas"]["MessageCreatedEvent"] | components["schemas"]["MessageDeletedEvent"] | components["schemas"]["ConversationReadEvent"];
+        RealtimeEvent: components["schemas"]["MessageCreatedEvent"] | components["schemas"]["MessageDeletedEvent"] | components["schemas"]["ConversationReadEvent"] | components["schemas"]["CoopUpdatedEvent"];
         MessageCreatedEvent: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -1064,6 +1208,16 @@ export interface components {
             /** Format: int64 */
             last_read_message_id: number;
         };
+        /** @description A co-op the user is in changed (invited, joined, declined, completed, bonus); reload it. */
+        CoopUpdatedEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "coop.updated";
+            /** Format: uuid */
+            coop_id: string;
+        };
     };
     responses: {
         /** @description Error (RFC 9457 problem details) */
@@ -1080,6 +1234,7 @@ export interface components {
         QuestId: string;
         PostId: string;
         UserId: string;
+        CoopId: string;
         ConversationId: string;
         MessageId: number;
         HabitId: string;
@@ -1627,6 +1782,177 @@ export interface operations {
                 };
             };
             422: components["responses"]["Problem"];
+        };
+    };
+    createCoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quest_id: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    friend_ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description Someone in `friend_ids` is not a friend */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            /** @description The quest is not taken, already completed or expired, or already a co-op */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
+        };
+    };
+    listCoops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Co-op quests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Coop"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+        };
+    };
+    getCoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Co-op quest */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    acceptCoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Joined */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description Already answered, or the daily limit of taken quests is reached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The co-op quest is over */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    declineCoop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declined */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description Already answered */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     createUpload: {
