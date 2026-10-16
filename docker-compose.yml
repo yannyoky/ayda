@@ -1,0 +1,45 @@
+# Local development: `docker compose up -d` (see backend/README.md).
+services:
+  postgres:
+    build: infra/postgres
+    environment:
+      POSTGRES_USER: ayda
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ayda}
+      POSTGRES_DB: ayda
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/20-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ayda -d ayda"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:-ayda}@postgres:5432/ayda
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Realtime for M2 (direct messages, co-op chats); not used by the API yet.
+  centrifugo:
+    image: centrifugo/centrifugo:v6
+    command: centrifugo
+    environment:
+      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_SECRET:-change-me}
+      CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_API_KEY:-change-me}
+      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: '["*"]'
+    ports:
+      - "8001:8000"
+
+volumes:
+  pgdata:
