@@ -196,3 +196,13 @@ class Completion(BaseModel):
     points_breakdown: PointsBreakdown
     streak: Streak
     post_id: uuid.UUID | None
+
+
+class Invite(BaseModel):
+    code: str
+    url: str
+    expires_at: datetime
+
+
+class Friend(UserSummary):
+    since: datetime

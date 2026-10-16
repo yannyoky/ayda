@@ -45,3 +45,22 @@ class Media(Base):
     height: Mapped[int | None] = mapped_column(SmallInteger)
     status: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Invite(Base):
+    __tablename__ = "invites"
+
+    code: Mapped[str] = mapped_column(Text, primary_key=True)
+    inviter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Friendship(Base):
+    """Stored once per pair: `user_low` < `user_high`."""
+
+    __tablename__ = "friendships"
+
+    user_low: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    user_high: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
