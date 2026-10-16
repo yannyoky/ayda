@@ -291,3 +291,47 @@ export function useDeleteComment(postId: string) {
     },
   })
 }
+
+// ---- friends, invites, ladder (US-12, US-16) ----
+
+export type LadderWeek = 'current' | 'previous'
+
+export function useLadder(week: LadderWeek) {
+  return useQuery({
+    queryKey: ['ladder', week],
+    queryFn: () => unwrap(api.GET('/ladder', { params: { query: { week } } })),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useFriends() {
+  return useQuery({ queryKey: ['friends'], queryFn: () => unwrap(api.GET('/friends')) })
+}
+
+export function useCreateInvite() {
+  return useMutation({ mutationFn: () => unwrap(api.POST('/invites')) })
+}
+
+export function useRemoveFriend() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (user_id: string) => unwrap(api.DELETE('/friends/{user_id}', { params: { path: { user_id } } })),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['friends'] })
+      void client.invalidateQueries({ queryKey: ['ladder'] })
+      void client.invalidateQueries({ queryKey: feedKey })
+    },
+  })
+}
+
+export function useAcceptInvite() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => unwrap(api.POST('/invites/{code}/accept', { params: { path: { code } } })),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['friends'] })
+      void client.invalidateQueries({ queryKey: ['ladder'] })
+      void client.invalidateQueries({ queryKey: feedKey })
+    },
+  })
+}
