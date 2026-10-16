@@ -1,7 +1,8 @@
+import secrets
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,27 @@ class Settings(BaseSettings):
     environment: Literal["dev", "test", "prod"] = "dev"
     database_url: str = "postgresql+asyncpg://ayda:ayda@localhost:5432/ayda"
     database_echo: bool = False
+
+    # Telegram bot (created with @BotFather); also signs Mini App initData.
+    telegram_bot_token: SecretStr | None = None
+    telegram_bot_username: str = "ayda_quest_bot"
+    # Signs API access tokens. Required in prod; dev and test get a random one per process.
+    auth_token_secret: SecretStr | None = None
+
+    @model_validator(mode="after")
+    def _secrets(self) -> Self:
+        if self.auth_token_secret is None:
+            if self.environment == "prod":
+                raise ValueError("AUTH_TOKEN_SECRET is required in prod")
+            object.__setattr__(self, "auth_token_secret", SecretStr(secrets.token_urlsafe(32)))
+        if self.environment == "prod" and self.telegram_bot_token is None:
+            raise ValueError("TELEGRAM_BOT_TOKEN is required in prod")
+        return self
+
+    @property
+    def token_secret(self) -> str:
+        assert self.auth_token_secret is not None
+        return self.auth_token_secret.get_secret_value()
 
 
 @lru_cache
