@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from ayda.core.config import Settings
+from ayda.core.db import Database
 from ayda.core.models import MODULE_SCHEMAS
 from ayda.main import create_app
 
@@ -67,14 +68,21 @@ def migrated_database() -> str:
 
 
 @pytest.fixture
-def settings(migrated_database: str) -> Settings:
-    return Settings(environment="test", database_url=migrated_database)
+def settings(migrated_database: str) -> Iterator[Settings]:
+    yield Settings(environment="test", database_url=migrated_database)
+    asyncio.run(_truncate_tables(migrated_database))
 
 
 @pytest.fixture
-def app(settings: Settings) -> Iterator[FastAPI]:
-    yield create_app(settings)
-    asyncio.run(_truncate_tables(settings.database_url))
+def app(settings: Settings) -> FastAPI:
+    return create_app(settings)
+
+
+@pytest.fixture
+async def database(settings: Settings) -> AsyncIterator[Database]:
+    db = Database(settings.database_url)
+    yield db
+    await db.dispose()
 
 
 @pytest.fixture
