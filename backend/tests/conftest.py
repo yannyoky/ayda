@@ -8,6 +8,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from pydantic import SecretStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -15,6 +16,7 @@ from ayda.core.config import Settings
 from ayda.core.db import Database
 from ayda.core.models import MODULE_SCHEMAS
 from ayda.main import create_app
+from tests.helpers import TEST_BOT_TOKEN
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -69,7 +71,11 @@ def migrated_database() -> str:
 
 @pytest.fixture
 def settings(migrated_database: str) -> Iterator[Settings]:
-    yield Settings(environment="test", database_url=migrated_database)
+    yield Settings(
+        environment="test",
+        database_url=migrated_database,
+        telegram_bot_token=SecretStr(TEST_BOT_TOKEN),
+    )
     asyncio.run(_truncate_tables(migrated_database))
 
 
