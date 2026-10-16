@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import type { Schemas } from '../api/client'
 import { useMe, useToday } from '../api/queries'
+import { CoopInvites } from '../features/coop/CoopInvites'
+import { CoopSheet } from '../features/coop/CoopSheet'
 import { CheckinCard } from '../features/day/CheckinCard'
 import { OwnQuestSheet } from '../features/day/OwnQuestSheet'
 import { QuestRow } from '../features/day/QuestRow'
@@ -23,6 +25,7 @@ export function TodayScreen() {
         <>
           <CheckinCard key={day.checkin?.submitted_at ?? 'none'} checkin={day.checkin} />
           <StatsRow day={day} />
+          <CoopInvites />
           <QuestsCard day={day} />
         </>
       )}
@@ -33,6 +36,7 @@ export function TodayScreen() {
 function QuestsCard({ day }: { day: Schemas['Day'] }) {
   const navigate = useNavigate()
   const [ownOpen, setOwnOpen] = useState(false)
+  const [coopFor, setCoopFor] = useState<Schemas['DayQuest'] | null>(null)
   const mine = day.quests.filter((q) => q.state !== 'offered')
   const offered = day.quests.filter((q) => q.state === 'offered').length
   const left = day.limits.max_taken - day.limits.taken
@@ -61,7 +65,12 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
       {mine.length > 0 ? (
         <ul className="m-0 list-none p-0">
           {mine.map((q) => (
-            <QuestRow key={q.id} quest={q} onDone={() => navigate(`/quest/${q.id}/done`)} />
+            <QuestRow
+              key={q.id}
+              quest={q}
+              onDone={() => navigate(`/quest/${q.id}/done`)}
+              onInvite={q.source === 'coop' ? undefined : () => setCoopFor(q)}
+            />
           ))}
         </ul>
       ) : (
@@ -90,6 +99,7 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
         </div>
       )}
       {ownOpen && <OwnQuestSheet onClose={() => setOwnOpen(false)} />}
+      {coopFor && <CoopSheet quest={coopFor} onClose={() => setCoopFor(null)} />}
     </section>
   )
 }

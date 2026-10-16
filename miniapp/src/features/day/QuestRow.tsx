@@ -1,17 +1,19 @@
+import { Link } from 'react-router'
 import type { Schemas } from '../../api/client'
 import { t } from '../../i18n'
 import { Icon } from '../../ui/Icon'
 import { CategoryIcon } from '../../ui/quest'
 
-/** A taken, completed or expired quest on the Today card. */
-export function QuestRow({ quest, onDone }: { quest: Schemas['DayQuest']; onDone?: () => void }) {
+/** A taken, completed or expired quest on the Today card; `onInvite` offers to do it with
+ * friends (US-18), and a co-op quest links to its co-op. */
+export function QuestRow({ quest, onDone, onInvite }: { quest: Schemas['DayQuest']; onDone?: () => void; onInvite?: () => void }) {
   const completed = quest.state === 'completed'
   const expired = quest.state === 'expired'
   const meta = completed
     ? `${t.today.completed} · ${quest.visibility ? t.today.visibilityDone[quest.visibility] : ''}`
     : expired
       ? t.today.expired
-      : [t.quest.minutes(quest.duration_min), quest.why].filter(Boolean).join(' · ')
+      : [quest.coop_id ? t.coop.together : null, t.quest.minutes(quest.duration_min), quest.why].filter(Boolean).join(' · ')
   return (
     <li className="flex items-center gap-3 border-t border-bg py-2.5 first:border-t-0">
       {completed ? (
@@ -25,6 +27,27 @@ export function QuestRow({ quest, onDone }: { quest: Schemas['DayQuest']; onDone
         <span className={`text-[15px] font-bold ${completed || expired ? 'text-muted line-through' : ''}`}>{quest.title}</span>
         <span className="truncate text-xs font-semibold text-muted">{meta}</span>
       </div>
+      {quest.coop_id ? (
+        <Link
+          to={`/coops/${quest.coop_id}`}
+          aria-label={t.coop.open(quest.title)}
+          className="flex size-10 shrink-0 items-center justify-center rounded-field bg-bg text-ink"
+        >
+          <Icon name="friends" size={18} strokeWidth={2.2} />
+        </Link>
+      ) : (
+        quest.state === 'taken' &&
+        onInvite && (
+          <button
+            type="button"
+            onClick={onInvite}
+            aria-label={t.coop.inviteTo(quest.title)}
+            className="flex size-10 shrink-0 items-center justify-center rounded-field bg-bg"
+          >
+            <Icon name="friends" size={18} strokeWidth={2.2} />
+          </button>
+        )
+      )}
       {quest.state === 'taken' && onDone ? (
         <button
           type="button"

@@ -204,10 +204,11 @@ export function useCompleteQuest() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: Schemas['CompleteQuestInput'] }) =>
       unwrap(api.POST('/day-quests/{quest_id}/complete', { params: { path: { quest_id: id } }, body })),
-    onSuccess: () => {
+    onSuccess: (result) => {
       void client.invalidateQueries({ queryKey: dayKey })
       void client.invalidateQueries({ queryKey: ['feed'] })
       void client.invalidateQueries({ queryKey: ['ladder'] })
+      if (result.quest.coop_id) void client.invalidateQueries({ queryKey: coopKey(result.quest.coop_id) })
     },
   })
 }
@@ -444,5 +445,49 @@ export function useMarkRead(conversationId: string) {
         data ? { items: data.items.map((c) => (c.id === conversationId ? { ...c, unread_count: 0, last_read_message_id: Math.max(lastRead, c.last_read_message_id ?? 0) } : c)) } : data,
       )
     },
+  })
+}
+
+// ---- co-op quests (US-18) ----
+
+export const coopsKey = ['coops'] as const
+export const coopKey = (id: string) => ['coop', id] as const
+
+export function useCoops() {
+  return useQuery({ queryKey: coopsKey, queryFn: () => unwrap(api.GET('/coops')) })
+}
+
+export function useCoop(id: string) {
+  return useQuery({
+    queryKey: coopKey(id),
+    queryFn: () => unwrap(api.GET('/coops/{coop_id}', { params: { path: { coop_id: id } } })),
+  })
+}
+
+function storeCoop(client: QueryClient, coop: Schemas['Coop']) {
+  client.setQueryData(coopKey(coop.id), coop)
+  void client.invalidateQueries({ queryKey: coopsKey })
+  void client.invalidateQueries({ queryKey: dayKey })
+  void client.invalidateQueries({ queryKey: conversationsKey })
+}
+
+export function useCreateCoop() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ questId, friendIds }: { questId: string; friendIds: string[] }) =>
+      unwrap(api.POST('/day-quests/{quest_id}/coop', { params: { path: { quest_id: questId } }, body: { friend_ids: friendIds } })),
+    onSuccess: (coop) => storeCoop(client, coop),
+  })
+}
+
+export function useAnswerCoop() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, accept }: { id: string; accept: boolean }) =>
+      accept
+        ? unwrap(api.POST('/coops/{coop_id}/accept', { params: { path: { coop_id: id } } }))
+        : unwrap(api.POST('/coops/{coop_id}/decline', { params: { path: { coop_id: id } } })),
+    onSuccess: (coop) => storeCoop(client, coop),
+    onError: () => client.invalidateQueries({ queryKey: coopsKey }),
   })
 }
