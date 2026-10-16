@@ -140,3 +140,59 @@ export function useDeleteHabit() {
 export function useRequestDeletion() {
   return useMutation({ mutationFn: () => unwrap(api.DELETE('/me')) })
 }
+
+// ---- day: check-in, pool, take, replace, own quests, completion (US-05..US-10) ----
+
+export const dayKey = ['day', 'today'] as const
+
+export function useToday() {
+  return useQuery({
+    queryKey: dayKey,
+    queryFn: () => unwrap(api.GET('/days/today')),
+    // While the assistant builds the pool, poll every 1.5 s as the contract asks
+    refetchInterval: (query) => (query.state.data?.pool_status === 'generating' ? 1500 : false),
+  })
+}
+
+export function useSubmitCheckin() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['CheckinInput']) => unwrap(api.PUT('/days/today/checkin', { body })),
+    onSuccess: (day) => client.setQueryData(dayKey, day),
+  })
+}
+
+export function useTakeQuests() {
+  const client = useQueryClient()
+  return useMutation({
+    // One call per quest; stops at the first failure so the limit error surfaces
+    mutationFn: async (ids: string[]) => {
+      for (const quest_id of ids) await unwrap(api.POST('/day-quests/{quest_id}/take', { params: { path: { quest_id } } }))
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: dayKey }),
+  })
+}
+
+export function useReplaceQuest() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: Schemas['RejectReason'] }) =>
+      unwrap(api.POST('/day-quests/{quest_id}/replace', { params: { path: { quest_id: id } }, body: reason ? { reason } : {} })),
+    onSuccess: (result) => {
+      client.setQueryData<Schemas['Day']>(dayKey, (day) => {
+        if (!day) return day
+        const quests = day.quests.flatMap((q) => (q.id === result.replaced.id ? (result.replacement ? [result.replacement] : []) : [q]))
+        return { ...day, quests, limits: { ...day.limits, replacements_left: result.replacements_left } }
+      })
+    },
+    onError: () => client.invalidateQueries({ queryKey: dayKey }),
+  })
+}
+
+export function useAddOwnQuest() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['OwnQuestInput']) => unwrap(api.POST('/day-quests', { body })),
+    onSettled: () => client.invalidateQueries({ queryKey: dayKey }),
+  })
+}

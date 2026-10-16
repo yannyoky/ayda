@@ -12,7 +12,7 @@ describe('sign-in with Telegram (US-01)', () => {
       if (request.url.endsWith('/auth/telegram')) sent = await request.clone().json()
     })
     renderApp()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Сегодня' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Привет, Саша' })).toBeInTheDocument()
     expect(sent).toEqual({ init_data: 'query_id=AAE&user=%7B%7D&hash=abc' })
     server.events.removeAllListeners()
   })
