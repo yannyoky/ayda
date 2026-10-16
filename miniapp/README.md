@@ -12,6 +12,18 @@ npm run dev        # http://localhost:5173, /api is proxied to the backend at ht
 
 Outside Telegram the app runs as a plain web page: the Telegram bridge (`src/telegram/webapp.ts`) turns into no-ops.
 
+### Without a backend
+
+```sh
+npm run dev:mock   # the whole API is served in the browser by MSW from src/mocks
+```
+
+The mock implements every endpoint of `contracts/openapi.yaml` over an in-memory store (`src/mocks/db.ts`) with the PRD rules (3 taken quests, 5 replacements, scoring, streaks). It starts as a brand-new user (consent, onboarding); open `/?returning` to start as an onboarded user with friends and a streak. Tests use the same handlers through `msw/node`.
+
+## Launch flow
+
+`src/app/Bootstrap.tsx`: sign in with Telegram initData (US-01, token kept in memory only, re-sign-in on 401) → consent to personal data processing (152-FZ) → onboarding (US-02) → the app.
+
 ## Checks (same as CI)
 
 ```sh
@@ -39,6 +51,8 @@ Calls go through `api` from `src/api/client.ts` (openapi-fetch, typed by the con
 | `src/ui/` | design primitives and icons |
 | `src/i18n/` | Russian UI strings and formatters; every user-facing string lives here |
 | `src/telegram/` | typed wrapper over `window.Telegram.WebApp` |
-| `src/api/` | generated schema and the API client |
+| `src/api/` | generated schema, the API client and TanStack Query hooks (`queries.ts`) |
+| `src/features/` | feature components shared by screens (onboarding, profile editors, …) |
+| `src/mocks/` | MSW handlers and the in-memory mock backend |
 
 Design tokens (Graphite and Plum) are CSS variables in `src/styles.css`, taken from `docs/design/themes.md`; Tailwind utilities like `bg-surface`, `text-muted`, `rounded-card` read them, so `data-theme="plum"` on `<html>` re-themes everything.

@@ -6,10 +6,15 @@ export type Problem = Schemas['Problem']
 
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
+// Kept in memory only: every launch from Telegram signs in again with fresh initData
 let accessToken: string | undefined
 
 export function setAccessToken(token: string | undefined): void {
   accessToken = token
+}
+
+export function hasAccessToken(): boolean {
+  return accessToken !== undefined
 }
 
 const auth: Middleware = {
@@ -19,7 +24,11 @@ const auth: Middleware = {
   },
 }
 
-export const api = createClient<paths>({ baseUrl: API_BASE_URL })
+export const api = createClient<paths>({
+  baseUrl: new URL(API_BASE_URL, window.location.origin).href.replace(/\/$/, ''),
+  // Resolve fetch per call so test and dev mocks that patch it are honoured
+  fetch: (request) => globalThis.fetch(request),
+})
 api.use(auth)
 
 /** Error thrown by `unwrap` with the RFC 9457 problem from the server. */
