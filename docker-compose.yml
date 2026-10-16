@@ -30,6 +30,18 @@ services:
       postgres:
         condition: service_healthy
 
+  worker:
+    build: backend
+    command: ["python", "-m", "ayda.worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:-ayda}@postgres:5432/ayda
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # Realtime for M2 (direct messages, co-op chats); not used by the API yet.
   centrifugo:
     image: centrifugo/centrifugo:v6

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from ayda.core.config import Settings
 from ayda.core.db import Database
-from ayda.core.models import MODULE_SCHEMAS
+from ayda.core.models import ALL_SCHEMAS
 from ayda.main import create_app
 from tests.helpers import TEST_BOT_TOKEN
 
@@ -33,7 +33,7 @@ REFERENCE_TABLES = {"events.cities", "quests.templates"}
 async def _reset_schemas(url: str) -> None:
     engine = create_async_engine(url)
     async with engine.begin() as conn:
-        for schema in MODULE_SCHEMAS:
+        for schema in ALL_SCHEMAS:
             await conn.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
         await conn.execute(text("DROP TABLE IF EXISTS public.alembic_version"))
     await engine.dispose()
@@ -47,7 +47,7 @@ async def _truncate_tables(url: str) -> None:
                 "SELECT schemaname || '.' || tablename FROM pg_tables"
                 " WHERE schemaname = ANY(:schemas)"
             ),
-            {"schemas": list(MODULE_SCHEMAS)},
+            {"schemas": list(ALL_SCHEMAS)},
         )
         tables = [r[0] for r in rows if r[0] not in REFERENCE_TABLES]
         if tables:
