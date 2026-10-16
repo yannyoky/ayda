@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     backup_at: time = time(3, 30)
     backup_timezone: str = "Europe/Moscow"
 
+    # Realtime through Centrifugo (ADR 0007). Without the API key nothing is published;
+    # without the token secret the Mini App gets no realtime token and polls REST instead.
+    centrifugo_api_url: str = "http://localhost:8001/api"
+    centrifugo_public_url: str = "ws://localhost:8001/connection/websocket"
+    centrifugo_api_key: SecretStr | None = None
+    centrifugo_token_secret: SecretStr | None = None
+
     # Error tracking: a Sentry-compatible DSN of the self-hosted GlitchTip; empty: off.
     sentry_dsn: SecretStr | None = None
     # Set by the image build (git sha), so errors are grouped by release.
@@ -64,8 +71,10 @@ class Settings(BaseSettings):
             if self.environment == "prod":
                 raise ValueError("AUTH_TOKEN_SECRET is required in prod")
             object.__setattr__(self, "auth_token_secret", SecretStr(secrets.token_urlsafe(32)))
-        if self.environment == "prod" and self.telegram_bot_token is None:
-            raise ValueError("TELEGRAM_BOT_TOKEN is required in prod")
+        if self.environment == "prod":
+            for name in ("telegram_bot_token", "centrifugo_api_key", "centrifugo_token_secret"):
+                if getattr(self, name) is None:
+                    raise ValueError(f"{name.upper()} is required in prod")
         return self
 
     @property

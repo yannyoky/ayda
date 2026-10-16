@@ -26,6 +26,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:-ayda}@postgres:5432/ayda
       S3_ENDPOINT_URL: http://minio:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
+      CENTRIFUGO_API_URL: http://centrifugo:8000/api
     ports:
       - "8000:8000"
     depends_on:
@@ -42,6 +43,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:-ayda}@postgres:5432/ayda
       S3_ENDPOINT_URL: http://minio:9000
       S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
+      CENTRIFUGO_API_URL: http://centrifugo:8000/api
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,7 +86,7 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-ayda}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-ayda-dev-secret}
 
-  # Realtime for M2 (direct messages, co-op chats); not used by the API yet.
+  # Realtime for M2 (direct messages, co-op chats): personal channels, ADR 0007.
   centrifugo:
     image: centrifugo/centrifugo:v6
     command: centrifugo
@@ -92,6 +94,7 @@ services:
       CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_SECRET:-change-me}
       CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_API_KEY:-change-me}
       CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: '["*"]'
+      CENTRIFUGO_CHANNEL_NAMESPACES: '[{"name":"personal","allow_user_limited_channels":true,"history_size":100,"history_ttl":"1h","force_recovery":true}]'
     ports:
       - "8001:8000"
 
