@@ -319,4 +319,68 @@ export const handlers = [
       return HttpResponse.json(db.ladder(week))
     }),
   ),
+
+  // ---- chats (US-17); realtime is not mocked, so the app polls ----
+  http.post(`${API}/realtime/token`, authed(() => problem(503, 'Чат временно недоступен', 'https://ayda.app/errors/realtime-unavailable'))),
+  http.get(`${API}/conversations`, authed(() => HttpResponse.json({ items: db.listConversations() }))),
+  http.post<never, { user_id: string }, DefaultBodyType>(
+    `${API}/conversations/direct`,
+    authed(async ({ request }) => {
+      const { user_id } = await request.json()
+      const result = db.openDirect(user_id)
+      if (result === 'not_friends') return problem(403, 'Писать можно только друзьям', 'https://ayda.app/errors/not-friends')
+      return HttpResponse.json(result)
+    }),
+  ),
+  http.get<{ id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/conversations/:id`,
+    authed(({ params }) => {
+      const c = db.findConversation(params.id)
+      return c ? HttpResponse.json(db.conversation(c)) : problem(404, 'Чат не найден')
+    }),
+  ),
+  http.get<{ id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/conversations/:id/messages`,
+    authed(({ params, request }) => {
+      const c = db.findConversation(params.id)
+      if (!c) return problem(404, 'Чат не найден')
+      const url = new URL(request.url)
+      return HttpResponse.json(db.messages(c, url.searchParams.get('cursor'), Number(url.searchParams.get('limit') ?? 20)))
+    }),
+  ),
+  http.post<{ id: string }, Schemas['MessageInput'], DefaultBodyType>(
+    `${API}/conversations/:id/messages`,
+    authed(async ({ params, request }) => {
+      const c = db.findConversation(params.id)
+      if (!c) return problem(404, 'Чат не найден')
+      const body = await request.json()
+      if (!body.text?.trim() || body.text.length > 2000) return problem(422, 'Пустое или слишком длинное сообщение')
+      const result = db.sendMessage(c, body)
+      if (result === 'closed') return problem(403, 'Этот чат закрыт для новых сообщений', 'https://ayda.app/errors/chat-closed')
+      if (result.created && import.meta.env.MODE !== 'test') setTimeout(() => db.replyFrom(c, '👍'), 2500)
+      return HttpResponse.json(result.message, { status: result.created ? 201 : 200 })
+    }),
+  ),
+  http.delete<{ id: string; messageId: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/conversations/:id/messages/:messageId`,
+    authed(({ params }) => {
+      const c = db.findConversation(params.id)
+      const m = c?.messages.find((x) => x.id === Number(params.messageId))
+      if (!c || !m) return problem(404, 'Сообщение не найдено')
+      if (m.author.id !== db.me.id) return problem(403, 'Удалить можно только своё сообщение')
+      c.messages = c.messages.filter((x) => x !== m)
+      return new HttpResponse(null, { status: 204 })
+    }),
+  ),
+  http.post<{ id: string }, { last_read_message_id: number }, DefaultBodyType>(
+    `${API}/conversations/:id/read`,
+    authed(async ({ params, request }) => {
+      const c = db.findConversation(params.id)
+      if (!c) return problem(404, 'Чат не найден')
+      const { last_read_message_id } = await request.json()
+      const newest = c.messages.at(-1)?.id ?? 0
+      c.lastRead = Math.max(c.lastRead ?? 0, Math.min(last_read_message_id, newest))
+      return new HttpResponse(null, { status: 204 })
+    }),
+  ),
 ]

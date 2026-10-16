@@ -4,6 +4,7 @@ import { NotInTelegramError, useMe, useSession } from '../api/queries'
 import { ConsentScreen } from '../features/onboarding/ConsentScreen'
 import { Onboarding } from '../features/onboarding/Onboarding'
 import { t } from '../i18n'
+import { useRealtime } from '../realtime/realtime'
 import { FullScreen, PrimaryButton, Splash } from '../ui/states'
 import { useApplyTheme } from './theme'
 
@@ -13,6 +14,7 @@ export function Bootstrap({ children }: { children: ReactNode }) {
   const me = useMe({ signedIn: session.isSuccess })
   const [retrying, setRetrying] = useState(false)
   useApplyTheme(me.data?.theme)
+  useRealtime(Boolean(me.data?.onboarded && !me.data.consent_required))
 
   if (session.isPending) return <Splash />
   if (session.isError) {

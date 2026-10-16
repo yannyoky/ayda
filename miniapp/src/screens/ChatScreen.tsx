@@ -1,0 +1,203 @@
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { ApiError, type Schemas } from '../api/client'
+import { useConversation, useDeleteMessage, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
+import { t } from '../i18n'
+import { useRealtimeStatus } from '../realtime/realtime'
+import { useBackButton } from '../telegram/useBackButton'
+import { haptic } from '../telegram/webapp'
+import { Avatar } from '../ui/Avatar'
+import { Icon } from '../ui/Icon'
+import { InlineError, Splash } from '../ui/states'
+
+interface Pending {
+  client_id: string
+  text: string
+  failed: boolean
+}
+
+const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
+
+/** US-17: one chat. Messages arrive over Centrifugo, or by polling when realtime is off. */
+export function ChatScreen() {
+  const { id = '' } = useParams()
+  const navigate = useNavigate()
+  const back = useCallback(() => navigate('/chats'), [navigate])
+  useBackButton(back)
+  const realtime = useRealtimeStatus()
+  const me = useMe()
+  const conversation = useConversation(id)
+  const messages = useMessages(id, { poll: realtime !== 'live' })
+  const send = useSendMessage(id)
+  const remove = useDeleteMessage(id)
+  const markRead = useMarkRead(id)
+  const inputId = useId()
+  const [text, setText] = useState('')
+  const [pending, setPending] = useState<Pending[]>([])
+  const [selected, setSelected] = useState<number | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const end = useRef<HTMLDivElement>(null)
+  const readUpTo = useRef(0)
+
+  // Pages come newest first; show oldest at the top
+  const saved = useMemo(() => (messages.data?.pages.flatMap((p) => p.items) ?? []).slice().reverse(), [messages.data])
+  const savedIds = useMemo(() => new Set(saved.map((m) => m.client_id)), [saved])
+  const shown = pending.filter((p) => !savedIds.has(p.client_id))
+  const newest = saved.at(-1)?.id ?? 0
+
+  useEffect(() => {
+    end.current?.scrollIntoView?.({ block: 'end' })
+  }, [newest, shown.length])
+
+  const lastRead = conversation.data?.last_read_message_id ?? 0
+  const { mutate: mark } = markRead
+  useEffect(() => {
+    if (newest > Math.max(lastRead, readUpTo.current)) {
+      readUpTo.current = newest
+      mark(newest)
+    }
+  }, [newest, lastRead, mark])
+
+  function deliver(item: Pending) {
+    setPending((cur) => [...cur.filter((p) => p.client_id !== item.client_id), { ...item, failed: false }])
+    send.mutate(
+      { text: item.text, client_id: item.client_id },
+      {
+        onSuccess: () => haptic('tap'),
+        onError: (e) => {
+          setPending((cur) => cur.map((p) => (p.client_id === item.client_id ? { ...p, failed: true } : p)))
+          if (e instanceof ApiError && e.status === 429) setNotice(t.chats.tooMany)
+          if (e instanceof ApiError && e.status === 403) void conversation.refetch()
+        },
+      },
+    )
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    const value = text.trim()
+    if (!value) return
+    setText('')
+    setNotice(null)
+    deliver({ client_id: crypto.randomUUID(), text: value, failed: false })
+  }
+
+  function deleteMessage(m: Schemas['Message']) {
+    if (!window.confirm(t.chats.deleteConfirm)) return
+    setSelected(null)
+    remove.mutate(m.id)
+  }
+
+  if (conversation.isError) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-[480px] flex-col gap-3 p-4">
+        <InlineError onRetry={() => void conversation.refetch()} />
+      </main>
+    )
+  }
+  const chat = conversation.data
+  if (!chat) return <Splash />
+
+  return (
+    <main className="mx-auto flex h-dvh max-w-[480px] flex-col">
+      <header className="flex items-center gap-3 px-4 pt-[max(16px,env(safe-area-inset-top))] pb-3">
+        <button type="button" aria-label={t.chats.back} onClick={back} className="flex size-11 items-center justify-center rounded-full bg-surface">
+          <Icon name="back" size={20} />
+        </button>
+        <Avatar user={chat.peer ?? { first_name: chat.title }} size={40} />
+        <h1 className="m-0 min-w-0 flex-1 truncate font-display text-lg font-bold">{chat.title}</h1>
+      </header>
+      <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-4 pb-3" aria-live="polite">
+        {messages.hasNextPage && (
+          <button
+            type="button"
+            onClick={() => void messages.fetchNextPage()}
+            disabled={messages.isFetchingNextPage}
+            className="mx-auto my-2 h-10 rounded-field bg-surface px-4 text-sm font-bold"
+          >
+            {t.chats.older}
+          </button>
+        )}
+        {messages.isError && <InlineError onRetry={() => void messages.refetch()} />}
+        {messages.isSuccess && saved.length === 0 && shown.length === 0 && (
+          <p className="m-auto text-center text-sm font-semibold text-muted">{t.chats.noMessages}</p>
+        )}
+        <ul aria-label={chat.title} className="m-0 mt-auto flex list-none flex-col gap-1.5 p-0">
+          {saved.map((m) => {
+            const mine = m.author.id === me.data?.id
+            return (
+              <li key={m.id} className={`flex max-w-[80%] flex-col ${mine ? 'items-end self-end' : 'items-start self-start'}`}>
+                {chat.kind === 'coop' && !mine && <span className="px-3 text-xs font-bold text-muted">{m.author.first_name}</span>}
+                <button
+                  type="button"
+                  disabled={!mine}
+                  onClick={() => setSelected((s) => (s === m.id ? null : m.id))}
+                  className={`rounded-[20px] px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
+                >
+                  {m.text}
+                  <span className={`ml-2 inline-block text-[11px] font-semibold ${mine ? 'text-on-plate/60' : 'text-muted'}`}>
+                    {timeFormat.format(new Date(m.created_at))}
+                  </span>
+                </button>
+                {mine && selected === m.id && (
+                  <button type="button" onClick={() => deleteMessage(m)} className="mt-1 flex h-9 items-center gap-1.5 rounded-field bg-surface px-3 text-sm font-bold">
+                    <Icon name="trash" size={16} />
+                    {t.chats.delete}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+          {shown.map((p) => (
+            <li key={p.client_id} className="flex max-w-[80%] flex-col items-end self-end">
+              <button
+                type="button"
+                disabled={!p.failed}
+                onClick={() => deliver(p)}
+                aria-label={p.failed ? t.chats.failed : t.chats.sending}
+                className={`rounded-[20px] rounded-br-md px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${p.failed ? 'bg-surface text-ink outline-2 outline-accent' : 'bg-plate text-on-plate opacity-60'}`}
+              >
+                {p.text}
+              </button>
+              {p.failed && <span className="px-2 pt-0.5 text-xs font-bold text-muted">{t.chats.failed}</span>}
+            </li>
+          ))}
+        </ul>
+        <div ref={end} />
+      </div>
+      {notice && (
+        <p role="status" className="m-0 px-4 pb-1 text-xs font-semibold text-muted">
+          {notice}
+        </p>
+      )}
+      {chat.can_send ? (
+        <form onSubmit={submit} className="flex gap-2 px-4 pt-1 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <label htmlFor={inputId} className="sr-only">
+            {t.chats.placeholder}
+          </label>
+          <input
+            id={inputId}
+            value={text}
+            maxLength={2000}
+            autoComplete="off"
+            placeholder={t.chats.placeholder}
+            onChange={(e) => setText(e.target.value)}
+            className="h-12 min-w-0 flex-1 rounded-field border-0 bg-surface px-4 text-[15px] font-medium placeholder:text-muted"
+          />
+          <button
+            type="submit"
+            aria-label={t.chats.send}
+            disabled={!text.trim()}
+            className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-40"
+          >
+            <Icon name="arrow" size={20} strokeWidth={2.4} />
+          </button>
+        </form>
+      ) : (
+        <p role="note" className="m-0 mx-4 mb-[max(16px,env(safe-area-inset-bottom))] rounded-card bg-surface p-4 text-sm font-semibold text-muted">
+          {t.chats.closed}
+        </p>
+      )}
+    </main>
+  )
+}

@@ -5,6 +5,10 @@ import { t } from '../../i18n'
 import { haptic, startParam } from '../../telegram/webapp'
 import { Icon } from '../../ui/Icon'
 
+function isChatParam(code: string | undefined): boolean {
+  return /^c[0-9a-f]{32}$/.test(code ?? '')
+}
+
 /** Accepts a `startapp` invite code once per launch and says how it went (US-12). */
 export function InviteBanner() {
   const accept = useAcceptInvite()
@@ -13,8 +17,9 @@ export function InviteBanner() {
 
   useEffect(() => {
     const code = startParam()
-    // Bot reminder buttons open the app with `r-morning` / `r-evening`; those are not invite codes
-    if (code?.startsWith('r-')) return
+    // Bot buttons open the app with `r-morning` / `r-evening` (reminders) or `c<hex>` (a chat);
+    // those are not invite codes, which are 12 characters long
+    if (code?.startsWith('r-') || isChatParam(code)) return
     if (started.current || !code) return
     started.current = true
     accept.mutate(code, { onSuccess: () => haptic('success') })

@@ -337,3 +337,112 @@ export function useAcceptInvite() {
     },
   })
 }
+
+// ---- chats: direct messages (US-17) ----
+
+export const conversationsKey = ['conversations'] as const
+export const conversationKey = (id: string) => ['conversation', id] as const
+export const messagesKey = (id: string) => ['messages', id] as const
+
+/** Without realtime (no token, connection down) chats fall back to polling REST. */
+export function useConversations({ poll = false }: { poll?: boolean } = {}) {
+  return useQuery({
+    queryKey: conversationsKey,
+    queryFn: () => unwrap(api.GET('/conversations')),
+    refetchInterval: poll ? 15_000 : false,
+  })
+}
+
+export function useConversation(id: string) {
+  return useQuery({
+    queryKey: conversationKey(id),
+    queryFn: () => unwrap(api.GET('/conversations/{conversation_id}', { params: { path: { conversation_id: id } } })),
+  })
+}
+
+export type MessagePages = InfiniteData<Schemas['MessagePage'], string | null>
+
+/** Pages are newest first, as the API returns them; the screen reverses for display. */
+export function useMessages(id: string, { poll = false }: { poll?: boolean } = {}) {
+  return useInfiniteQuery({
+    queryKey: messagesKey(id),
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET('/conversations/{conversation_id}/messages', {
+          params: { path: { conversation_id: id }, query: { limit: 30, ...(pageParam ? { cursor: pageParam } : {}) } },
+        }),
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor,
+    refetchInterval: poll ? 5_000 : false,
+  })
+}
+
+export function useOpenDirect() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (user_id: string) => unwrap(api.POST('/conversations/direct', { body: { user_id } })),
+    onSuccess: (conversation) => {
+      client.setQueryData(conversationKey(conversation.id), conversation)
+      void client.invalidateQueries({ queryKey: conversationsKey })
+    },
+  })
+}
+
+/** Adds or replaces a message in the cached newest page (matched by id or client_id). */
+export function upsertMessage(client: QueryClient, message: Schemas['Message']) {
+  client.setQueryData<MessagePages>(messagesKey(message.conversation_id), (data) => {
+    if (!data) return data
+    const same = (m: Schemas['Message']) => m.id === message.id || (message.client_id !== null && m.client_id === message.client_id)
+    const exists = data.pages.some((p) => p.items.some(same))
+    const pages = data.pages.map((page, i) => {
+      if (exists) return { ...page, items: page.items.map((m) => (same(m) ? message : m)) }
+      return i === 0 ? { ...page, items: [message, ...page.items] } : page
+    })
+    if (!exists && pages.length === 0) pages.push({ items: [message], next_cursor: null })
+    return { ...data, pages }
+  })
+}
+
+export function removeMessage(client: QueryClient, conversationId: string, messageId: number) {
+  client.setQueryData<MessagePages>(messagesKey(conversationId), (data) =>
+    data ? { ...data, pages: data.pages.map((p) => ({ ...p, items: p.items.filter((m) => m.id !== messageId) })) } : data,
+  )
+}
+
+export function useSendMessage(conversationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['MessageInput']) =>
+      unwrap(api.POST('/conversations/{conversation_id}/messages', { params: { path: { conversation_id: conversationId } }, body })),
+    onSuccess: (message) => {
+      upsertMessage(client, message)
+      void client.invalidateQueries({ queryKey: conversationsKey })
+    },
+  })
+}
+
+export function useDeleteMessage(conversationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (message_id: number) =>
+      unwrap(api.DELETE('/conversations/{conversation_id}/messages/{message_id}', { params: { path: { conversation_id: conversationId, message_id } } })),
+    onSuccess: (_r, messageId) => {
+      removeMessage(client, conversationId, messageId)
+      void client.invalidateQueries({ queryKey: conversationsKey })
+    },
+  })
+}
+
+export function useMarkRead(conversationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (last_read_message_id: number) =>
+      unwrap(api.POST('/conversations/{conversation_id}/read', { params: { path: { conversation_id: conversationId } }, body: { last_read_message_id } })),
+    onMutate: (lastRead) => {
+      client.setQueryData<{ items: Schemas['Conversation'][] }>(conversationsKey, (data) =>
+        data ? { items: data.items.map((c) => (c.id === conversationId ? { ...c, unread_count: 0, last_read_message_id: Math.max(lastRead, c.last_read_message_id ?? 0) } : c)) } : data,
+      )
+    },
+  })
+}

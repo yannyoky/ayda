@@ -61,6 +61,14 @@ interface StoredPost extends Post {
   comments: Comment[]
 }
 
+interface StoredConversation {
+  id: string
+  peerId: string
+  createdAt: string
+  messages: Schemas['Message'][]
+  lastRead: number | null
+}
+
 export interface MockOptions {
   /** Skip consent and onboarding: a returning user. */
   onboarded?: boolean
@@ -86,6 +94,8 @@ export class MockDb {
   posts: StoredPost[] = []
   friends: (Friend & { points: number; streak_days: number })[] = []
   invites = new Map<string, { inviterId: string | null; expiresAt: string }>()
+  conversations: StoredConversation[] = []
+  private nextMessageId = 1
   poolDelayMs = 1200
   deletionRequested = false
 
@@ -121,6 +131,8 @@ export class MockDb {
     this.posts = []
     this.friends = []
     this.invites.clear()
+    this.conversations = []
+    this.nextMessageId = 1
     this.deletionRequested = false
     // A known invite from a friend who is not yet a friend, for invite acceptance in dev
     this.invites.set('welcome-invite-code', { inviterId: null, expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString() })
@@ -175,6 +187,85 @@ export class MockDb {
       })
       first.comment_count = 1
     }
+    const lena = this.friends[0]!
+    const chat = this.openDirect(lena.id)
+    if (chat !== 'not_friends') {
+      const stored = this.conversations[0]!
+      this.addMessage(stored, lena.id, 'Привет! Завтра бегаем?', minutesAgo(40))
+      this.addMessage(stored, this.me.id, 'Давай, в 8 у парка', minutesAgo(35))
+      stored.lastRead = this.nextMessageId - 1
+      this.addMessage(stored, lena.id, 'Договорились 🙌', minutesAgo(5))
+    }
+  }
+
+  // ---- chats (US-17) ----
+
+  private summary(id: string): Schemas['UserSummary'] {
+    if (id === this.me.id) return { id, first_name: this.me.first_name, avatar_url: this.me.avatar_url ?? null }
+    const f = this.friends.find((x) => x.id === id)
+    return { id, first_name: f?.first_name ?? 'Удалённый пользователь', avatar_url: f?.avatar_url ?? null }
+  }
+
+  private addMessage(c: StoredConversation, authorId: string, text: string, at = new Date().toISOString(), clientId: string | null = null): Schemas['Message'] {
+    const message = { id: this.nextMessageId++, conversation_id: c.id, author: this.summary(authorId), text, created_at: at, client_id: clientId }
+    c.messages.push(message)
+    if (authorId === this.me.id) c.lastRead = message.id
+    return message
+  }
+
+  conversation(c: StoredConversation): Schemas['Conversation'] {
+    const peer = this.summary(c.peerId)
+    const last = c.messages.at(-1) ?? null
+    return {
+      id: c.id,
+      kind: 'dm',
+      title: peer.first_name,
+      peer,
+      coop_id: null,
+      members: [peer],
+      can_send: this.friends.some((f) => f.id === c.peerId),
+      last_message: last,
+      unread_count: c.messages.filter((m) => m.id > (c.lastRead ?? 0) && m.author.id !== this.me.id).length,
+      last_read_message_id: c.lastRead,
+      updated_at: last?.created_at ?? c.createdAt,
+    }
+  }
+
+  listConversations(): Schemas['Conversation'][] {
+    return this.conversations.map((c) => this.conversation(c)).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  }
+
+  findConversation(id: string): StoredConversation | undefined {
+    return this.conversations.find((c) => c.id === id)
+  }
+
+  openDirect(userId: string): Schemas['Conversation'] | 'not_friends' {
+    if (!this.friends.some((f) => f.id === userId)) return 'not_friends'
+    let c = this.conversations.find((x) => x.peerId === userId)
+    if (!c) {
+      c = { id: uuid(), peerId: userId, createdAt: new Date().toISOString(), messages: [], lastRead: null }
+      this.conversations.push(c)
+    }
+    return this.conversation(c)
+  }
+
+  messages(c: StoredConversation, cursor: string | null, limit: number): Schemas['MessagePage'] {
+    const before = cursor ? Number(cursor) : Infinity
+    const older = c.messages.filter((m) => m.id < before).reverse()
+    const items = older.slice(0, limit)
+    return { items, next_cursor: older.length > limit ? String(items.at(-1)!.id) : null }
+  }
+
+  sendMessage(c: StoredConversation, input: Schemas['MessageInput']): { message: Schemas['Message']; created: boolean } | 'closed' {
+    const existing = c.messages.find((m) => m.client_id === input.client_id)
+    if (existing) return { message: existing, created: false }
+    if (!this.friends.some((f) => f.id === c.peerId)) return 'closed'
+    return { message: this.addMessage(c, this.me.id, input.text.trim(), undefined, input.client_id), created: true }
+  }
+
+  /** Dev only: the friend answers, as if over realtime (picked up by polling). */
+  replyFrom(c: StoredConversation, text: string): void {
+    this.addMessage(c, c.peerId, text)
   }
 
   // ---- day ----

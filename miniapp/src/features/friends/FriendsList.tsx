@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useCreateInvite, useFriends, useRemoveFriend } from '../../api/queries'
+import { useNavigate } from 'react-router'
+import { useCreateInvite, useFriends, useOpenDirect, useRemoveFriend } from '../../api/queries'
 import { t } from '../../i18n'
 import { shareLink } from '../../telegram/webapp'
 import { Avatar } from '../../ui/Avatar'
@@ -12,6 +13,8 @@ export function FriendsList() {
   const friends = useFriends()
   const invite = useCreateInvite()
   const remove = useRemoveFriend()
+  const openChat = useOpenDirect()
+  const navigate = useNavigate()
   const [shared, setShared] = useState(false)
   const items = friends.data?.items ?? []
 
@@ -54,6 +57,15 @@ export function FriendsList() {
                 <span className="truncate text-[15px] font-bold">{f.first_name}</span>
                 <span className="text-xs font-semibold text-muted">{t.friends.since(sinceFormat.format(new Date(f.since)))}</span>
               </span>
+              <button
+                type="button"
+                aria-label={t.chats.writeTo(f.first_name)}
+                disabled={openChat.isPending}
+                onClick={() => openChat.mutate(f.id, { onSuccess: (c) => navigate(`/chats/${c.id}`) })}
+                className="flex size-10 items-center justify-center rounded-tile bg-bg text-ink disabled:opacity-60"
+              >
+                <Icon name="chat" size={18} />
+              </button>
               <button
                 type="button"
                 aria-label={t.friends.remove(f.first_name)}
