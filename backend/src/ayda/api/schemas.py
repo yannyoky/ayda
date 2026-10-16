@@ -164,3 +164,15 @@ class Replacement(BaseModel):
     replaced: DayQuest
     replacement: DayQuest | None
     replacements_left: int
+
+
+class UploadInput(BaseModel):
+    content_type: Literal["image/jpeg", "image/png", "image/heic", "image/webp"]
+    size_bytes: int = Field(ge=1, le=10 * 1024 * 1024)
+
+
+class UploadSlot(BaseModel):
+    media_id: uuid.UUID
+    upload_url: str
+    headers: dict[str, str]
+    expires_at: datetime

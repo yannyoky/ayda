@@ -24,6 +24,8 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:-ayda}@postgres:5432/ayda
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
     ports:
       - "8000:8000"
     depends_on:
@@ -38,9 +40,36 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:-ayda}@postgres:5432/ayda
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
     depends_on:
       postgres:
         condition: service_healthy
+
+  # S3-compatible storage for photos in local dev (production: an S3 provider in Russia).
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-ayda}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-ayda-dev-secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      - minio
+    entrypoint: >
+      sh -c "until mc alias set local http://minio:9000 $${S3_ACCESS_KEY_ID:-ayda}
+      $${S3_SECRET_ACCESS_KEY:-ayda-dev-secret}; do sleep 1; done;
+      mc mb --ignore-existing local/ayda-media"
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-ayda}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-ayda-dev-secret}
 
   # Realtime for M2 (direct messages, co-op chats); not used by the API yet.
   centrifugo:
@@ -55,3 +84,4 @@ services:
 
 volumes:
   pgdata:
+  miniodata:
