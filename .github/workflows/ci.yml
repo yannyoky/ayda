@@ -28,6 +28,7 @@ jobs:
               - '.github/workflows/ci.yml'
             miniapp:
               - 'miniapp/**'
+              - 'contracts/openapi.yaml' # the Mini App's API client is generated from it
               - '.github/workflows/ci.yml'
             contracts:
               - 'contracts/**'
@@ -85,9 +86,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: miniapp/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm run build
 
   contracts:
     needs: changes

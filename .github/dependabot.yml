@@ -18,4 +18,11 @@ updates:
       backend-minor:
         update-types: [minor, patch]
 
-  # miniapp (npm) goes here once miniapp/package.json exists
+  # Mini App (npm); minor and patch bumps grouped, majors stay separate PRs
+  - package-ecosystem: npm
+    directory: /miniapp
+    schedule:
+      interval: weekly
+    groups:
+      miniapp-minor:
+        update-types: [minor, patch]
