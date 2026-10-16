@@ -75,6 +75,9 @@ def settings(migrated_database: str) -> Iterator[Settings]:
         environment="test",
         database_url=migrated_database,
         telegram_bot_token=SecretStr(TEST_BOT_TOKEN),
+        # Presigning needs credentials, not a reachable server.
+        s3_access_key_id=SecretStr("test"),
+        s3_secret_access_key=SecretStr("test"),
     )
     asyncio.run(_truncate_tables(migrated_database))
 

@@ -206,3 +206,52 @@ class Invite(BaseModel):
 
 class Friend(UserSummary):
     since: datetime
+
+
+class Photo(BaseModel):
+    id: uuid.UUID
+    url: str
+    width: int
+    height: int
+
+
+class Post(BaseModel):
+    id: uuid.UUID
+    author: UserSummary
+    kind: Literal["proof", "routine"]
+    quest_title: str | None
+    category: Category
+    caption: str | None
+    photos: list[Photo]
+    local_date: date
+    created_at: datetime
+    like_count: int
+    liked_by_me: bool
+    comment_count: int
+
+
+class PostPage(BaseModel):
+    items: list[Post]
+    next_cursor: str | None
+
+
+class LikeState(BaseModel):
+    like_count: int
+    liked_by_me: bool
+
+
+class CommentInput(BaseModel):
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+
+
+class Comment(BaseModel):
+    id: uuid.UUID
+    author: UserSummary
+    text: str
+    created_at: datetime
+    can_delete: bool
+
+
+class CommentPage(BaseModel):
+    items: list[Comment]
+    next_cursor: str | None

@@ -25,7 +25,13 @@ def build_worker(settings: Settings, db: Database, storage: Storage | None = Non
     async def delete_unattached_media(session: AsyncSession, now: datetime) -> None:
         await social.delete_unattached(session, storage, now)
 
-    handlers: dict[str, Handler] = {social.PROCESS_JOB: process_media}
+    async def delete_files(session: AsyncSession, payload: dict[str, Any]) -> None:
+        await storage.delete([str(k) for k in payload["keys"]])
+
+    handlers: dict[str, Handler] = {
+        social.PROCESS_JOB: process_media,
+        social.DELETE_FILES_JOB: delete_files,
+    }
     periodic = [Periodic("media.delete_unattached", 3600, delete_unattached_media)]
     return Worker(db.sessionmaker, handlers, periodic)
 
