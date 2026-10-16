@@ -7,13 +7,13 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read # dorny/paths-filter lists PR files via the API
 
 jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend == 'true' && steps.exists.outputs.backend == 'true' }}
-      ai: ${{ steps.filter.outputs.ai == 'true' && steps.exists.outputs.ai == 'true' }}
       miniapp: ${{ steps.filter.outputs.miniapp == 'true' && steps.exists.outputs.miniapp == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -23,15 +23,12 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
-            ai:
-              - 'ai/**'
             miniapp:
               - 'miniapp/**'
       # Skip a component until its project files exist
       - id: exists
         run: |
-          echo "backend=$( find backend -name "*.csproj" | grep -q . && echo true || echo false )" >> "$GITHUB_OUTPUT"
-          echo "ai=$( test -f ai/pyproject.toml && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "backend=$( test -f backend/pyproject.toml && echo true || echo false )" >> "$GITHUB_OUTPUT"
           echo "miniapp=$( test -f miniapp/package.json && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
   backend:
@@ -43,28 +40,15 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: astral-sh/setup-uv@v6
         with:
-          dotnet-version: '8.0.x'
-      - run: dotnet restore
-      - run: dotnet format --verify-no-changes
-      - run: dotnet test --no-restore
-
-  ai:
-    needs: changes
-    if: needs.changes.outputs.ai == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ai
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -e '.[dev]'
-      - run: ruff check .
-      - run: pytest
+          python-version: '3.13'
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+      - run: uv run lint-imports
+      - run: uv run pytest
 
   miniapp:
     needs: changes

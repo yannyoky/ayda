@@ -1,11 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet build:*)",
-      "Bash(dotnet test:*)",
-      "Bash(dotnet format:*)",
-      "Bash(pytest:*)",
-      "Bash(ruff:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run pyright:*)",
+      "Bash(uv run lint-imports:*)",
+      "Bash(uv run pytest:*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
       "Bash(npm ci:*)",
