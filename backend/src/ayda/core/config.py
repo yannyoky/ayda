@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     # Signs API access tokens. Required in prod; dev and test get a random one per process.
     auth_token_secret: SecretStr | None = None
 
+    # LLM providers in fallback order, comma-separated presets from
+    # ayda.modules.assistant.providers.PRESETS, optionally `preset=model`. Empty: no LLM,
+    # the assistant falls back to code.
+    llm_providers: str = ""
+    llm_timeout_s: float = 8.0
+    groq_api_key: SecretStr | None = None
+    cf_account_id: SecretStr | None = None
+    cf_api_token: SecretStr | None = None
+    zai_api_key: SecretStr | None = None
+    openrouter_api_key: SecretStr | None = None
+    ollama_url: str = "http://localhost:11434/v1"
+
     @model_validator(mode="after")
     def _secrets(self) -> Self:
         if self.auth_token_secret is None:

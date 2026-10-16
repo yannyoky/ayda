@@ -1,1 +1,42 @@
-"""AI assistant: morning check-in, LLM ranking and phrasing of code-selected candidates."""
+"""AI assistant: free LLM providers behind one adapter. The LLM only parses check-ins and
+ranks candidates chosen by code; every answer is validated against a schema."""
+
+from ayda.modules.assistant.client import Assistant, AssistantResult, InvalidAnswer
+from ayda.modules.assistant.providers import (
+    PRESETS,
+    FakeProvider,
+    LLMProvider,
+    OpenAICompatibleProvider,
+    ProviderError,
+    providers_from_settings,
+)
+from ayda.modules.assistant.tasks import (
+    Candidate,
+    ParsedCheckin,
+    ParsedTask,
+    Profile,
+    RankedItem,
+    RankedPool,
+    parse_checkin,
+    rank_pool,
+)
+
+__all__ = [
+    "PRESETS",
+    "Assistant",
+    "AssistantResult",
+    "Candidate",
+    "FakeProvider",
+    "InvalidAnswer",
+    "LLMProvider",
+    "OpenAICompatibleProvider",
+    "ParsedCheckin",
+    "ParsedTask",
+    "Profile",
+    "ProviderError",
+    "RankedItem",
+    "RankedPool",
+    "parse_checkin",
+    "providers_from_settings",
+    "rank_pool",
+]
