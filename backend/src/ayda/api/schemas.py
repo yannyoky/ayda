@@ -89,7 +89,7 @@ Category = Literal["sport", "walk", "city", "rest", "project", "social", "home",
 Visibility = Literal["personal", "routine", "friends"]
 RejectReason = Literal["no_time", "dont_want", "cant"]
 QuestState = Literal["offered", "taken", "replaced", "completed", "expired"]
-QuestSource = Literal["catalog", "checkin_task", "custom"]
+QuestSource = Literal["catalog", "checkin_task", "custom", "coop"]
 PoolStatus = Literal["none", "generating", "ready", "failed"]
 Condition = Literal["clear", "cloudy", "rain", "snow", "storm", "unknown"]
 
@@ -119,6 +119,7 @@ class DayQuest(BaseModel):
     visibility: Visibility | None
     points_awarded: int | None
     expires_at: datetime
+    coop_id: uuid.UUID | None = None
 
 
 class Weather(BaseModel):
@@ -196,6 +197,7 @@ class Completion(BaseModel):
     points_breakdown: PointsBreakdown
     streak: Streak
     post_id: uuid.UUID | None
+    coop_bonus: int = 0
 
 
 class Invite(BaseModel):
@@ -316,3 +318,30 @@ class DirectConversationInput(BaseModel):
 
 class ReadInput(BaseModel):
     last_read_message_id: int = Field(ge=0)
+
+
+CoopStatus = Literal["owner", "invited", "accepted", "declined"]
+
+
+class CoopInput(BaseModel):
+    friend_ids: list[uuid.UUID] = Field(min_length=1, max_length=3)
+
+
+class CoopParticipant(BaseModel):
+    user: UserSummary
+    status: CoopStatus
+    completed: bool
+
+
+class Coop(BaseModel):
+    id: uuid.UUID
+    title: str
+    category: Category
+    duration_min: int
+    owner: UserSummary
+    my_status: CoopStatus
+    participants: list[CoopParticipant]
+    my_quest_id: uuid.UUID | None
+    conversation_id: uuid.UUID | None
+    expires_at: datetime
+    bonus_awarded: bool

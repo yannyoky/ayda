@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.realtime import RealtimeDep
 from ayda.api.schemas import (
     CheckinInput,
     CompleteQuestInput,
@@ -76,8 +77,10 @@ async def replace_quest(
 
 @router.post("/day-quests/{quest_id}/complete", operation_id="completeQuest")
 async def complete_quest(
-    quest_id: uuid.UUID, body: CompleteQuestInput, user: CurrentUser, session: DbSession
+    quest_id: uuid.UUID,
+    body: CompleteQuestInput,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
 ) -> Completion:
-    result = await day.complete_quest(session, user, quest_id, body, _now())
-    await session.commit()
-    return result
+    return await day.complete_quest(session, realtime, user, quest_id, body, _now())

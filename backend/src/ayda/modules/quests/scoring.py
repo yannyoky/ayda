@@ -23,6 +23,10 @@ class ScoringConfig:
     streak_max_bonus: float = 0.3
     max_taken_per_day: int = 3
     max_replacements_per_day: int = 5
+    # Each participant of a co-op quest gets this share of their quest points once all
+    # who joined have completed it.
+    coop_bonus_share: float = 0.5
+    max_coop_friends: int = 3
 
 
 @cache
