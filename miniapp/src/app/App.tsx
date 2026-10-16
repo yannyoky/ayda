@@ -5,9 +5,9 @@ import { FeedScreen } from '../screens/FeedScreen'
 import { FriendsScreen } from '../screens/FriendsScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { TodayScreen } from '../screens/TodayScreen'
-import { Shell } from './Shell'
+import { Bootstrap } from './Bootstrap'
 import { createQueryClient } from './queryClient'
-import { ThemeProvider } from './ThemeProvider'
+import { Shell } from './Shell'
 
 // Memory routing: Telegram passes launch params in the URL hash, so the app does not own the URL
 function createRouter(initialPath: string) {
@@ -32,9 +32,9 @@ export function App({ initialPath = '/', queryClient }: { initialPath?: string; 
   const [router] = useState(() => createRouter(initialPath))
   return (
     <QueryClientProvider client={client}>
-      <ThemeProvider>
+      <Bootstrap>
         <RouterProvider router={router} />
-      </ThemeProvider>
+      </Bootstrap>
     </QueryClientProvider>
   )
 }
