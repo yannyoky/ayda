@@ -58,6 +58,13 @@ describe('Friends and invites (US-12)', () => {
     expect(db.friends.map((f) => f.first_name)).toContain('Оля')
   })
 
+  it('ignores reminder launches', async () => {
+    fakeTelegram('query_id=AAE&user=%7B%7D&hash=abc', 'r-morning')
+    renderApp()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Привет, Саша' })).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('explains an expired invite', async () => {
     db.invites.set('old-code', { inviterId: null, expiresAt: '2020-01-01T00:00:00Z' })
     fakeTelegram('query_id=AAE&user=%7B%7D&hash=abc', 'old-code')

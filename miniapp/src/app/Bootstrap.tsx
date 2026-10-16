@@ -10,7 +10,7 @@ import { useApplyTheme } from './theme'
 /** Signs in with Telegram (US-01), then asks for consent and onboarding before the app itself. */
 export function Bootstrap({ children }: { children: ReactNode }) {
   const session = useSession()
-  const me = useMe()
+  const me = useMe({ signedIn: session.isSuccess })
   const [retrying, setRetrying] = useState(false)
   useApplyTheme(me.data?.theme)
 

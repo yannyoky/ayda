@@ -13,6 +13,8 @@ export function InviteBanner() {
 
   useEffect(() => {
     const code = startParam()
+    // Bot reminder buttons open the app with `r-morning` / `r-evening`; those are not invite codes
+    if (code?.startsWith('r-')) return
     if (started.current || !code) return
     started.current = true
     accept.mutate(code, { onSuccess: () => haptic('success') })
