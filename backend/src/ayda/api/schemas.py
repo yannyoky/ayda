@@ -50,3 +50,35 @@ class UserSummary(BaseModel):
     id: uuid.UUID
     first_name: str
     avatar_url: str | None = None
+
+
+class ProfileUpdate(BaseModel):
+    city_id: int | None = None
+    theme: Theme | None = None
+    reminders: Reminders | None = None
+
+
+class ConsentInput(BaseModel):
+    version: str = Field(max_length=32)
+
+
+class Goal(BaseModel):
+    code: str
+    title: str
+
+
+class GoalSelection(BaseModel):
+    goal_codes: list[str] = Field(max_length=5)
+
+
+class HabitCreate(BaseModel):
+    direction: Literal["more", "less"]
+    text: str = Field(min_length=1, max_length=100)
+
+
+class Habit(HabitCreate):
+    id: uuid.UUID
+
+
+class Items[T](BaseModel):
+    items: list[T]
