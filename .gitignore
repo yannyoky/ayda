@@ -1,0 +1,29 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+# .NET
+bin/
+obj/
+*.user
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+# Node
+node_modules/
+dist/
+# Android / Gradle
+.gradle/
+build/
+local.properties
+# iOS / Xcode
+DerivedData/
+*.xcuserstate
+# Env
+.env
+.env.*
+!.env.example
