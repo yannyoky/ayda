@@ -1,7 +1,12 @@
-from sqlalchemy import Boolean, Integer, SmallInteger, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+import uuid
+from datetime import date, datetime
+from typing import Any
+
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, SmallInteger, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from ayda.core.ids import uuid7
 from ayda.core.models import module_metadata
 
 
@@ -25,3 +30,61 @@ class Template(Base):
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text))
     goal_codes: Mapped[list[str]] = mapped_column(ARRAY(Text))
     active: Mapped[bool] = mapped_column(Boolean)
+
+
+class Checkin(Base):
+    __tablename__ = "checkins"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    local_date: Mapped[date] = mapped_column(Date)
+    # Visible only to its author; never logged; set to null after 30 days.
+    text: Mapped[str | None] = mapped_column(String(1000))
+    mood: Mapped[str] = mapped_column(Text)
+    parsed: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    submissions: Mapped[int] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class DayPool(Base):
+    __tablename__ = "day_pools"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    local_date: Mapped[date] = mapped_column(Date)
+    checkin_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(Checkin.id))
+    status: Mapped[str] = mapped_column(Text)
+    ranked_by: Mapped[str | None] = mapped_column(Text)
+    provider: Mapped[str | None] = mapped_column(Text)
+    weather: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    context: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    replacements_used: Mapped[int] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class DayQuest(Base):
+    __tablename__ = "day_quests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    pool_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(DayPool.id))
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    local_date: Mapped[date] = mapped_column(Date)
+    source: Mapped[str] = mapped_column(Text)
+    template_id: Mapped[int | None] = mapped_column(ForeignKey(Template.id))
+    title: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(Text)
+    duration_min: Mapped[int] = mapped_column(SmallInteger)
+    outdoor: Mapped[bool] = mapped_column(Boolean)
+    why: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(SmallInteger)
+    state: Mapped[str] = mapped_column(Text)
+    replaced_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reject_reason: Mapped[str | None] = mapped_column(Text)
+    visibility: Mapped[str | None] = mapped_column(Text)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
