@@ -1,3 +1,14 @@
 # contracts
 
-Not started yet. See the root README for the planned stack.
+`openapi.yaml` is the hand-written OpenAPI 3.1 contract of the Ayda API and the source of truth for every client (ADR 0004). It covers milestone M1 (US-01..US-16 in `docs/prd.md`); M2 and M3 endpoints are added with their issues.
+
+Lint (same as CI):
+
+```sh
+cd contracts
+npx -y @redocly/cli@2.56.1 lint openapi.yaml
+```
+
+Rules: `redocly.yaml` (the `recommended` ruleset). Deliberate exceptions live in `.redocly.lint-ignore.yaml`.
+
+Changing the contract: edit `openapi.yaml` in the same PR as the backend change, keep changes backward compatible while clients are released separately, and regenerate clients (Mini App: `npm run generate:api` once the scaffold lands).

@@ -1,0 +1,1466 @@
+openapi: 3.1.0
+info:
+  title: Ayda API
+  version: 0.1.0
+  summary: MVP milestone M1 contract (US-01..US-16)
+  description: |
+    Contract-first API of the Ayda backend (ADR 0004). The Mini App and native clients
+    generate their API code from this file; the backend must conform to it.
+
+    Conventions:
+    - All times are RFC 3339 in UTC; `local_date` is the calendar date in the user's time zone.
+    - Errors use RFC 9457 problem details (`application/problem+json`).
+    - Lists use opaque cursors: pass `next_cursor` back as `cursor`.
+    - All user-facing text from the server is in Russian.
+    - Local development serves the same paths at `http://localhost:8000/api/v1`.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: https://api.ayda.example/api/v1
+    description: Production (domain to be chosen)
+security:
+  - bearer: []
+tags:
+  - name: auth
+    description: Sign-in with Telegram Mini App initData.
+  - name: profile
+    description: Profile settings, onboarding, consent, goals and own habits.
+  - name: reference
+    description: Cities and the goal catalog.
+  - name: day
+    description: Morning check-in, the daily quest pool, taking, replacing and completing quests.
+  - name: media
+    description: Photo uploads for proofs.
+  - name: social
+    description: Invites, friends, feed, likes, comments and the weekly ladder.
+  - name: system
+    description: Service health.
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness and database check
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+        '503':
+          $ref: '#/components/responses/Problem'
+
+  /auth/telegram:
+    post:
+      tags: [auth]
+      operationId: signInWithTelegram
+      summary: Exchange Telegram Mini App initData for an access token (US-01)
+      description: |
+        Validates the initData HMAC signature with the bot token and rejects data older
+        than 24 hours. The first call creates the user. initData is never logged.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [init_data]
+              properties:
+                init_data:
+                  type: string
+                  description: Raw `Telegram.WebApp.initData` string.
+                  maxLength: 4096
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /me:
+    get:
+      tags: [profile]
+      operationId: getMe
+      summary: Current user with profile settings and onboarding state
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [profile]
+      operationId: requestAccountDeletion
+      summary: Request account deletion (152-FZ)
+      description: |
+        Signs the user out everywhere and schedules erasure of profile, photos and check-ins
+        within 30 days; analytics events are anonymized.
+      responses:
+        '202':
+          description: Deletion scheduled
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /me/profile:
+    patch:
+      tags: [profile]
+      operationId: updateProfile
+      summary: Update profile settings (US-02, US-03)
+      description: Only the fields present are changed. Send `null` for a reminder time to turn it off.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /me/onboarding/complete:
+    post:
+      tags: [profile]
+      operationId: completeOnboarding
+      summary: Mark onboarding finished (US-02)
+      description: Requires an accepted consent and a city.
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+
+  /me/consents:
+    post:
+      tags: [profile]
+      operationId: acceptConsent
+      summary: Accept a version of the personal data processing consent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version:
+                  type: string
+                  examples: ['2026-10-16']
+      responses:
+        '204':
+          description: Recorded
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /me/goals:
+    get:
+      tags: [profile]
+      operationId: listMyGoals
+      summary: Goals the user picked
+      responses:
+        '200':
+          description: Goal codes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalSelection'
+        '401':
+          $ref: '#/components/responses/Problem'
+    put:
+      tags: [profile]
+      operationId: setMyGoals
+      summary: Replace the user's goals (1-5, may be empty when skipped)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalSelection'
+      responses:
+        '200':
+          description: Saved goals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalSelection'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /me/habits:
+    get:
+      tags: [profile]
+      operationId: listMyHabits
+      summary: User's own "want more" and "want less" habits
+      responses:
+        '200':
+          description: Habits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Habit'
+        '401':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [profile]
+      operationId: addMyHabit
+      summary: Add a habit worded by the user (the app does not judge it)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabitCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /me/habits/{habit_id}:
+    delete:
+      tags: [profile]
+      operationId: deleteMyHabit
+      summary: Remove a habit
+      parameters:
+        - $ref: '#/components/parameters/HabitId'
+      responses:
+        '204':
+          description: Removed
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /cities:
+    get:
+      tags: [reference]
+      operationId: searchCities
+      summary: Find a city by name or by a one-time geolocation (US-02)
+      description: |
+        Pass `query` to search by name, or `lat` and `lon` to get the nearest cities.
+        Coordinates are used for this lookup only and are never stored or logged.
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+        - name: lat
+          in: query
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+        - name: lon
+          in: query
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        '200':
+          description: Matching cities, best first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/City'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /goals:
+    get:
+      tags: [reference]
+      operationId: listGoals
+      summary: Goal catalog for onboarding
+      responses:
+        '200':
+          description: Goals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Goal'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /days/today:
+    get:
+      tags: [day]
+      operationId: getToday
+      summary: Today's check-in, quest pool, limits, points and streak (Today screen)
+      description: |
+        "Today" is the user's local date; a day lasts until 04:00 local time of the next date.
+        While `pool.status` is `generating`, poll this endpoint (every 1-2 s).
+      responses:
+        '200':
+          description: Today
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Day'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /days/today/checkin:
+    put:
+      tags: [day]
+      operationId: submitCheckin
+      summary: Submit or replace today's morning check-in (US-05, US-06)
+      description: |
+        Starts building the quest pool. A repeated check-in replaces the previous one and
+        rebuilds quests that were not taken yet; taken and completed quests stay.
+        The check-in text is visible only to its author and never logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckinInput'
+      responses:
+        '202':
+          description: Accepted; the pool is being built
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Day'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+
+  /day-quests:
+    post:
+      tags: [day]
+      operationId: addOwnQuest
+      summary: Add an own quest for today; it is taken right away (US-08)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnQuestInput'
+      responses:
+        '201':
+          description: Created and taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DayQuest'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Daily limit of taken quests reached
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /day-quests/{quest_id}/take:
+    post:
+      tags: [day]
+      operationId: takeQuest
+      summary: Take an offered quest (US-07)
+      parameters:
+        - $ref: '#/components/parameters/QuestId'
+      responses:
+        '200':
+          description: Taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DayQuest'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Not offered anymore, or the daily limit of 3 is reached
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /day-quests/{quest_id}/replace:
+    post:
+      tags: [day]
+      operationId: replaceQuest
+      summary: '"Not today": swap an offered quest for an alternative (US-07)'
+      description: |
+        The alternative comes from another category or duration. Up to 5 replacements a day;
+        a replaced quest does not come back the same day.
+      parameters:
+        - $ref: '#/components/parameters/QuestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  $ref: '#/components/schemas/RejectReason'
+      responses:
+        '200':
+          description: Replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [replaced, replacement, replacements_left]
+                properties:
+                  replaced:
+                    $ref: '#/components/schemas/DayQuest'
+                  replacement:
+                    description: Null when no suitable alternative is left in the catalog today.
+                    oneOf:
+                      - $ref: '#/components/schemas/DayQuest'
+                      - type: 'null'
+                  replacements_left:
+                    type: integer
+                    minimum: 0
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Quest is not in the offered state, or no replacements left
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /day-quests/{quest_id}/complete:
+    post:
+      tags: [day]
+      operationId: completeQuest
+      summary: Mark a taken quest done with a visibility level (US-09, US-15)
+      description: |
+        `friends` visibility needs 1-3 uploaded photos in `ready` or `processing` state and
+        creates a proof in the feed; `routine` creates a feed entry without details;
+        `personal` creates nothing in the feed. Allowed until the quest's `expires_at`.
+      parameters:
+        - $ref: '#/components/parameters/QuestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteQuestInput'
+      responses:
+        '200':
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Completion'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Not taken, already completed or expired
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /media/uploads:
+    post:
+      tags: [media]
+      operationId: createUpload
+      summary: Get a presigned URL to upload one photo to S3 (US-10)
+      description: |
+        Upload the file with a `PUT` to `upload_url` and the given headers before `expires_at`,
+        then pass `media_id` to completeQuest. EXIF is stripped before anyone can see the photo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content_type, size_bytes]
+              properties:
+                content_type:
+                  type: string
+                  enum: [image/jpeg, image/png, image/heic, image/webp]
+                size_bytes:
+                  type: integer
+                  minimum: 1
+                  maximum: 10485760
+      responses:
+        '201':
+          description: Upload slot created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSlot'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+
+  /feed:
+    get:
+      tags: [social]
+      operationId: getFeed
+      summary: Proofs and routines of the user and their friends, newest first (US-13)
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /posts/{post_id}:
+    delete:
+      tags: [social]
+      operationId: deletePost
+      summary: Delete own post; its photos are deleted from storage, points stay (US-10)
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /posts/{post_id}/like:
+    put:
+      tags: [social]
+      operationId: likePost
+      summary: Like a post (idempotent, US-14)
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          description: Liked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LikeState'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [social]
+      operationId: unlikePost
+      summary: Remove a like (idempotent)
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        '200':
+          description: Like removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LikeState'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /posts/{post_id}/comments:
+    get:
+      tags: [social]
+      operationId: listComments
+      summary: Comments on a post, oldest first (US-14)
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [social]
+      operationId: addComment
+      summary: Comment on a post (US-14)
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+
+  /comments/{comment_id}:
+    delete:
+      tags: [social]
+      operationId: deleteComment
+      summary: Delete a comment (its author or the post author)
+      parameters:
+        - name: comment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /invites:
+    post:
+      tags: [social]
+      operationId: createInvite
+      summary: Create a reusable 7-day invite link (US-12)
+      responses:
+        '201':
+          description: Invite
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+
+  /invites/{code}/accept:
+    post:
+      tags: [social]
+      operationId: acceptInvite
+      summary: Become friends with the inviter (idempotent, US-12)
+      description: Called by the Mini App when it starts with a `startapp` invite code.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 10
+            maxLength: 64
+      responses:
+        '200':
+          description: Friendship exists (created now or before)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Friend'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Own invite
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '410':
+          description: Invite expired
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /friends:
+    get:
+      tags: [social]
+      operationId: listFriends
+      summary: The user's friends
+      responses:
+        '200':
+          description: Friends, by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Friend'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /friends/{user_id}:
+    delete:
+      tags: [social]
+      operationId: removeFriend
+      summary: End a friendship; the former friend stops seeing posts at once (US-12)
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Removed
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /ladder:
+    get:
+      tags: [social]
+      operationId: getLadder
+      summary: Weekly ranking of the user and their friends (US-16)
+      description: |
+        Each user's week starts on Monday 00:00 in their own time zone. Points for personal
+        quests are included without details. Ties go to the longer streak.
+      parameters:
+        - name: week
+          in: query
+          schema:
+            type: string
+            enum: [current, previous]
+            default: current
+      responses:
+        '200':
+          description: Ladder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ladder'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: Access token from signInWithTelegram.
+
+  parameters:
+    QuestId:
+      name: quest_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PostId:
+      name: post_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    HabitId:
+      name: habit_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor from the previous page's `next_cursor`.
+      schema:
+        type: string
+        maxLength: 200
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+  responses:
+    Problem:
+      description: Error (RFC 9457 problem details)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: A stable error code URI, e.g. `https://ayda.app/errors/daily-limit-reached`.
+        title:
+          type: string
+          description: Short human-readable summary in Russian.
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: array
+          description: Field errors for 422.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    Session:
+      type: object
+      required: [access_token, expires_at, user]
+      properties:
+        access_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/Me'
+
+    Theme:
+      type: string
+      enum: [graphite, plum]
+
+    Me:
+      type: object
+      required: [id, first_name, theme, timezone, reminders, consent_required, onboarded]
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: [string, 'null']
+        username:
+          type: [string, 'null']
+        avatar_url:
+          type: [string, 'null']
+          format: uri
+        city:
+          oneOf:
+            - $ref: '#/components/schemas/City'
+            - type: 'null'
+        timezone:
+          type: string
+          description: IANA time zone derived from the city.
+          examples: [Europe/Kaliningrad]
+        theme:
+          $ref: '#/components/schemas/Theme'
+        reminders:
+          $ref: '#/components/schemas/Reminders'
+        consent_required:
+          type: [string, 'null']
+          description: Consent version the user must accept before anything else, or null.
+        onboarded:
+          type: boolean
+
+    Reminders:
+      type: object
+      required: [morning_at, evening_at]
+      properties:
+        morning_at:
+          description: Local time `HH:MM`, or null when off.
+          type: [string, 'null']
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          examples: ['08:30']
+        evening_at:
+          type: [string, 'null']
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          examples: ['20:30']
+
+    ProfileUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        city_id:
+          type: integer
+        theme:
+          $ref: '#/components/schemas/Theme'
+        reminders:
+          $ref: '#/components/schemas/Reminders'
+
+    City:
+      type: object
+      required: [id, name, region_name, timezone]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          examples: [Калининград]
+        region_name:
+          type: string
+          examples: [Калининградская область]
+        timezone:
+          type: string
+
+    Goal:
+      type: object
+      required: [code, title]
+      properties:
+        code:
+          type: string
+          examples: [more_movement]
+        title:
+          type: string
+          examples: [Больше двигаться]
+
+    GoalSelection:
+      type: object
+      required: [goal_codes]
+      properties:
+        goal_codes:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            type: string
+
+    HabitDirection:
+      type: string
+      enum: [more, less]
+      description: '`more` = "want more", `less` = "want less".'
+
+    HabitCreate:
+      type: object
+      required: [direction, text]
+      properties:
+        direction:
+          $ref: '#/components/schemas/HabitDirection'
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    Habit:
+      allOf:
+        - $ref: '#/components/schemas/HabitCreate'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
+
+    Mood:
+      type: string
+      enum: [energetic, normal, tired]
+
+    CheckinInput:
+      type: object
+      required: [mood]
+      properties:
+        text:
+          type: string
+          maxLength: 1000
+          default: ''
+        mood:
+          $ref: '#/components/schemas/Mood'
+
+    Checkin:
+      type: object
+      required: [text, mood, submitted_at]
+      properties:
+        text:
+          type: string
+          description: Visible only to its author; empty after the 30-day retention.
+        mood:
+          $ref: '#/components/schemas/Mood'
+        submitted_at:
+          type: string
+          format: date-time
+
+    Category:
+      type: string
+      enum: [sport, walk, city, rest, project, social, home, learning]
+
+    Visibility:
+      type: string
+      enum: [personal, routine, friends]
+
+    RejectReason:
+      type: string
+      enum: [no_time, dont_want, cant]
+
+    QuestState:
+      type: string
+      enum: [offered, taken, replaced, completed, expired]
+
+    QuestSource:
+      type: string
+      enum: [catalog, checkin_task, custom]
+
+    DayQuest:
+      type: object
+      required: [id, source, title, category, duration_min, base_points, state, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          $ref: '#/components/schemas/QuestSource'
+        title:
+          type: string
+        description:
+          type: [string, 'null']
+        category:
+          $ref: '#/components/schemas/Category'
+        duration_min:
+          type: integer
+          minimum: 1
+        base_points:
+          type: integer
+          description: Points before visibility and streak multipliers.
+        why:
+          type: [string, 'null']
+          description: One "why you" line.
+        outdoor:
+          type: boolean
+        state:
+          $ref: '#/components/schemas/QuestState'
+        visibility:
+          oneOf:
+            - $ref: '#/components/schemas/Visibility'
+            - type: 'null'
+        points_awarded:
+          type: [integer, 'null']
+        expires_at:
+          type: string
+          format: date-time
+
+    PoolStatus:
+      type: string
+      enum: [none, generating, ready, failed]
+      description: '`none` until the check-in; `failed` still returns the code-only pool when possible.'
+
+    Weather:
+      type: object
+      required: [temperature_c, condition]
+      properties:
+        temperature_c:
+          type: number
+        condition:
+          type: string
+          enum: [clear, cloudy, rain, snow, storm, unknown]
+
+    Streak:
+      type: object
+      required: [current_days, best_days, freeze_available]
+      properties:
+        current_days:
+          type: integer
+          minimum: 0
+        best_days:
+          type: integer
+          minimum: 0
+        freeze_available:
+          type: boolean
+          description: Whether this week's automatic freeze is still unused.
+
+    Day:
+      type: object
+      required: [local_date, checkin, pool_status, quests, limits, points_today, points_week, streak]
+      properties:
+        local_date:
+          type: string
+          format: date
+        checkin:
+          oneOf:
+            - $ref: '#/components/schemas/Checkin'
+            - type: 'null'
+        pool_status:
+          $ref: '#/components/schemas/PoolStatus'
+        weather:
+          oneOf:
+            - $ref: '#/components/schemas/Weather'
+            - type: 'null'
+        quests:
+          type: array
+          description: Offered, taken, completed and expired quests of the day in pool order; replaced quests are omitted.
+          items:
+            $ref: '#/components/schemas/DayQuest'
+        limits:
+          type: object
+          required: [taken, max_taken, replacements_left]
+          properties:
+            taken:
+              type: integer
+              minimum: 0
+            max_taken:
+              type: integer
+              examples: [3]
+            replacements_left:
+              type: integer
+              minimum: 0
+        points_today:
+          type: integer
+        points_week:
+          type: integer
+        streak:
+          $ref: '#/components/schemas/Streak'
+
+    OwnQuestInput:
+      type: object
+      required: [title, category, duration_min]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/Category'
+        duration_min:
+          type: integer
+          minimum: 5
+          maximum: 480
+
+    CompleteQuestInput:
+      type: object
+      required: [visibility]
+      properties:
+        visibility:
+          $ref: '#/components/schemas/Visibility'
+        caption:
+          type: string
+          maxLength: 500
+          description: Only for `friends` visibility.
+        media_ids:
+          type: array
+          description: Required (1-3) for `friends` visibility, must be empty otherwise.
+          maxItems: 3
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+
+    Completion:
+      type: object
+      required: [quest, points_awarded, points_breakdown, streak, post_id]
+      properties:
+        quest:
+          $ref: '#/components/schemas/DayQuest'
+        points_awarded:
+          type: integer
+        points_breakdown:
+          type: object
+          required: [base, visibility_multiplier, streak_multiplier]
+          properties:
+            base:
+              type: integer
+            visibility_multiplier:
+              type: number
+            streak_multiplier:
+              type: number
+        streak:
+          $ref: '#/components/schemas/Streak'
+        post_id:
+          description: The feed post, or null for personal visibility.
+          type: [string, 'null']
+          format: uuid
+
+    UploadSlot:
+      type: object
+      required: [media_id, upload_url, headers, expires_at]
+      properties:
+        media_id:
+          type: string
+          format: uuid
+        upload_url:
+          type: string
+          format: uri
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Headers to send with the PUT.
+        expires_at:
+          type: string
+          format: date-time
+
+    UserSummary:
+      type: object
+      required: [id, first_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        avatar_url:
+          type: [string, 'null']
+          format: uri
+
+    Photo:
+      type: object
+      required: [id, url, width, height]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+          description: Short-lived signed URL; do not cache beyond its lifetime.
+        width:
+          type: integer
+        height:
+          type: integer
+
+    Post:
+      type: object
+      required: [id, author, kind, category, local_date, created_at, photos, like_count, liked_by_me, comment_count]
+      properties:
+        id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        kind:
+          type: string
+          enum: [proof, routine]
+          description: '`routine` shows only the category, without title, caption or photos.'
+        quest_title:
+          type: [string, 'null']
+        category:
+          $ref: '#/components/schemas/Category'
+        caption:
+          type: [string, 'null']
+        photos:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/Photo'
+        local_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+        like_count:
+          type: integer
+        liked_by_me:
+          type: boolean
+        comment_count:
+          type: integer
+
+    PostPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Post'
+        next_cursor:
+          type: [string, 'null']
+
+    LikeState:
+      type: object
+      required: [like_count, liked_by_me]
+      properties:
+        like_count:
+          type: integer
+        liked_by_me:
+          type: boolean
+
+    Comment:
+      type: object
+      required: [id, author, text, created_at, can_delete]
+      properties:
+        id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        can_delete:
+          type: boolean
+
+    CommentPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+        next_cursor:
+          type: [string, 'null']
+
+    Invite:
+      type: object
+      required: [code, url, expires_at]
+      properties:
+        code:
+          type: string
+        url:
+          type: string
+          format: uri
+          examples: ['https://t.me/ayda_quest_bot?startapp=k3J9xQ2mLp']
+        expires_at:
+          type: string
+          format: date-time
+
+    Friend:
+      allOf:
+        - $ref: '#/components/schemas/UserSummary'
+        - type: object
+          required: [since]
+          properties:
+            since:
+              type: string
+              format: date-time
+
+    LadderEntry:
+      type: object
+      required: [rank, user, points, streak_days, is_me]
+      properties:
+        rank:
+          type: integer
+          minimum: 1
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        points:
+          type: integer
+        streak_days:
+          type: integer
+        is_me:
+          type: boolean
+
+    Ladder:
+      type: object
+      required: [week_start, entries]
+      properties:
+        week_start:
+          type: string
+          format: date
+          description: Monday of the requesting user's local week.
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LadderEntry'
