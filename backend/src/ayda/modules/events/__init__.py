@@ -9,10 +9,13 @@ from ayda.modules.events.cities import (
     search_cities,
 )
 from ayda.modules.events.models import City
+from ayda.modules.events.weather import Weather, WeatherClient
 
 __all__ = [
     "City",
     "CityPoint",
+    "Weather",
+    "WeatherClient",
     "city_point",
     "get_cities",
     "get_city",
