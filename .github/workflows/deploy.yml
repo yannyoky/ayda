@@ -1,0 +1,140 @@
+name: Deploy
+
+# Images are built on every push to main. Production changes only when someone runs this
+# workflow by hand (Actions → Deploy → Run workflow) and a reviewer of the protected
+# `production` environment approves it. See docs/deploy.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'miniapp/**'
+      - 'contracts/**'
+      - 'infra/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - 'infra/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (a commit sha of main) to roll out; empty: this run''s commit'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Pull requests: the production Compose file is valid and the web image builds.
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate docker-compose.prod.yml
+        working-directory: deploy
+        run: |
+          sed 's/=$/=x/' env.prod.example > .env
+          AYDA_TAG=check docker compose -f docker-compose.prod.yml config -q
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/web.Dockerfile
+          push: false
+
+  images:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag == '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: ayda-backend
+            context: backend
+            file: backend/Dockerfile
+          - name: ayda-web
+            context: .
+            file: deploy/web.Dockerfile
+          - name: ayda-postgres
+            context: infra/postgres
+            file: infra/postgres/Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          build-args: APP_RELEASE=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}:main
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: images
+    if: >-
+      always() && github.event_name == 'workflow_dispatch' &&
+      (needs.images.result == 'success' || needs.images.result == 'skipped')
+    runs-on: ubuntu-latest
+    # Protected environment: required reviewer, secrets for the VPS live here only.
+    environment:
+      name: production
+      url: https://${{ vars.AYDA_DOMAIN }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      TAG: ${{ inputs.tag || github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_KEY" && test -n "$KNOWN_HOSTS" || { echo "production secrets are not set"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Copy Compose files
+        env:
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+        run: scp deploy/docker-compose.prod.yml deploy/postgres-init.sh "$TARGET:/opt/ayda/"
+      - name: Roll out
+        env:
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          ssh "$TARGET" "TAG=$TAG GHCR_USER=$GHCR_USER GHCR_TOKEN=$GHCR_TOKEN sh -s" <<'SCRIPT'
+          set -eu
+          cd /opt/ayda
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          export AYDA_TAG="$TAG"
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          docker image prune -f
+          docker logout ghcr.io
+          echo "$TAG" > deployed-tag
+          SCRIPT
+      - name: Check health
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 6 --retry-all-errors "https://${{ vars.AYDA_DOMAIN }}/api/v1/health"

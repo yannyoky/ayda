@@ -1,0 +1,7 @@
+**/node_modules
+**/dist
+**/.venv
+backend
+android
+ios
+.git
