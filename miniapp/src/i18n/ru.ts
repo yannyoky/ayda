@@ -107,6 +107,28 @@ export const ru = {
   },
   feed: {
     title: 'Лента',
+    empty: 'Пока пусто. Выполни квест с фото или позови друзей.',
+    inviteCta: 'Позвать друзей',
+    routine: 'Рутина',
+    routineHidden: 'Квест скрыт, видно только, что он выполнен',
+    like: (n: number) => `Нравится, ${n}`,
+    unlike: (n: number) => `Убрать лайк, ${n}`,
+    comments: (n: number) => `Комментарии, ${n}`,
+    delete: 'Удалить пост',
+    deleteConfirm: 'Удалить пост? Фото удалятся, очки останутся.',
+    more: 'Показать ещё',
+    me: 'Ты',
+    photo: (n: number, total: number) => `Фото ${n} из ${total}`,
+  },
+  comments: {
+    title: 'Комментарии',
+    empty: 'Пока никто не написал',
+    placeholder: 'Написать комментарий',
+    send: 'Отправить',
+    delete: 'Удалить комментарий',
+  },
+  time: {
+    justNow: 'только что',
   },
   friends: {
     title: 'Друзья',

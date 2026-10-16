@@ -23,3 +23,17 @@ export function plural(n: number, forms: readonly [string, string, string]): str
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1]
   return forms[2]
 }
+
+const relative = new Intl.RelativeTimeFormat('ru-RU', { numeric: 'auto' })
+const shortDate = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
+
+/** '20 минут назад', 'вчера', or a date for anything older than a week. */
+export function formatAgo(iso: string, now = Date.now()): string {
+  const diff = (Date.parse(iso) - now) / 1000
+  const abs = Math.abs(diff)
+  if (abs < 60) return ru.time.justNow
+  if (abs < 3600) return relative.format(Math.round(diff / 60), 'minute')
+  if (abs < 86_400) return relative.format(Math.round(diff / 3600), 'hour')
+  if (abs < 7 * 86_400) return relative.format(Math.round(diff / 86_400), 'day')
+  return shortDate.format(new Date(iso))
+}

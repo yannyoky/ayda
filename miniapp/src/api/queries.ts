@@ -1,5 +1,5 @@
 // TanStack Query keys and hooks over the generated client. Screens use these, not `api` directly.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query'
 import { api, ApiError, setAccessToken, unwrap, type Schemas } from './client'
 import { initDataRaw } from '../telegram/webapp'
 
@@ -206,6 +206,88 @@ export function useCompleteQuest() {
       void client.invalidateQueries({ queryKey: dayKey })
       void client.invalidateQueries({ queryKey: ['feed'] })
       void client.invalidateQueries({ queryKey: ['ladder'] })
+    },
+  })
+}
+
+// ---- social: feed, likes, comments (US-13, US-14) ----
+
+export const feedKey = ['feed'] as const
+
+export function useFeed() {
+  return useInfiniteQuery({
+    queryKey: feedKey,
+    queryFn: ({ pageParam }) => unwrap(api.GET('/feed', { params: { query: { limit: 20, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor,
+  })
+}
+
+type FeedData = InfiniteData<Schemas['PostPage'], string | null>
+
+function patchPost(client: QueryClient, id: string, patch: (p: Schemas['Post']) => Schemas['Post'] | null) {
+  client.setQueryData<FeedData>(feedKey, (data) =>
+    data
+      ? {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            items: page.items.flatMap((p) => {
+              if (p.id !== id) return [p]
+              const next = patch(p)
+              return next ? [next] : []
+            }),
+          })),
+        }
+      : data,
+  )
+}
+
+export function useToggleLike() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, like }: { id: string; like: boolean }) =>
+      unwrap(like ? api.PUT('/posts/{post_id}/like', { params: { path: { post_id: id } } }) : api.DELETE('/posts/{post_id}/like', { params: { path: { post_id: id } } })),
+    onMutate: ({ id, like }) =>
+      patchPost(client, id, (p) => (p.liked_by_me === like ? p : { ...p, liked_by_me: like, like_count: p.like_count + (like ? 1 : -1) })),
+    onSuccess: (state, { id }) => patchPost(client, id, (p) => ({ ...p, ...state })),
+    onError: () => client.invalidateQueries({ queryKey: feedKey }),
+  })
+}
+
+export function useDeletePost() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => unwrap(api.DELETE('/posts/{post_id}', { params: { path: { post_id: id } } })),
+    onSuccess: (_r, id) => patchPost(client, id, () => null),
+  })
+}
+
+export function useComments(postId: string) {
+  return useQuery({
+    queryKey: ['comments', postId],
+    queryFn: () => unwrap(api.GET('/posts/{post_id}/comments', { params: { path: { post_id: postId }, query: { limit: 50 } } })),
+  })
+}
+
+export function useAddComment(postId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (text: string) => unwrap(api.POST('/posts/{post_id}/comments', { params: { path: { post_id: postId } }, body: { text } })),
+    onSuccess: () => {
+      patchPost(client, postId, (p) => ({ ...p, comment_count: p.comment_count + 1 }))
+      return client.invalidateQueries({ queryKey: ['comments', postId] })
+    },
+  })
+}
+
+export function useDeleteComment(postId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (commentId: string) => unwrap(api.DELETE('/comments/{comment_id}', { params: { path: { comment_id: commentId } } })),
+    onSuccess: () => {
+      patchPost(client, postId, (p) => ({ ...p, comment_count: Math.max(0, p.comment_count - 1) }))
+      return client.invalidateQueries({ queryKey: ['comments', postId] })
     },
   })
 }
