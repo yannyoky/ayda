@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { FeedScreen } from '../screens/FeedScreen'
 import { FriendsScreen } from '../screens/FriendsScreen'
+import { PickScreen } from '../screens/PickScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { TodayScreen } from '../screens/TodayScreen'
 import { Bootstrap } from './Bootstrap'
@@ -22,6 +23,7 @@ function createRouter(initialPath: string) {
           { path: 'profile', element: <ProfileScreen /> },
         ],
       },
+      { path: 'pick', element: <PickScreen /> },
     ],
     { initialEntries: [initialPath] },
   )
