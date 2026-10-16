@@ -3,3 +3,6 @@
 openapi.yaml:
   operation-4xx-response:
     - '#/paths/~1health/get/responses'
+  # Published over Centrifugo, not returned by an endpoint (ADR 0007).
+  no-unused-components:
+    - '#/components/schemas/RealtimeEvent'

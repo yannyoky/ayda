@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Ayda API
-  version: 0.1.0
-  summary: MVP milestone M1 contract (US-01..US-16)
+  version: 0.2.0
+  summary: MVP contract, milestone M1 and M2 direct messages (US-01..US-17)
   description: |
     Contract-first API of the Ayda backend (ADR 0004). The Mini App and native clients
     generate their API code from this file; the backend must conform to it.
@@ -34,6 +34,11 @@ tags:
     description: Photo uploads for proofs.
   - name: social
     description: Invites, friends, feed, likes, comments and the weekly ladder.
+  - name: chat
+    description: |
+      Direct messages between friends and co-op quest chats (M2). New events arrive over
+      Centrifugo on the user's personal channel (`RealtimeEvent`, ADR 0007); REST stays the
+      source of truth after a reconnect.
   - name: system
     description: Service health.
 
@@ -838,6 +843,217 @@ paths:
         '401':
           $ref: '#/components/responses/Problem'
 
+  /realtime/token:
+    post:
+      tags: [chat]
+      operationId: getRealtimeToken
+      summary: Centrifugo connection token for the user's personal channel (ADR 0007)
+      description: |
+        Connect to `url` with `token`, subscribe to `channel` with recovery on, and call this
+        again when Centrifugo asks to refresh the token. Events on the channel are
+        `RealtimeEvent` objects.
+      responses:
+        '200':
+          description: Token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RealtimeToken'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '503':
+          description: Realtime is not configured on this server
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /conversations:
+    get:
+      tags: [chat]
+      operationId: listConversations
+      summary: The user's chats with unread counts, latest activity first (US-17)
+      responses:
+        '200':
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /conversations/direct:
+    post:
+      tags: [chat]
+      operationId: openDirectConversation
+      summary: Open the direct chat with a friend, creating it on first use (idempotent, US-17)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: The direct conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: Not friends (only friends can start a chat)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /conversations/{conversation_id}:
+    get:
+      tags: [chat]
+      operationId: getConversation
+      summary: One conversation of the user
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: Conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /conversations/{conversation_id}/messages:
+    get:
+      tags: [chat]
+      operationId: listMessages
+      summary: Message history, newest first; pass `next_cursor` for older pages (US-17)
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePage'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [chat]
+      operationId: sendMessage
+      summary: Send a message; members get it over Centrifugo (US-17)
+      description: |
+        `client_id` makes retries safe: a second request with the same `client_id` returns the
+        message saved the first time with status 200. The bot tells offline members that a new
+        message arrived, without its text.
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageInput'
+      responses:
+        '201':
+          description: Saved and sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '200':
+          description: Already saved earlier with this `client_id`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: The chat is closed for new messages (the friendship was removed)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+
+  /conversations/{conversation_id}/messages/{message_id}:
+    delete:
+      tags: [chat]
+      operationId: deleteMessage
+      summary: Delete own message for everyone
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/MessageId'
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /conversations/{conversation_id}/read:
+    post:
+      tags: [chat]
+      operationId: markConversationRead
+      summary: Mark messages up to `last_read_message_id` as read (never moves back)
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [last_read_message_id]
+              properties:
+                last_read_message_id:
+                  type: integer
+                  format: int64
+      responses:
+        '204':
+          description: Saved
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     bearer:
@@ -867,6 +1083,20 @@ components:
       schema:
         type: string
         format: uuid
+    ConversationId:
+      name: conversation_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MessageId:
+      name: message_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     HabitId:
       name: habit_id
       in: path
@@ -1464,3 +1694,174 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LadderEntry'
+
+    RealtimeToken:
+      type: object
+      required: [token, expires_at, url, channel]
+      properties:
+        token:
+          type: string
+          description: Centrifugo connection JWT.
+        expires_at:
+          type: string
+          format: date-time
+        url:
+          type: string
+          description: Centrifugo WebSocket endpoint.
+          examples: ['wss://ayda.example/connection/websocket']
+        channel:
+          type: string
+          description: The user's personal channel.
+          examples: ['personal:#01890a5d-ac96-774b-bcce-b302099a8057']
+
+    ConversationKind:
+      type: string
+      enum: [dm, coop]
+
+    Conversation:
+      type: object
+      required: [id, kind, title, members, can_send, last_message, unread_count, last_read_message_id, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/ConversationKind'
+        title:
+          type: string
+          description: The friend's name for `dm`, the quest title for `coop`.
+        peer:
+          description: The other person in a `dm`; null for `coop`.
+          oneOf:
+            - $ref: '#/components/schemas/UserSummary'
+            - type: 'null'
+        coop_id:
+          type: [string, 'null']
+          format: uuid
+        members:
+          type: array
+          description: Everyone in the chat except the user.
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        can_send:
+          type: boolean
+          description: False once a `dm` friendship is removed; history stays readable.
+        last_message:
+          oneOf:
+            - $ref: '#/components/schemas/Message'
+            - type: 'null'
+        unread_count:
+          type: integer
+          minimum: 0
+        last_read_message_id:
+          type: [integer, 'null']
+          format: int64
+        updated_at:
+          type: string
+          format: date-time
+          description: Time of the last message, or of creation for an empty chat.
+
+    MessageInput:
+      type: object
+      required: [text, client_id]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        client_id:
+          type: string
+          format: uuid
+          description: Generated by the client once per message; makes retries idempotent.
+
+    Message:
+      type: object
+      required: [id, conversation_id, author, text, created_at, client_id]
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Grows with time inside a conversation.
+        conversation_id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        client_id:
+          type: [string, 'null']
+          format: uuid
+
+    MessagePage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        next_cursor:
+          type: [string, 'null']
+
+    RealtimeEvent:
+      description: |
+        A publication on the personal channel (ADR 0007). Clients ignore unknown `type`
+        values, so new kinds of events can be added without breaking them.
+      oneOf:
+        - $ref: '#/components/schemas/MessageCreatedEvent'
+        - $ref: '#/components/schemas/MessageDeletedEvent'
+        - $ref: '#/components/schemas/ConversationReadEvent'
+      discriminator:
+        propertyName: type
+        mapping:
+          message.created: '#/components/schemas/MessageCreatedEvent'
+          message.deleted: '#/components/schemas/MessageDeletedEvent'
+          conversation.read: '#/components/schemas/ConversationReadEvent'
+
+    MessageCreatedEvent:
+      type: object
+      required: [type, conversation_id, message]
+      properties:
+        type:
+          type: string
+          const: message.created
+        conversation_id:
+          type: string
+          format: uuid
+        message:
+          $ref: '#/components/schemas/Message'
+
+    MessageDeletedEvent:
+      type: object
+      required: [type, conversation_id, message_id]
+      properties:
+        type:
+          type: string
+          const: message.deleted
+        conversation_id:
+          type: string
+          format: uuid
+        message_id:
+          type: integer
+          format: int64
+
+    ConversationReadEvent:
+      type: object
+      required: [type, conversation_id, user_id, last_read_message_id]
+      properties:
+        type:
+          type: string
+          const: conversation.read
+        conversation_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        last_read_message_id:
+          type: integer
+          format: int64
