@@ -12,7 +12,7 @@ from ayda.api.schemas import (
     Me,
     ProfileUpdate,
 )
-from ayda.app import profile
+from ayda.app import privacy, profile
 from ayda.core.problems import Problem
 from ayda.modules import auth, habits
 
@@ -22,6 +22,13 @@ router = APIRouter(tags=["profile"])
 @router.get("/me", operation_id="getMe")
 async def get_me(user: CurrentUser, session: DbSession) -> Me:
     return await profile.build_me(session, user)
+
+
+@router.delete("/me", operation_id="requestAccountDeletion", status_code=202)
+async def request_account_deletion(user: CurrentUser, session: DbSession) -> Response:
+    await privacy.request_deletion(session, user)
+    await session.commit()
+    return Response(status_code=202)
 
 
 @router.patch("/me/profile", operation_id="updateProfile")

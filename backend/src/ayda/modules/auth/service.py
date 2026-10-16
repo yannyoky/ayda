@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,3 +68,14 @@ async def mark_bot_reachable(session: AsyncSession, telegram_id: int, reachable:
     await session.execute(
         update(User).where(User.telegram_id == telegram_id).values(bot_reachable=reachable)
     )
+
+
+async def request_deletion(session: AsyncSession, user: User) -> None:
+    """Sign-out everywhere is immediate: tokens of a user with this mark are rejected."""
+    if user.deletion_requested_at is None:
+        user.deletion_requested_at = datetime.now(UTC)
+
+
+async def delete_user(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """The last step of erasure; consents go with the user (ON DELETE CASCADE)."""
+    await session.execute(delete(User).where(User.id == user_id))

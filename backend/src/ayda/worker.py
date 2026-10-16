@@ -1,7 +1,6 @@
 """Background worker: `python -m ayda.worker`. Same codebase and settings as the API."""
 
 import asyncio
-import logging
 import signal
 import uuid
 from datetime import datetime
@@ -10,11 +9,12 @@ from typing import Any
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.app import notifications, reminders
+from ayda.app import notifications, privacy, reminders
 from ayda.bot.sender import AiogramSender
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
 from ayda.core.jobs import Handler, Periodic, Worker
+from ayda.core.logging import configure_logging
 from ayda.core.storage import Storage
 from ayda.modules import social
 
@@ -47,7 +47,14 @@ def build_worker(
     async def delete_files(session: AsyncSession, payload: dict[str, Any]) -> None:
         await storage.delete([str(k) for k in payload["keys"]])
 
+    async def erase_account(session: AsyncSession, payload: dict[str, Any]) -> None:
+        await privacy.erase_account(session, uuid.UUID(payload["account"]))
+
+    async def purge_checkin_texts(session: AsyncSession, now: datetime) -> None:
+        await privacy.purge_old_checkin_texts(session, now)
+
     handlers: dict[str, Handler] = {
+        privacy.ERASE_JOB: erase_account,
         social.PROCESS_JOB: process_media,
         social.DELETE_FILES_JOB: delete_files,
         notifications.SEND_JOB: send_notification,
@@ -67,6 +74,7 @@ def build_worker(
         Periodic("reminders", 60, schedule_reminders),
         Periodic("digests", 300, schedule_digests),
         Periodic("weekly", 60, schedule_weekly),
+        Periodic("checkins.purge_texts", 3600, purge_checkin_texts),
     ]
     return Worker(db.sessionmaker, handlers, periodic)
 
@@ -85,5 +93,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     asyncio.run(main())

@@ -217,3 +217,11 @@ class Worker:
                 pass
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stopping.wait(), timeout=self._poll_s)
+
+
+async def cancel_for_user(session: AsyncSession, user_id: str) -> None:
+    """Drop queued jobs addressed to a user (account erasure)."""
+    await session.execute(
+        text("DELETE FROM jobs.jobs WHERE status = 'queued' AND payload->>'user_id' = :uid"),
+        {"uid": user_id},
+    )
