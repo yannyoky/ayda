@@ -8,12 +8,18 @@ describe('sign-in with Telegram (US-01)', () => {
   it('sends the raw initData to the backend', async () => {
     fakeTelegram('query_id=AAE&user=%7B%7D&hash=abc')
     let sent: unknown
+    const unauthorized: string[] = []
     server.events.on('request:start', async ({ request }) => {
       if (request.url.endsWith('/auth/telegram')) sent = await request.clone().json()
+    })
+    server.events.on('response:mocked', ({ request, response }) => {
+      if (response.status === 401) unauthorized.push(request.url)
     })
     renderApp()
     expect(await screen.findByRole('heading', { level: 1, name: 'Привет, Саша' })).toBeInTheDocument()
     expect(sent).toEqual({ init_data: 'query_id=AAE&user=%7B%7D&hash=abc' })
+    // Nothing is requested before the session exists
+    expect(unauthorized).toEqual([])
     server.events.removeAllListeners()
   })
 

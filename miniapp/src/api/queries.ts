@@ -40,10 +40,12 @@ export function useSession() {
   })
 }
 
-export function useMe() {
+/** `signedIn: false` holds the request until the session exists (sign-in also fills this cache). */
+export function useMe({ signedIn = true }: { signedIn?: boolean } = {}) {
   return useQuery({
     queryKey: keys.me,
     queryFn: () => unwrap(api.GET('/me')),
+    enabled: signedIn,
   })
 }
 
