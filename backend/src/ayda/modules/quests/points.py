@@ -176,3 +176,33 @@ async def complete_quest(
     quest.completed_at = now
     await session.flush()
     return quest, await award(session, quest, visibility, now)
+
+
+async def weekly_points(
+    session: AsyncSession, weeks: dict[uuid.UUID, date]
+) -> dict[uuid.UUID, int]:
+    """Points per user for the week starting on the given (user's local) Monday."""
+    if not weeks:
+        return {}
+    rows = await session.execute(
+        select(PointsEntry.user_id, PointsEntry.week_start, func.sum(PointsEntry.points))
+        .where(
+            PointsEntry.user_id.in_(list(weeks)), PointsEntry.week_start.in_(set(weeks.values()))
+        )
+        .group_by(PointsEntry.user_id, PointsEntry.week_start)
+    )
+    out = dict.fromkeys(weeks, 0)
+    for user_id, week, points in rows:
+        if weeks[user_id] == week:
+            out[user_id] = int(points)
+    return out
+
+
+async def streak_views(
+    session: AsyncSession, today: dict[uuid.UUID, date]
+) -> dict[uuid.UUID, StreakView]:
+    rows = {
+        r.user_id: r
+        for r in await session.scalars(select(Streak).where(Streak.user_id.in_(list(today))))
+    }
+    return {uid: view(_state(rows.get(uid)), day) for uid, day in today.items()}
