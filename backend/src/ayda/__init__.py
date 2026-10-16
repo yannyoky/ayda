@@ -1,0 +1,1 @@
+"""Ayda backend: modular monolith."""
