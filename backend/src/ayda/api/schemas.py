@@ -275,3 +275,44 @@ class RealtimeToken(BaseModel):
     expires_at: datetime
     url: str
     channel: str
+
+
+class Message(BaseModel):
+    id: int
+    conversation_id: uuid.UUID
+    author: UserSummary
+    text: str
+    created_at: datetime
+    client_id: uuid.UUID | None
+
+
+class MessageInput(BaseModel):
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    client_id: uuid.UUID
+
+
+class MessagePage(BaseModel):
+    items: list[Message]
+    next_cursor: str | None
+
+
+class Conversation(BaseModel):
+    id: uuid.UUID
+    kind: Literal["dm", "coop"]
+    title: str
+    peer: UserSummary | None
+    coop_id: uuid.UUID | None
+    members: list[UserSummary]
+    can_send: bool
+    last_message: Message | None
+    unread_count: int
+    last_read_message_id: int | None
+    updated_at: datetime
+
+
+class DirectConversationInput(BaseModel):
+    user_id: uuid.UUID
+
+
+class ReadInput(BaseModel):
+    last_read_message_id: int = Field(ge=0)

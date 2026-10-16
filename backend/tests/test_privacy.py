@@ -87,6 +87,17 @@ async def test_account_deletion_erases_and_anonymizes(
     await client.put(f"/posts/{bob_post}/like", headers=alice.headers)
     await client.post(f"/posts/{bob_post}/comments", json={"text": "ура"}, headers=alice.headers)
     await client.post("/invites", headers=alice.headers)
+    dm = (
+        await client.post(
+            "/conversations/direct", json={"user_id": bob.user_id}, headers=alice.headers
+        )
+    ).json()
+    for user, body in ((alice, SECRET), (bob, "ответ")):
+        await client.post(
+            f"/conversations/{dm['id']}/messages",
+            json={"text": body, "client_id": str(uuid.uuid4())},
+            headers=user.headers,
+        )
 
     response = await client.delete("/me", headers=alice.headers)
 
@@ -114,6 +125,8 @@ async def test_account_deletion_erases_and_anonymizes(
         ("social.likes", "user_id"),
         ("social.media", "owner_id"),
         ("social.invites", "inviter_id"),
+        ("chat.messages", "author_id"),
+        ("chat.members", "user_id"),
         ("analytics.events", "user_id"),
     ]:
         left = await count(
@@ -142,6 +155,11 @@ async def test_account_deletion_erases_and_anonymizes(
         bob_comments = await session.scalar(select(func.count()).select_from(social.Comment))
         files = list(await session.scalars(select(Job).where(Job.kind == "media.delete_files")))
     assert bob_left is not None and bob_comments == 0
+    # Bob keeps his side of the chat; it can't take new messages.
+    bob_chat = (await client.get(f"/conversations/{dm['id']}", headers=bob.headers)).json()
+    assert bob_chat["can_send"] is False and bob_chat["peer"] is None
+    assert bob_chat["title"] == "Удалённый пользователь"
+    assert bob_chat["last_message"]["text"] == "ответ"
     # No S3 here: the file deletion is queued and retried by the worker.
     assert files and any(k.startswith("photos/") for k in files[0].payload["keys"])
 

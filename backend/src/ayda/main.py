@@ -4,7 +4,19 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
-from ayda.api import auth, days, feed, friends, ladder, me, media, realtime, reference, system
+from ayda.api import (
+    auth,
+    chat,
+    days,
+    feed,
+    friends,
+    ladder,
+    me,
+    media,
+    realtime,
+    reference,
+    system,
+)
 from ayda.app.day import DayTools
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
@@ -59,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         feed.router,
         ladder.router,
         realtime.router,
+        chat.router,
     ):
         app.include_router(router, prefix=API_PREFIX)
     return app

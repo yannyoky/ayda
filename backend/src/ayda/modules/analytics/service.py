@@ -11,7 +11,7 @@ from ayda.modules.analytics.models import Event
 
 
 class EventType(StrEnum):
-    """M1 event types (docs/prd.md, "Events"). Bump SCHEMA_VERSIONS when a payload changes."""
+    """Event types (docs/prd.md, "Events"). Bump SCHEMA_VERSIONS when a payload changes."""
 
     CHECKIN_SUBMITTED = "checkin_submitted"
     POOL_SHOWN = "pool_shown"
@@ -22,6 +22,7 @@ class EventType(StrEnum):
     REACTION_ADDED = "reaction_added"
     REMINDER_SENT = "reminder_sent"
     REMINDER_OPENED = "reminder_opened"
+    MESSAGE_SENT = "message_sent"
 
 
 SCHEMA_VERSIONS: dict[EventType, int] = dict.fromkeys(EventType, 1)
