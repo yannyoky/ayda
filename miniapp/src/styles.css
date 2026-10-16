@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens from docs/design/themes.md. Graphite is the default theme;
+ * [data-theme='plum'] on <html> swaps the palette at runtime (US-03).
+ */
+@theme {
+  --color-bg: #e9e9e7;
+  --color-surface: #ffffff;
+  --color-plate: #222326;
+  --color-plate-2: #34363b;
+  --color-ink: #18191b;
+  --color-muted: #5b5d62;
+  --color-track: #d6d6d3;
+  --color-accent: #ff5fa2;
+  --color-on-plate: #ffffff;
+  --color-on-accent: #18191b;
+
+  --font-display: 'Unbounded', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 28px;
+  --radius-tile: 14px;
+  --radius-field: 16px;
+  --radius-bar: 32px;
+}
+
+[data-theme='plum'] {
+  --color-bg: #f1e9e4;
+  --color-surface: #ffffff;
+  --color-plate: #3b1e3f;
+  --color-plate-2: #553258;
+  --color-ink: #2a1830;
+  --color-muted: #6e5a69;
+  --color-track: #e6d7d2;
+  --color-accent: #ff9e7a;
+  --color-on-plate: #ffffff;
+  --color-on-accent: #2a1830;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}

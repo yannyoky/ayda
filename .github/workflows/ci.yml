@@ -26,6 +26,7 @@ jobs:
               - 'backend/**'
             miniapp:
               - 'miniapp/**'
+              - 'contracts/openapi.yaml' # the Mini App's API client is generated from it
             contracts:
               - 'contracts/**'
       # Skip a component until its project files exist
@@ -65,9 +66,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: miniapp/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm run build
 
   contracts:
     needs: changes
