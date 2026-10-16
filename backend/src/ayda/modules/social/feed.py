@@ -205,3 +205,58 @@ async def delete_post(session: AsyncSession, post: Post, now: datetime) -> list[
     post.quest_title = None
     await session.flush()
     return keys
+
+
+async def reaction_recipients(
+    session: AsyncSession, start: datetime, end: datetime
+) -> set[uuid.UUID]:
+    """Authors of live posts that got likes or comments from others in [start, end)."""
+    likes = (
+        select(Post.author_id)
+        .join(Like, Like.post_id == Post.id)
+        .where(Like.created_at >= start, Like.created_at < end, Like.user_id != Post.author_id)
+    )
+    comments = (
+        select(Post.author_id)
+        .join(Comment, Comment.post_id == Post.id)
+        .where(
+            Comment.created_at >= start,
+            Comment.created_at < end,
+            Comment.author_id != Post.author_id,
+            Comment.deleted_at.is_(None),
+        )
+    )
+    rows = await session.scalars(likes.where(Post.deleted_at.is_(None)).union(comments))
+    return set(rows)
+
+
+async def reaction_counts(
+    session: AsyncSession, author_id: uuid.UUID, start: datetime, end: datetime
+) -> tuple[int, int]:
+    """(likes, comments) from others on the author's live posts in [start, end)."""
+    likes = await session.scalar(
+        select(func.count())
+        .select_from(Like)
+        .join(Post, Like.post_id == Post.id)
+        .where(
+            Post.author_id == author_id,
+            Post.deleted_at.is_(None),
+            Like.user_id != author_id,
+            Like.created_at >= start,
+            Like.created_at < end,
+        )
+    )
+    comments = await session.scalar(
+        select(func.count())
+        .select_from(Comment)
+        .join(Post, Comment.post_id == Post.id)
+        .where(
+            Post.author_id == author_id,
+            Post.deleted_at.is_(None),
+            Comment.author_id != author_id,
+            Comment.deleted_at.is_(None),
+            Comment.created_at >= start,
+            Comment.created_at < end,
+        )
+    )
+    return likes or 0, comments or 0

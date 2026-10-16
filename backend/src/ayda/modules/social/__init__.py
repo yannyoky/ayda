@@ -14,6 +14,8 @@ from ayda.modules.social.feed import (
     like,
     post_photos,
     post_stats,
+    reaction_counts,
+    reaction_recipients,
     unlike,
     visible_post,
 )
@@ -82,6 +84,8 @@ __all__ = [
     "post_photos",
     "post_stats",
     "process",
+    "reaction_counts",
+    "reaction_recipients",
     "remove_friend",
     "unlike",
     "visible_post",
