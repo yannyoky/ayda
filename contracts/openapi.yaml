@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Ayda API
   version: 0.2.0
-  summary: MVP contract, milestone M1 and M2 direct messages (US-01..US-17)
+  summary: MVP contract, milestones M1 and M2 (US-01..US-18)
   description: |
     Contract-first API of the Ayda backend (ADR 0004). The Mini App and native clients
     generate their API code from this file; the backend must conform to it.
@@ -34,6 +34,10 @@ tags:
     description: Photo uploads for proofs.
   - name: social
     description: Invites, friends, feed, likes, comments and the weekly ladder.
+  - name: coop
+    description: |
+      Co-op quests at a distance (US-18): invite 1-3 friends to a taken quest; each does it
+      on their own; if every participant completes it, each gets +50%.
   - name: chat
     description: |
       Direct messages between friends and co-op quest chats (M2). New events arrive over
@@ -542,6 +546,156 @@ paths:
                 $ref: '#/components/schemas/Problem'
         '422':
           $ref: '#/components/responses/Problem'
+
+  /day-quests/{quest_id}/coop:
+    post:
+      tags: [coop]
+      operationId: createCoop
+      summary: Invite 1-3 friends to do a taken quest together, each on their own (US-18)
+      description: |
+        The quest must be the user's own taken quest of today that is not part of a co-op yet.
+        Friends get a bot message and a `coop.updated` event; the co-op gets a shared chat.
+      parameters:
+        - $ref: '#/components/parameters/QuestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [friend_ids]
+              properties:
+                friend_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 3
+                  uniqueItems: true
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: Someone in `friend_ids` is not a friend
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The quest is not taken, already completed or expired, or already a co-op
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /coops:
+    get:
+      tags: [coop]
+      operationId: listCoops
+      summary: Co-op quests of the user that are not over yet, invitations first (US-18)
+      description: Declined invitations are left out.
+      responses:
+        '200':
+          description: Co-op quests
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /coops/{coop_id}:
+    get:
+      tags: [coop]
+      operationId: getCoop
+      summary: One co-op quest the user owns or is invited to
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+      responses:
+        '200':
+          description: Co-op quest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /coops/{coop_id}/accept:
+    post:
+      tags: [coop]
+      operationId: acceptCoop
+      summary: Join a co-op quest; it is added to today's quests as taken (US-18)
+      description: Counts toward the daily limit of taken quests. Joins the co-op chat.
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+      responses:
+        '200':
+          description: Joined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Already answered, or the daily limit of taken quests is reached
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '410':
+          description: The co-op quest is over
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /coops/{coop_id}/decline:
+    post:
+      tags: [coop]
+      operationId: declineCoop
+      summary: Decline an invitation to a co-op quest
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+      responses:
+        '200':
+          description: Declined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Already answered
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
   /media/uploads:
     post:
@@ -1083,6 +1237,13 @@ components:
       schema:
         type: string
         format: uuid
+    CoopId:
+      name: coop_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ConversationId:
       name: conversation_id
       in: path
@@ -1339,7 +1500,8 @@ components:
 
     QuestSource:
       type: string
-      enum: [catalog, checkin_task, custom]
+      enum: [catalog, checkin_task, custom, coop]
+      description: '`coop`: joined from a friend''s co-op invitation.'
 
     DayQuest:
       type: object
@@ -1375,6 +1537,11 @@ components:
             - type: 'null'
         points_awarded:
           type: [integer, 'null']
+          description: Includes the co-op bonus once it is awarded.
+        coop_id:
+          type: [string, 'null']
+          format: uuid
+          description: The co-op this quest belongs to (as its owner or a participant).
         expires_at:
           type: string
           format: date-time
@@ -1508,6 +1675,12 @@ components:
           description: The feed post, or null for personal visibility.
           type: [string, 'null']
           format: uuid
+        coop_bonus:
+          type: integer
+          minimum: 0
+          description: |
+            Co-op bonus awarded to the user with this completion (+50% of `points_awarded`)
+            when it was the last one the co-op waited for; 0 otherwise.
 
     UploadSlot:
       type: object
@@ -1714,6 +1887,59 @@ components:
           description: The user's personal channel.
           examples: ['personal:#01890a5d-ac96-774b-bcce-b302099a8057']
 
+    CoopStatus:
+      type: string
+      enum: [owner, invited, accepted, declined]
+
+    CoopParticipant:
+      type: object
+      required: [user, status, completed]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        status:
+          $ref: '#/components/schemas/CoopStatus'
+        completed:
+          type: boolean
+
+    Coop:
+      type: object
+      required: [id, title, category, duration_min, owner, my_status, participants, my_quest_id, conversation_id, expires_at, bonus_awarded]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        duration_min:
+          type: integer
+        owner:
+          $ref: '#/components/schemas/UserSummary'
+        my_status:
+          $ref: '#/components/schemas/CoopStatus'
+        participants:
+          type: array
+          description: Everyone invited, the owner first; declined ones included.
+          items:
+            $ref: '#/components/schemas/CoopParticipant'
+        my_quest_id:
+          type: [string, 'null']
+          format: uuid
+          description: The user's day quest for this co-op, once owner or accepted.
+        conversation_id:
+          type: [string, 'null']
+          format: uuid
+          description: The shared chat, for the owner and accepted participants.
+        expires_at:
+          type: string
+          format: date-time
+          description: Invitations can be accepted until then (the end of the owner's day).
+        bonus_awarded:
+          type: boolean
+          description: Every participant who joined has completed it, and the +50% was awarded.
+
     ConversationKind:
       type: string
       enum: [dm, coop]
@@ -1815,12 +2041,14 @@ components:
         - $ref: '#/components/schemas/MessageCreatedEvent'
         - $ref: '#/components/schemas/MessageDeletedEvent'
         - $ref: '#/components/schemas/ConversationReadEvent'
+        - $ref: '#/components/schemas/CoopUpdatedEvent'
       discriminator:
         propertyName: type
         mapping:
           message.created: '#/components/schemas/MessageCreatedEvent'
           message.deleted: '#/components/schemas/MessageDeletedEvent'
           conversation.read: '#/components/schemas/ConversationReadEvent'
+          coop.updated: '#/components/schemas/CoopUpdatedEvent'
 
     MessageCreatedEvent:
       type: object
@@ -1865,3 +2093,15 @@ components:
         last_read_message_id:
           type: integer
           format: int64
+
+    CoopUpdatedEvent:
+      type: object
+      required: [type, coop_id]
+      description: A co-op the user is in changed (invited, joined, declined, completed, bonus); reload it.
+      properties:
+        type:
+          type: string
+          const: coop.updated
+        coop_id:
+          type: string
+          format: uuid
