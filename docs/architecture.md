@@ -183,7 +183,9 @@ Personal quests never create a post.
 
 ### chat (M2)
 
-**chat.conversations**: id, kind (`dm` \| `coop`), coop_id null, created_at. **chat.members**: conversation_id FK, user_id, last_read_message_id bigint null; PK both. **chat.messages**: id bigint identity, conversation_id FK, author_id, text varchar(2000), created_at, deleted_at null.
+**chat.conversations**: id, kind (`dm` \| `coop`), dm_key text unique null (the two user ids ordered, so a pair has one chat), coop_id unique null, created_at, last_message_at null. **chat.members**: conversation_id FK, user_id, last_read_message_id bigint null, joined_at; PK both. **chat.messages**: id bigint identity, conversation_id FK, author_id, client_id uuid null (unique with author_id: retries are saved once), text varchar(2000), created_at, deleted_at null (a deleted message loses its text at once).
+
+Only friends can open a DM; once the friendship is removed the chat stays readable but takes no new messages, and nothing more is published to the former friend. Members get each new message over Centrifugo; the bot sends "Тебе пишет <name>" a minute later, at most once per chat and 10 minutes, and only if the message is still unread. A user can send at most 30 messages a minute.
 
 ### events
 

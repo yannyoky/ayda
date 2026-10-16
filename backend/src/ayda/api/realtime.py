@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from ayda.api.deps import AppSettings, CurrentUser
 from ayda.api.schemas import RealtimeToken
@@ -13,6 +14,9 @@ router = APIRouter(tags=["chat"])
 def get_realtime(request: Request) -> Realtime:
     realtime: Realtime = request.app.state.realtime
     return realtime
+
+
+RealtimeDep = Annotated[Realtime, Depends(get_realtime)]
 
 
 @router.post("/realtime/token", operation_id="getRealtimeToken")

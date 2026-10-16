@@ -1,3 +1,4 @@
+import time
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -167,3 +168,37 @@ async def test_broadcast_raises_when_centrifugo_is_down(rt_settings: Settings) -
     with pytest.raises(RealtimeUnavailable):
         await rt.broadcast([uuid.uuid4()], {"type": "x"})
     await rt.aclose()
+
+
+async def test_message_reaches_an_open_chat_within_a_second(
+    rt_client: httpx.AsyncClient,
+) -> None:
+    require_centrifugo()
+    alice = await sign_in(rt_client, 2001, "Алиса")
+    bob = await sign_in(rt_client, 2002, "Боб")
+    code = (await rt_client.post("/invites", headers=alice.headers)).json()["code"]
+    await rt_client.post(f"/invites/{code}/accept", headers=bob.headers)
+    conversation = (
+        await rt_client.post(
+            "/conversations/direct", json={"user_id": alice.user_id}, headers=bob.headers
+        )
+    ).json()
+    token = (await rt_client.post("/realtime/token", headers=bob.headers)).json()
+
+    async with centrifugo_client(token["url"], token["token"]) as cf:
+        await cf.call("subscribe", {"channel": token["channel"], "recover": True})
+        started = time.monotonic()
+        sent = await rt_client.post(
+            f"/conversations/{conversation['id']}/messages",
+            json={"text": "привет", "client_id": str(uuid.uuid4())},
+            headers=alice.headers,
+        )
+        push = await cf.push(timeout=1.0)
+        elapsed = time.monotonic() - started
+
+    assert sent.status_code == 201
+    event = push["pub"]["data"]
+    assert event["type"] == "message.created"
+    assert event["message"]["id"] == sent.json()["id"]
+    assert event["message"]["text"] == "привет"
+    assert elapsed < 1.0
