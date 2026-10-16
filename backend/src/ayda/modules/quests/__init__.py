@@ -28,6 +28,7 @@ from ayda.modules.quests.day_service import (
     save_checkin,
     take_quest,
 )
+from ayda.modules.quests.erase import erase_user, purge_checkin_texts
 from ayda.modules.quests.models import Checkin, DayPool, DayQuest, Template
 from ayda.modules.quests.points import (
     Award,
@@ -61,12 +62,14 @@ __all__ = [
     "complete_quest",
     "day_quests",
     "ensure_pool",
+    "erase_user",
     "excluded_template_ids",
     "get_checkin",
     "get_pool",
     "load_catalog",
     "points_by_quest",
     "points_summary",
+    "purge_checkin_texts",
     "quest_from_template",
     "rebuild_pool",
     "replace_quest",

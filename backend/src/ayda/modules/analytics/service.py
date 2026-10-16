@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.modules.analytics.models import Event
@@ -125,3 +126,20 @@ async def record(
     if occurred_at is not None:
         event.occurred_at = occurred_at
     session.add(event)
+
+
+async def anonymize_user(session: AsyncSession, user_id: uuid.UUID) -> uuid.UUID:
+    """Replace the user's id with one random id in their events and in others' payloads,
+    so behavior stays countable but is no longer linked to the person."""
+    alias = uuid.uuid4()
+    await session.execute(text("SET LOCAL ayda.analytics_maintenance = 'on'"))
+    await session.execute(update(Event).where(Event.user_id == user_id).values(user_id=alias))
+    await session.execute(
+        text(
+            "UPDATE analytics.events"
+            " SET payload = jsonb_set(payload, '{post_author_id}', to_jsonb(CAST(:alias AS text)))"
+            " WHERE payload->>'post_author_id' = :uid"
+        ),
+        {"alias": str(alias), "uid": str(user_id)},
+    )
+    return alias

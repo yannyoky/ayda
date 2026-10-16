@@ -216,3 +216,11 @@ Partitioning by month can be added when the table grows; not needed for the MVP.
 | Photos | S3 in Russia | until the proof or account is deleted; EXIF removed |
 | Comments, messages | social.comments, chat.messages | until deleted or account deletion |
 | Behavior events | analytics.events | kept, anonymized on account deletion |
+
+### Where the data lives (152-FZ)
+
+Every store with personal data runs on servers in Russia: PostgreSQL on the Russian VPS, photos in an S3-compatible object storage of a Russian provider (bucket private, access only through presigned URLs valid 15 minutes for upload and 1 hour for reading), and backups of both in the same jurisdiction. Logs stay on the VPS and pass through a redaction filter (`ayda.core.logging`) that removes initData, tokens, presigned URL signatures, coordinates and free-text fields. The only cross-border transfer is the check-in text and an anonymized profile sent to the LLM providers of ADR 0005; the consent says so.
+
+### Account deletion and retention
+
+`DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, goals, habits, check-ins, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships and photos are deleted; photo files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null.

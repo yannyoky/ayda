@@ -5,9 +5,11 @@ from ayda.modules.auth.service import (
     CURRENT_CONSENT_VERSION,
     accept_consent,
     consent_required,
+    delete_user,
     get_user,
     get_users,
     mark_bot_reachable,
+    request_deletion,
     upsert_telegram_user,
 )
 from ayda.modules.auth.telegram import InitData, InitDataError, TelegramUser, validate_init_data
@@ -22,11 +24,13 @@ __all__ = [
     "User",
     "accept_consent",
     "consent_required",
+    "delete_user",
     "get_user",
     "get_users",
     "issue_token",
     "mark_bot_reachable",
     "read_token",
+    "request_deletion",
     "upsert_telegram_user",
     "validate_init_data",
 ]

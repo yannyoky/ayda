@@ -1,5 +1,6 @@
 """Friends, proofs feed, likes, call-outs and the ladder."""
 
+from ayda.modules.social.erase import erase_user
 from ayda.modules.social.feed import (
     DELETE_FILES_JOB,
     CommentLimitError,
@@ -76,6 +77,7 @@ __all__ = [
     "delete_comment",
     "delete_post",
     "delete_unattached",
+    "erase_user",
     "feed_page",
     "friends",
     "get_comment",
