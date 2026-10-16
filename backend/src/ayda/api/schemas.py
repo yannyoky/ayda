@@ -1,7 +1,7 @@
 """Pydantic models mirroring contracts/openapi.yaml components (ADR 0004)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
@@ -82,3 +82,85 @@ class Habit(HabitCreate):
 
 class Items[T](BaseModel):
     items: list[T]
+
+
+Mood = Literal["energetic", "normal", "tired"]
+Category = Literal["sport", "walk", "city", "rest", "project", "social", "home", "learning"]
+Visibility = Literal["personal", "routine", "friends"]
+RejectReason = Literal["no_time", "dont_want", "cant"]
+QuestState = Literal["offered", "taken", "replaced", "completed", "expired"]
+QuestSource = Literal["catalog", "checkin_task", "custom"]
+PoolStatus = Literal["none", "generating", "ready", "failed"]
+Condition = Literal["clear", "cloudy", "rain", "snow", "storm", "unknown"]
+
+
+class CheckinInput(BaseModel):
+    text: str = Field(default="", max_length=1000)
+    mood: Mood
+
+
+class Checkin(BaseModel):
+    text: str
+    mood: Mood
+    submitted_at: datetime
+
+
+class DayQuest(BaseModel):
+    id: uuid.UUID
+    source: QuestSource
+    title: str
+    description: str | None
+    category: Category
+    duration_min: int
+    base_points: int
+    why: str | None
+    outdoor: bool
+    state: QuestState
+    visibility: Visibility | None
+    points_awarded: int | None
+    expires_at: datetime
+
+
+class Weather(BaseModel):
+    temperature_c: float
+    condition: Condition
+
+
+class Streak(BaseModel):
+    current_days: int
+    best_days: int
+    freeze_available: bool
+
+
+class DayLimits(BaseModel):
+    taken: int
+    max_taken: int
+    replacements_left: int
+
+
+class Day(BaseModel):
+    local_date: date
+    checkin: Checkin | None
+    pool_status: PoolStatus
+    weather: Weather | None
+    quests: list[DayQuest]
+    limits: DayLimits
+    points_today: int
+    points_week: int
+    streak: Streak
+
+
+class OwnQuestInput(BaseModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    category: Category
+    duration_min: int = Field(ge=5, le=480)
+
+
+class ReplaceInput(BaseModel):
+    reason: RejectReason | None = None
+
+
+class Replacement(BaseModel):
+    replaced: DayQuest
+    replacement: DayQuest | None
+    replacements_left: int
