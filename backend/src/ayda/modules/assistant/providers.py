@@ -35,6 +35,9 @@ class Preset:
     key: Callable[[Settings], str | None]
     json_mode: bool = True
     rpm: int = 30
+    timeout_s: float = 8.0
+    # Extra request fields, e.g. a reasoning effort.
+    extra: tuple[tuple[str, Any], ...] = ()
 
 
 def _secret(name: str) -> Callable[[Settings], str | None]:
@@ -50,29 +53,27 @@ def _cf_url(s: Settings) -> str:
     return f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1"
 
 
-# Mirrors backend/evals/llm/providers.toml; the eval (issue #23) picks the default order.
+GROQ = "https://api.groq.com/openai/v1"
+LOW_EFFORT = (("reasoning_effort", "low"),)
+
+# Fallback order and timeouts follow ADR 0005; LLM_PROVIDERS picks and orders them.
 PRESETS: dict[str, Preset] = {
+    "groq-gptoss20b": Preset(
+        GROQ, "openai/gpt-oss-20b", _secret("groq_api_key"), timeout_s=4.0, extra=LOW_EFFORT
+    ),
     "groq-gptoss120b": Preset(
-        "https://api.groq.com/openai/v1", "openai/gpt-oss-120b", _secret("groq_api_key")
+        GROQ, "openai/gpt-oss-120b", _secret("groq_api_key"), timeout_s=4.0, extra=LOW_EFFORT
     ),
     "groq-llama70b": Preset(
-        "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", _secret("groq_api_key")
+        GROQ, "llama-3.3-70b-versatile", _secret("groq_api_key"), timeout_s=4.0
     ),
     "cloudflare-llama70b": Preset(
         "{cf}", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", _secret("cf_api_token")
     ),
     "cloudflare-gptoss120b": Preset("{cf}", "@cf/openai/gpt-oss-120b", _secret("cf_api_token")),
-    "zai-glm47flash": Preset(
-        "https://api.z.ai/api/paas/v4", "glm-4.7-flash", _secret("zai_api_key")
-    ),
-    "openrouter-glm47flash": Preset(
-        "https://openrouter.ai/api/v1",
-        "z-ai/glm-4.7-flash:free",
-        _secret("openrouter_api_key"),
-        rpm=20,
-    ),
     "ollama": Preset("{ollama}", "qwen3:8b", lambda _: None, json_mode=False, rpm=600),
 }
+DEFAULT_CHAIN = "groq-gptoss20b,groq-gptoss120b,cloudflare-llama70b"
 
 
 class RateLimiter:
@@ -104,6 +105,8 @@ class OpenAICompatibleProvider:
         *,
         json_mode: bool = True,
         rpm: int = 30,
+        timeout_s: float = 8.0,
+        extra: tuple[tuple[str, Any], ...] = (),
         http: httpx.AsyncClient | None = None,
     ) -> None:
         self.name = name
@@ -111,10 +114,13 @@ class OpenAICompatibleProvider:
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._api_key = api_key
         self._json_mode = json_mode
+        self._max_timeout_s = timeout_s
+        self._extra = dict(extra)
         self._limiter = RateLimiter(rpm)
         self._http = http or httpx.AsyncClient()
 
     async def complete(self, system: str, user: str, timeout_s: float) -> str:
+        timeout_s = min(timeout_s, self._max_timeout_s)
         await self._limiter.acquire(max_wait_s=timeout_s / 2)
         headers = {"Content-Type": "application/json"}
         if self._api_key:
@@ -128,6 +134,7 @@ class OpenAICompatibleProvider:
                 {"role": "user", "content": user},
             ],
         }
+        body.update(self._extra)
         if self._json_mode:
             body["response_format"] = {"type": "json_object"}
         try:
@@ -174,6 +181,8 @@ def providers_from_settings(
                 key,
                 json_mode=preset.json_mode,
                 rpm=preset.rpm,
+                timeout_s=preset.timeout_s,
+                extra=preset.extra,
                 http=http,
             )
         )
