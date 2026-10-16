@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.app import notifications, privacy, reminders
 from ayda.bot.sender import AiogramSender
+from ayda.core import backup
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
+from ayda.core.errors import init_error_tracking
 from ayda.core.jobs import Handler, Periodic, Worker
 from ayda.core.logging import configure_logging
 from ayda.core.storage import Storage
@@ -53,7 +55,11 @@ def build_worker(
     async def purge_checkin_texts(session: AsyncSession, now: datetime) -> None:
         await privacy.purge_old_checkin_texts(session, now)
 
+    async def run_backup(session: AsyncSession, payload: dict[str, Any]) -> None:
+        await backup.create_backup(settings)
+
     handlers: dict[str, Handler] = {
+        backup.BACKUP_JOB: run_backup,
         privacy.ERASE_JOB: erase_account,
         social.PROCESS_JOB: process_media,
         social.DELETE_FILES_JOB: delete_files,
@@ -69,7 +75,11 @@ def build_worker(
     async def schedule_weekly(session: AsyncSession, now: datetime) -> None:
         await reminders.schedule_weekly(session, now)
 
+    async def schedule_backup(session: AsyncSession, now: datetime) -> None:
+        await backup.schedule_backup(session, settings, now)
+
     periodic = [
+        Periodic("db.backup", 600, schedule_backup),
         Periodic("media.delete_unattached", 3600, delete_unattached_media),
         Periodic("reminders", 60, schedule_reminders),
         Periodic("digests", 300, schedule_digests),
@@ -81,6 +91,7 @@ def build_worker(
 
 async def main() -> None:
     settings = get_settings()
+    init_error_tracking(settings, "worker")
     db = Database(settings.database_url, echo=settings.database_echo)
     worker = build_worker(settings, db)
     loop = asyncio.get_running_loop()

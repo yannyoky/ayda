@@ -5,7 +5,7 @@ boto3 is synchronous; network calls run in a thread. Presigning is local signing
 
 import asyncio
 from collections.abc import Sequence
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -42,8 +42,8 @@ def _client(settings: Settings, endpoint: str) -> S3Client:
 
 
 class Storage:
-    def __init__(self, settings: Settings) -> None:
-        self.bucket = settings.s3_bucket
+    def __init__(self, settings: Settings, bucket: str | None = None) -> None:
+        self.bucket = bucket or settings.s3_bucket
         self._s3 = _client(settings, settings.s3_endpoint_url)
         # URLs handed to clients may need the public host (e.g. MinIO behind a proxy).
         public = settings.s3_public_endpoint_url or settings.s3_endpoint_url
@@ -85,6 +85,28 @@ class Storage:
         await asyncio.to_thread(
             self._s3.put_object, Bucket=self.bucket, Key=key, Body=data, ContentType=content_type
         )
+
+    async def upload_file(self, path: str, key: str) -> None:
+        await asyncio.to_thread(self._s3.upload_file, path, self.bucket, key)
+
+    async def download_file(self, key: str, path: str) -> None:
+        await asyncio.to_thread(self._s3.download_file, self.bucket, key, path)
+
+    async def list_keys(self, prefix: str) -> list[tuple[str, datetime]]:
+        """(key, last modified) of every object under the prefix."""
+
+        def run() -> list[tuple[str, datetime]]:
+            out: list[tuple[str, datetime]] = []
+            for page in self._s3.get_paginator("list_objects_v2").paginate(
+                Bucket=self.bucket, Prefix=prefix
+            ):
+                for obj in page.get("Contents", []):
+                    key, modified = obj.get("Key"), obj.get("LastModified")
+                    if key is not None and modified is not None:
+                        out.append((key, modified))
+            return out
+
+        return await asyncio.to_thread(run)
 
     async def delete(self, keys: Sequence[str]) -> None:
         if not keys:

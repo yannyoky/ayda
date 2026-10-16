@@ -1,4 +1,5 @@
 import secrets
+from datetime import time
 from functools import lru_cache
 from typing import Literal, Self
 
@@ -45,6 +46,17 @@ class Settings(BaseSettings):
     s3_bucket: str = "ayda-media"
     s3_access_key_id: SecretStr | None = None
     s3_secret_access_key: SecretStr | None = None
+
+    # Daily PostgreSQL backup (pg_dump) to a private bucket of the same S3 provider in Russia.
+    backup_bucket: str = "ayda-backups"
+    backup_keep_days: int = 14
+    backup_at: time = time(3, 30)
+    backup_timezone: str = "Europe/Moscow"
+
+    # Error tracking: a Sentry-compatible DSN of the self-hosted GlitchTip; empty: off.
+    sentry_dsn: SecretStr | None = None
+    # Set by the image build (git sha), so errors are grouped by release.
+    app_release: str | None = None
 
     @model_validator(mode="after")
     def _secrets(self) -> Self:

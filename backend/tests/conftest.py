@@ -1,13 +1,17 @@
 import asyncio
 import os
+import socket
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
+import boto3
 import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from moto.server import ThreadedMotoServer
 from pydantic import SecretStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -100,3 +104,43 @@ async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     async with httpx.AsyncClient(transport=transport, base_url="http://test/api/v1") as c:
         yield c
     await app.state.db.dispose()
+
+
+# S3 in tests: a local moto server, one fresh bucket per test.
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture(scope="session")
+def s3_url() -> Iterator[str]:
+    port = _free_port()
+    server = ThreadedMotoServer(ip_address="127.0.0.1", port=port, verbose=False)
+    server.start()
+    yield f"http://127.0.0.1:{port}"
+    server.stop()
+
+
+@pytest.fixture
+def s3_settings(settings: Settings, s3_url: str) -> Settings:
+    updated = settings.model_copy(
+        update={
+            "s3_endpoint_url": s3_url,
+            "s3_bucket": f"test-{uuid.uuid4().hex[:8]}",
+            "backup_bucket": f"backup-{uuid.uuid4().hex[:8]}",
+            "s3_access_key_id": SecretStr("test"),
+            "s3_secret_access_key": SecretStr("test"),
+            "s3_region": "us-east-1",
+        }
+    )
+    s3 = boto3.client(  # pyright: ignore[reportUnknownMemberType]
+        "s3",
+        endpoint_url=s3_url,
+        region_name="us-east-1",
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+    s3.create_bucket(Bucket=updated.s3_bucket)
+    s3.create_bucket(Bucket=updated.backup_bucket)
+    return updated

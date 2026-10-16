@@ -146,6 +146,10 @@ class Worker:
             if error is None:
                 params = {"id": job_id, "status": "done", "run_at": None, "error": None}
             elif attempts >= max_attempts:
+                # Error level: reaches error tracking, so a job that gave up is noticed.
+                log.error(
+                    "job %s (%s) gave up after %d attempts: %s", job_id, kind, attempts, error
+                )
                 params = {"id": job_id, "status": "failed", "run_at": None, "error": error}
             else:
                 params = {
