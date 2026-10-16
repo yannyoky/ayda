@@ -1,5 +1,22 @@
 """Friends, proofs feed, likes, call-outs and the ladder."""
 
+from ayda.modules.social.feed import (
+    DELETE_FILES_JOB,
+    CommentLimitError,
+    CursorError,
+    PostStats,
+    add_comment,
+    comments_page,
+    delete_comment,
+    delete_post,
+    feed_page,
+    get_comment,
+    like,
+    post_photos,
+    post_stats,
+    unlike,
+    visible_post,
+)
 from ayda.modules.social.friends import (
     INVITE_TTL,
     InviteError,
@@ -23,32 +40,49 @@ from ayda.modules.social.media import (
     photo_url,
     process,
 )
-from ayda.modules.social.models import Friendship, Invite, Media, Post
+from ayda.modules.social.models import Comment, Friendship, Invite, Like, Media, Post
 from ayda.modules.social.posts import create_post
 
 __all__ = [
     "CONTENT_TYPES",
+    "DELETE_FILES_JOB",
     "INVITE_TTL",
     "MAX_BYTES",
     "PROCESS_JOB",
+    "Comment",
+    "CommentLimitError",
+    "CursorError",
     "Friendship",
     "Invite",
     "InviteError",
     "InviteLimitError",
+    "Like",
     "Media",
     "MediaError",
     "Post",
+    "PostStats",
     "UploadLimitError",
     "UploadSlot",
     "accept_invite",
+    "add_comment",
     "are_friends",
     "claim_media",
+    "comments_page",
     "create_invite",
     "create_post",
     "create_upload",
+    "delete_comment",
+    "delete_post",
     "delete_unattached",
+    "feed_page",
     "friends",
+    "get_comment",
+    "like",
     "photo_url",
+    "post_photos",
+    "post_stats",
     "process",
     "remove_friend",
+    "unlike",
+    "visible_post",
 ]

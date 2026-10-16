@@ -64,3 +64,22 @@ class Friendship(Base):
     user_low: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     user_high: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Like(Base):
+    __tablename__ = "likes"
+
+    post_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(Post.id), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    post_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(Post.id))
+    author_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    text: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
