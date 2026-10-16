@@ -8,6 +8,7 @@ from ayda.api import auth, days, feed, friends, ladder, me, media, reference, sy
 from ayda.app.day import DayTools
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
+from ayda.core.errors import init_error_tracking
 from ayda.core.logging import configure_logging
 from ayda.core.problems import install_problem_handlers
 from ayda.core.storage import Storage
@@ -20,6 +21,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     if settings.environment != "test":
         configure_logging()
+        init_error_tracking(settings, "api")
     db = Database(settings.database_url, echo=settings.database_echo)
     http = httpx.AsyncClient()
     day_tools = DayTools(

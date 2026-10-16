@@ -9,6 +9,7 @@ from aiohttp import web
 from ayda.bot.handlers import build_router
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
+from ayda.core.errors import init_error_tracking
 from ayda.core.logging import configure_logging
 
 WEBHOOK_PATH = "/telegram/webhook"
@@ -48,4 +49,6 @@ async def run(settings: Settings) -> None:
 
 if __name__ == "__main__":
     configure_logging()
-    asyncio.run(run(get_settings()))
+    settings = get_settings()
+    init_error_tracking(settings, "bot")
+    asyncio.run(run(settings))

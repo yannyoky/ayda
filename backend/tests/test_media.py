@@ -1,16 +1,12 @@
 import io
-import socket
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
-import boto3
 import httpx
 import pytest
 from fastapi import FastAPI
-from moto.server import ThreadedMotoServer
 from PIL import Image
-from pydantic import SecretStr
 from sqlalchemy import select
 
 from ayda.core.config import Settings
@@ -60,42 +56,6 @@ def test_clean_photo_other_formats(fmt: str) -> None:
 def test_clean_photo_rejects_non_photos(data: bytes) -> None:
     with pytest.raises(InvalidImage):
         clean_photo(data)
-
-
-def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-@pytest.fixture(scope="module")
-def s3_url() -> Iterator[str]:
-    port = _free_port()
-    server = ThreadedMotoServer(ip_address="127.0.0.1", port=port, verbose=False)
-    server.start()
-    yield f"http://127.0.0.1:{port}"
-    server.stop()
-
-
-@pytest.fixture
-def s3_settings(settings: Settings, s3_url: str) -> Settings:
-    updated = settings.model_copy(
-        update={
-            "s3_endpoint_url": s3_url,
-            "s3_bucket": f"test-{uuid.uuid4().hex[:8]}",
-            "s3_access_key_id": SecretStr("test"),
-            "s3_secret_access_key": SecretStr("test"),
-            "s3_region": "us-east-1",
-        }
-    )
-    boto3.client(  # pyright: ignore[reportUnknownMemberType]
-        "s3",
-        endpoint_url=s3_url,
-        region_name="us-east-1",
-        aws_access_key_id="test",
-        aws_secret_access_key="test",
-    ).create_bucket(Bucket=updated.s3_bucket)
-    return updated
 
 
 @pytest.fixture

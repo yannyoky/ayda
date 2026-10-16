@@ -224,3 +224,9 @@ Every store with personal data runs on servers in Russia: PostgreSQL on the Russ
 ### Account deletion and retention
 
 `DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, goals, habits, check-ins, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships and photos are deleted; photo files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null.
+
+### Backups and error tracking
+
+The worker queues `db.backup` once a day after 03:30 Moscow time (dedupe key per date, retried on failure): `pg_dump --format=custom` of the whole database, uploaded to the private backup bucket (`BACKUP_BUCKET`, same Russian S3 provider) as `db/<UTC time>.dump`. Dumps older than 14 days (`BACKUP_KEEP_DAYS`) are deleted after each upload, so an erased account leaves the backups within 14 days. After restoring a dump, re-run `account.erase` for accounts deleted since that dump was taken. `python -m ayda.core.backup create|list|restore` does the same by hand; the restore goes into an empty database and is checked before anything is switched to it (tested in `tests/test_backup.py`, rehearsed monthly on the VPS).
+
+Errors go to a self-hosted GlitchTip through the Sentry SDK when `SENTRY_DSN` is set. Events carry no user, request body, headers, cookies, query strings or local variables, and their texts pass through the same redaction as the logs (`ayda.core.errors.scrub`). A job that gives up after its last attempt is logged at error level and so shows up there.
