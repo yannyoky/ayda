@@ -1,6 +1,21 @@
 version: 2
 updates:
+  # CI actions; one grouped PR per week instead of one PR per action
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  # Backend (uv.lock); minor and patch bumps grouped, majors stay separate PRs
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      backend-minor:
+        update-types: [minor, patch]
+
+  # miniapp (npm) goes here once miniapp/package.json exists

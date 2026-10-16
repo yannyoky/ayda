@@ -24,10 +24,13 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - '.github/workflows/ci.yml'
             miniapp:
               - 'miniapp/**'
+              - '.github/workflows/ci.yml'
             contracts:
               - 'contracts/**'
+              - '.github/workflows/ci.yml'
       # Skip a component until its project files exist
       - id: exists
         run: |
