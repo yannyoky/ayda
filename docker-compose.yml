@@ -46,6 +46,19 @@ services:
       postgres:
         condition: service_healthy
 
+  # Polling in local dev; set TELEGRAM_WEBHOOK_URL to run the webhook server on BOT_PORT.
+  bot:
+    build: backend
+    command: ["python", "-m", "ayda.bot"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:-ayda}@postgres:5432/ayda
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # S3-compatible storage for photos in local dev (production: an S3 provider in Russia).
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z

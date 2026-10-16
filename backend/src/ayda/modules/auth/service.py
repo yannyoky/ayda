@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,3 +61,10 @@ async def accept_consent(session: AsyncSession, user_id: uuid.UUID, version: str
     if version in await accepted_consent_versions(session, user_id):
         return
     session.add(Consent(user_id=user_id, version=version, accepted_at=datetime.now(UTC)))
+
+
+async def mark_bot_reachable(session: AsyncSession, telegram_id: int, reachable: bool) -> None:
+    """The bot can't message a user who blocked it; /start makes them reachable again."""
+    await session.execute(
+        update(User).where(User.telegram_id == telegram_id).values(bot_reachable=reachable)
+    )

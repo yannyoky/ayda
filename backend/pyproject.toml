@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Ayda backend: modular monolith (API, AI assistant, background jobs)"
 requires-python = ">=3.13"
 dependencies = [
+    "aiogram>=3.31.0",
     "alembic>=1.14",
     "asyncpg>=0.30",
     "boto3>=1.43.114",
