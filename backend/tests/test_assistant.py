@@ -142,13 +142,13 @@ async def test_call_metadata_is_recorded_without_text(database: Database) -> Non
 
 def test_providers_from_settings_skip_missing_keys() -> None:
     settings = Settings(
-        llm_providers="groq-gptoss120b,zai-glm47flash=glm-4.5-flash,ollama",
-        zai_api_key=SecretStr("k"),
+        llm_providers="groq-gptoss20b,cloudflare-llama70b=@cf/qwen/qwq-32b,ollama",
+        cf_api_token=SecretStr("k"),
         groq_api_key=None,
     )
     providers = providers_from_settings(settings)
     assert [(p.name, p.model) for p in providers] == [
-        ("zai-glm47flash", "glm-4.5-flash"),
+        ("cloudflare-llama70b", "@cf/qwen/qwq-32b"),
         ("ollama", "qwen3:8b"),
     ]
     with pytest.raises(ValueError, match="unknown"):
@@ -176,3 +176,44 @@ async def test_openai_compatible_provider_request_and_errors() -> None:
     assert str(seen[0].url) == "https://llm.example/v1/chat/completions"
     with pytest.raises(ProviderError, match="http_429"):
         await provider.complete("sys", "user", 5)
+
+
+def test_default_chain_follows_adr_0005() -> None:
+    settings = Settings(
+        llm_providers=assistant.DEFAULT_CHAIN,
+        groq_api_key=SecretStr("g"),
+        cf_api_token=SecretStr("c"),
+        cf_account_id=SecretStr("acc"),
+    )
+    providers = providers_from_settings(settings)
+    assert [p.model for p in providers] == [
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    ]
+    assert assistant.PRESETS["groq-gptoss20b"].timeout_s == 4.0
+    assert dict(assistant.PRESETS["groq-gptoss20b"].extra) == {"reasoning_effort": "low"}
+
+
+async def test_provider_sends_extra_fields_and_caps_timeout() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    provider = assistant.OpenAICompatibleProvider(
+        "t",
+        "https://llm.example/v1",
+        "m",
+        None,
+        timeout_s=4.0,
+        extra=(("reasoning_effort", "low"),),
+        http=http,
+    )
+
+    await provider.complete("sys", "user", 8)
+
+    assert json.loads(seen[0].content)["reasoning_effort"] == "low"
+    assert seen[0].extensions["timeout"]["read"] == 4.0

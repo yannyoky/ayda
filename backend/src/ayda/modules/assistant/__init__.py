@@ -3,6 +3,7 @@ ranks candidates chosen by code; every answer is validated against a schema."""
 
 from ayda.modules.assistant.client import Assistant, AssistantResult, InvalidAnswer
 from ayda.modules.assistant.providers import (
+    DEFAULT_CHAIN,
     PRESETS,
     FakeProvider,
     LLMProvider,
@@ -22,6 +23,7 @@ from ayda.modules.assistant.tasks import (
 )
 
 __all__ = [
+    "DEFAULT_CHAIN",
     "PRESETS",
     "Assistant",
     "AssistantResult",
