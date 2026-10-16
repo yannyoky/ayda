@@ -15,6 +15,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend == 'true' && steps.exists.outputs.backend == 'true' }}
       miniapp: ${{ steps.filter.outputs.miniapp == 'true' && steps.exists.outputs.miniapp == 'true' }}
+      contracts: ${{ steps.filter.outputs.contracts }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -25,6 +26,8 @@ jobs:
               - 'backend/**'
             miniapp:
               - 'miniapp/**'
+            contracts:
+              - 'contracts/**'
       # Skip a component until its project files exist
       - id: exists
         run: |
@@ -65,3 +68,17 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+
+  contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npx -y @redocly/cli@2.56.1 lint openapi.yaml

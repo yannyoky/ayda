@@ -1,0 +1,218 @@
+# Ayda: architecture
+
+Stack and module boundaries are decided in ADR 0002 and 0003; the API contract approach in ADR 0004. This file describes how the parts fit and the MVP data model.
+
+## Runtime
+
+```mermaid
+flowchart LR
+  TG[Telegram client] -->|opens| MA[Mini App<br/>React]
+  TG <-->|messages| BOT[Bot<br/>aiogram]
+  MA -->|REST, contracts/openapi.yaml| API[API<br/>FastAPI]
+  MA <-->|WebSocket, M2| CF[Centrifugo]
+  API --> PG[(PostgreSQL<br/>PostGIS, pgvector)]
+  API -->|presigned URLs| S3[(S3 in Russia)]
+  API -->|publish, M2| CF
+  WK[Worker<br/>same codebase] --> PG
+  WK --> S3
+  WK -->|send| BOT
+  WK -->|free LLMs| LLM[LLM providers]
+  WK -->|forecast| OM[Open-Meteo]
+```
+
+API, worker and bot are three entry points of one Python package. The job queue lives in PostgreSQL. Everything that stores personal data (PostgreSQL, S3, backups) runs on servers in Russia.
+
+## Modules and ownership
+
+Each module owns a PostgreSQL schema of the same name and is the only code that reads or writes it. Modules never import each other (import-linter). References across modules are plain ids without foreign keys; integrity across modules is the job of the application layer.
+
+| Module | Schema | Owns |
+| --- | --- | --- |
+| auth | `auth` | users, profile settings, consents |
+| habits | `habits` | user goals and own habits; Steam and screen time integrations later |
+| quests | `quests` | quest catalog, check-ins, daily pools and quests, points ledger, streaks; co-op quests (M2) |
+| assistant | `assistant` | LLM call metadata (no prompt or answer text) |
+| social | `social` | invites, friendships, posts (proofs and routines), media, likes, comments |
+| chat | `chat` | conversations, members, messages (M2) |
+| events | `events` | city reference for onboarding and weather (M1), event listings (M3) |
+| analytics | `analytics` | append-only `events` log |
+
+Use cases that span modules (complete a quest = award points in `quests` + create a post in `social` + log to `analytics`; the ladder = friends from `social` + weekly points from `quests`) live in an application layer above the modules (`ayda/app/`), which may call several modules' public functions. HTTP routers sit on top of the application layer.
+
+## Data model (MVP)
+
+Conventions: primary keys are UUID v7 (`uuid`) unless noted; times are `timestamptz` in UTC; `local_date` is the calendar date in the user's time zone at the moment of the action; enums are PostgreSQL enums or `text` with a check constraint. `→` marks a reference by id; `FK` marks a real foreign key, used only inside one schema.
+
+### auth
+
+**auth.users**
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | |
+| telegram_id | bigint unique | |
+| first_name | text | from Telegram |
+| last_name, username | text null | from Telegram |
+| avatar_url | text null | Telegram photo URL |
+| city_id | int null | → events.cities |
+| timezone | text | IANA, derived from the city; default `Europe/Moscow` |
+| theme | text | `graphite` \| `plum`, default `graphite` |
+| morning_reminder_at | time null | local time; null = off |
+| evening_reminder_at | time null | local time; null = off |
+| bot_reachable | bool | false after the user blocks the bot |
+| onboarded_at | timestamptz null | |
+| created_at | timestamptz | |
+| deletion_requested_at | timestamptz null | erase job runs within 30 days |
+
+**auth.consents**: id, user_id FK, version text, accepted_at. One row per accepted version.
+
+No session table: the API issues short-lived signed tokens after the initData check.
+
+### habits
+
+**habits.user_goals**: user_id, goal_code text (catalog in code), created_at; PK (user_id, goal_code). 1-5 per user.
+
+**habits.user_habits**: id, user_id, direction (`more` \| `less`), text varchar(100), created_at, archived_at null.
+
+### quests
+
+**quests.templates** (the catalog; seeded from a versioned file)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | int PK | stable across catalog versions |
+| slug | text unique | |
+| title, description | text | Russian |
+| category | enum | `sport`, `walk`, `city`, `rest`, `project`, `social`, `home`, `learning` |
+| duration_min | smallint | |
+| outdoor | bool | |
+| weather | jsonb | e.g. `{"no_rain": true, "min_temp_c": -15}` |
+| tags | text[] | |
+| goal_codes | text[] | goals the quest serves |
+| active | bool | |
+
+**quests.checkins**
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | |
+| user_id | uuid | → auth.users |
+| local_date | date | unique with user_id |
+| text | varchar(1000) null | null when empty or purged after 30 days |
+| mood | enum | `energetic`, `normal`, `tired` |
+| parsed | jsonb | tasks, busy and free slots from the assistant; no free text beyond task titles |
+| created_at, updated_at | timestamptz | a new check-in the same day overwrites |
+
+**quests.day_pools**: id, user_id, local_date (unique with user_id), checkin_id FK null, status (`generating` \| `ready` \| `failed`), ranked_by (`llm` \| `code`), provider text null, replacements_used smallint, created_at.
+
+**quests.day_quests** (every quest offered or taken on a day)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | |
+| pool_id | uuid FK | → quests.day_pools |
+| user_id | uuid | → auth.users |
+| local_date | date | |
+| source | enum | `catalog`, `checkin_task`, `custom`; later `event`, `coop` |
+| template_id | int FK null | for `catalog` |
+| title | text | snapshot, so catalog edits don't rewrite history |
+| category | enum | |
+| duration_min | smallint | |
+| why | text null | "why you" line |
+| position | smallint | order in the pool |
+| state | enum | `offered`, `taken`, `replaced`, `completed`, `expired` |
+| replaced_by_id | uuid FK null | the alternative |
+| reject_reason | enum null | `no_time`, `dont_want`, `cant` |
+| visibility | enum null | `personal`, `routine`, `friends`; set on completion |
+| taken_at, completed_at | timestamptz null | |
+| expires_at | timestamptz | 04:00 local time the next day |
+
+At most 3 rows per user and day in `taken` or `completed` (checked in a transaction).
+
+**quests.points_ledger** (append-only)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | bigint identity PK | |
+| user_id | uuid | |
+| day_quest_id | uuid FK unique | one award per quest |
+| local_date | date | |
+| week_start | date | Monday of the user's local week, for the ladder |
+| points | int | final value |
+| breakdown | jsonb | base, visibility and streak multipliers, config version |
+| created_at | timestamptz | |
+
+**quests.streaks**: user_id PK, current_days int, best_days int, last_counted_date date null, freeze_week_start date null (the week in which the free freeze was used), updated_at.
+
+M2 adds **quests.coop_quests** (id, owner_id, title, category, duration_min, local_date, created_at) and **quests.coop_participants** (coop_id FK, user_id, status `invited` \| `accepted` \| `declined`, day_quest_id FK null; PK coop_id + user_id).
+
+### assistant
+
+**assistant.llm_calls**: id, purpose (`parse_checkin` \| `rank_pool`), provider, model, latency_ms, ok bool, error_kind text null, created_at. No prompt or answer text, ever.
+
+### social
+
+**social.invites**: code text PK (random, 10+ chars), inviter_id, created_at, expires_at (created_at + 7 days).
+
+**social.friendships**: user_low, user_high (the two user ids ordered, so a pair is stored once), created_at; PK (user_low, user_high). Removing a friend deletes the row.
+
+**social.posts**
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | |
+| author_id | uuid | → auth.users |
+| day_quest_id | uuid unique | → quests.day_quests |
+| kind | enum | `proof` (friends visibility) or `routine` |
+| quest_title | text null | null for `routine`: friends see only the category |
+| category | enum | |
+| caption | varchar(500) null | proofs only |
+| local_date | date | |
+| created_at | timestamptz | feed order |
+| deleted_at | timestamptz null | |
+
+Personal quests never create a post.
+
+**social.media**: id, owner_id, post_id FK null (null until attached), storage_key text, content_type, size_bytes, width, height, status (`pending` \| `processing` \| `ready` \| `failed`), created_at. The worker strips EXIF and makes a resized copy before `ready`.
+
+**social.likes**: post_id FK, user_id, created_at; PK (post_id, user_id).
+
+**social.comments**: id, post_id FK, author_id, text varchar(500), created_at, deleted_at null.
+
+### chat (M2)
+
+**chat.conversations**: id, kind (`dm` \| `coop`), coop_id null, created_at. **chat.members**: conversation_id FK, user_id, last_read_message_id bigint null; PK both. **chat.messages**: id bigint identity, conversation_id FK, author_id, text varchar(2000), created_at, deleted_at null.
+
+### events
+
+**events.cities** (M1, reference data loaded from an open dataset): id int PK, name, region_code, region_name, timezone, location geography(Point), population. Used by onboarding (nearest city to a one-time geolocation; the raw coordinates are not stored) and by weather.
+
+M3 adds **events.listings**: id, source, source_id (unique with source), title, starts_at, ends_at null, venue, location geography(Point), city_id null, region_code, is_free, price_min null, url, fetched_at.
+
+### analytics
+
+**analytics.events** (append-only; the app role has INSERT and SELECT only)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | bigint identity PK | |
+| occurred_at | timestamptz | indexed with type |
+| user_id | uuid null | replaced with a random id on account deletion |
+| type | text | `checkin_submitted`, `pool_shown`, `quest_taken`, `quest_rejected`, `quest_completed`, `proof_posted`, `reaction_added`, `reminder_sent`, `reminder_opened`, ... |
+| schema_version | smallint | per type |
+| payload | jsonb | ids, enums and numbers only; a denylist test bans text, coordinates, initData and URLs |
+
+Partitioning by month can be added when the table grows; not needed for the MVP.
+
+## Personal data map
+
+| Data | Where | Retention |
+| --- | --- | --- |
+| Telegram name, avatar URL | auth.users | until account deletion |
+| City and time zone | auth.users | until account deletion |
+| Raw geolocation | nowhere | used once to find the nearest city |
+| Own habits | habits.user_habits | until deleted by the user or account deletion |
+| Check-in text | quests.checkins.text | 30 days, then set to null |
+| Photos | S3 in Russia | until the proof or account is deleted; EXIF removed |
+| Comments, messages | social.comments, chat.messages | until deleted or account deletion |
+| Behavior events | analytics.events | kept, anonymized on account deletion |
