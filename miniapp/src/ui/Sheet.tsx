@@ -6,17 +6,22 @@ import { Icon } from './Icon'
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const titleId = useId()
   const panel = useRef<HTMLDivElement>(null)
+  // Callers pass inline callbacks; keep the latest one without re-running the focus effect
+  const close = useRef(onClose)
+  useEffect(() => {
+    close.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     panel.current?.focus()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close.current()
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
       previous?.focus?.()
     }
-  }, [onClose])
+  }, [])
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgb(0_0_0/0.4)]" onClick={onClose}>
