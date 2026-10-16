@@ -255,3 +255,16 @@ class Comment(BaseModel):
 class CommentPage(BaseModel):
     items: list[Comment]
     next_cursor: str | None
+
+
+class LadderEntry(BaseModel):
+    rank: int
+    user: UserSummary
+    points: int
+    streak_days: int
+    is_me: bool
+
+
+class Ladder(BaseModel):
+    week_start: date
+    entries: list[LadderEntry]

@@ -36,6 +36,8 @@ from ayda.modules.quests.points import (
     points_by_quest,
     points_summary,
     streak_view,
+    streak_views,
+    weekly_points,
 )
 
 __all__ = [
@@ -71,6 +73,8 @@ __all__ = [
     "replacements_left",
     "save_checkin",
     "streak_view",
+    "streak_views",
     "sync_catalog",
     "take_quest",
+    "weekly_points",
 ]
