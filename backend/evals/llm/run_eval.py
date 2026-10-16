@@ -92,6 +92,7 @@ class Provider:
     key_env: str | None
     json_mode: bool = True
     extra_headers: dict[str, str] = field(default_factory=dict)
+    extra_body: dict[str, Any] = field(default_factory=dict)
 
     def key(self) -> str | None:
         return os.environ.get(self.key_env) if self.key_env else None
@@ -109,6 +110,7 @@ def load_providers(path: Path) -> dict[str, Provider]:
             key_env=cfg.get("key_env"),
             json_mode=cfg.get("json_mode", True),
             extra_headers=cfg.get("headers", {}),
+            extra_body=cfg.get("extra_body", {}),
         )
     return out
 
@@ -147,9 +149,18 @@ def call(client: httpx.Client, p: Provider, system: str, user: str) -> tuple[Cal
     }
     if p.json_mode:
         body["response_format"] = {"type": "json_object"}
+    body.update(p.extra_body)
     t0 = time.perf_counter()
     try:
-        r = client.post(f"{p.base_url.rstrip('/')}/chat/completions", json=body, headers=headers)
+        # Free-tier rate limits (429) are waited out, not scored as model failures.
+        for _ in range(8):
+            t0 = time.perf_counter()
+            r = client.post(
+                f"{p.base_url.rstrip('/')}/chat/completions", json=body, headers=headers
+            )
+            if r.status_code != 429:
+                break
+            time.sleep(min(float(r.headers.get("retry-after") or 20), 65))
         latency = int((time.perf_counter() - t0) * 1000)
         if r.status_code != 200:
             return CallResult(False, latency, error=f"http {r.status_code}: {r.text[:200]}"), ""

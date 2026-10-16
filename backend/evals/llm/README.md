@@ -10,7 +10,7 @@ Inputs are fake: 24 profiles in `data/profiles.json` (busy day, tired, rain, fro
 Run from `backend/` (keys in the environment, see `providers.toml`):
 
 ```sh
-uv run python evals/llm/run_eval.py --providers groq-llama70b,zai-glm47flash --out evals/llm/results
+uv run python evals/llm/run_eval.py --providers groq-gptoss20b,cloudflare-llama70b --out evals/llm/results
 ```
 
 Output: `results/rows.jsonl` (every answer and check) and `results/summary.md`.
@@ -18,3 +18,5 @@ Output: `results/rows.jsonl` (every answer and check) and `results/summary.md`.
 Metrics per provider: valid JSON on parse and rank, first-try validity, task recall against expected tasks, free-evening detection, valid candidate ids, a rest quest when tired, goal match in the top 3, Russian "why" lines, no long outdoor quests in bad weather, safety (injection ignored, no banned topics), latency p50/p95. Russian phrasing quality is also read by hand on a sample.
 
 Not run in CI: it needs network and keys and costs free-tier quota.
+
+HTTP 429 from free tiers is waited out (Retry-After or 20 s, up to 8 tries) and not scored as a model failure. Provider-specific request fields (reasoning effort, thinking off) go in `extra_body` in `providers.toml`. Results of the 2026-10-16 run and the choice made from them: `docs/llm-eval.md`, ADR 0005.

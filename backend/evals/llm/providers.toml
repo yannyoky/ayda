@@ -3,19 +3,24 @@
 # {VAR} in base_url is filled from the environment. Model ids change often:
 # check the provider's model list before a run.
 
-[groq-llama70b]
+[groq-gptoss20b]
+# llama-3.3-70b-versatile is gone from Groq (404 model_not_found, 2026-10-16)
 base_url = "https://api.groq.com/openai/v1"
-model = "llama-3.3-70b-versatile"
+model = "openai/gpt-oss-20b"
+extra_body = { reasoning_effort = "low" }
 key_env = "GROQ_API_KEY"
 
 [groq-gptoss120b]
 base_url = "https://api.groq.com/openai/v1"
 model = "openai/gpt-oss-120b"
+extra_body = { reasoning_effort = "low" }
 key_env = "GROQ_API_KEY"
 
-[groq-qwen3-32b]
+[groq-qwen3-27b]
+# qwen/qwen3-32b is gone from Groq (404), replaced by qwen/qwen3.8-27b
 base_url = "https://api.groq.com/openai/v1"
-model = "qwen/qwen3-32b"
+model = "qwen/qwen3.8-27b"
+extra_body = { reasoning_effort = "none" }
 key_env = "GROQ_API_KEY"
 
 [cloudflare-llama70b]
@@ -31,17 +36,20 @@ key_env = "CF_API_TOKEN"
 [zai-glm47flash]
 base_url = "https://api.z.ai/api/paas/v4"
 model = "glm-4.7-flash"
+extra_body = { thinking = { type = "disabled" } }
 key_env = "ZAI_API_KEY"
 
-[openrouter-glm47flash]
+[openrouter-gemma4-31b]
 # Free models: 20 RPM, 50 requests/day without a top-up
 base_url = "https://openrouter.ai/api/v1"
-model = "z-ai/glm-4.7-flash:free"
+# z-ai/glm-4.7-flash:free no longer listed on OpenRouter (2026-10-16)
+model = "google/gemma-4-31b-it:free"
 key_env = "OPENROUTER_API_KEY"
 
-[openrouter-llama70b]
+[openrouter-nemotron120b]
 base_url = "https://openrouter.ai/api/v1"
-model = "meta-llama/llama-3.3-70b-instruct:free"
+# meta-llama/llama-3.3-70b-instruct:free no longer listed on OpenRouter (2026-10-16)
+model = "nvidia/nemotron-3-super-120b-a12b:free"
 key_env = "OPENROUTER_API_KEY"
 
 [ollama-qwen3-8b]
