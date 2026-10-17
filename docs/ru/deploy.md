@@ -23,8 +23,8 @@ api / worker / bot ──▶ postgres     worker ──▶ S3 (photos, daily pg_
 
 ## Разовая настройка (владелец)
 
-1. **VPS в России**: для MVP хватит Ubuntu 24.04, 2 vCPU, 4 ГБ RAM, 40 ГБ диска. Установить Docker Engine с плагином Compose, создать пользователя `deploy` в группе `docker` с SSH-ключом, открыть только порты 22, 80 и 443. `sudo mkdir /opt/ayda && sudo chown deploy /opt/ayda`.
-2. **Домен**: A-запись для приложения (`AYDA_DOMAIN`, например `app.example.ru`) и для ошибок (`ERRORS_DOMAIN`, например `errors.example.ru`), обе указывают на VPS. Сертификаты Caddy получает сам.
+1. **VPS в России**: для MVP хватит Ubuntu 26.04 LTS, 2 vCPU, 4 ГБ RAM, 60 ГБ SSD и одного статического публичного IPv4. Установить Docker Engine с плагином Compose, создать пользователя `deploy` в группе `docker` с SSH-ключом, открыть только порты 22, 80 и 443. `sudo mkdir /opt/ayda && sudo chown deploy /opt/ayda`.
+2. **Домен**: A-запись для приложения (`AYDA_DOMAIN`, например `app.example.ru`) и для ошибок (`ERRORS_DOMAIN`, например `errors.example.ru`), обе указывают на IPv4 VPS. AAAA-записи не добавлять, пока IPv6 не настроен на VPS и в Docker. Сертификаты Caddy получает сам.
 3. **S3 в России**: два приватных бакета (`ayda-media`, `ayda-backups`) и один ключ доступа. На медиа-бакете разрешить CORS `PUT` и `GET` с `https://<AYDA_DOMAIN>` (Mini App загружает фото прямо в S3 по presigned URL).
 4. **Секреты на VPS**: скопировать `deploy/env.prod.example` в `/opt/ayda/.env`, заполнить, `chmod 600`. Случайные значения: `openssl rand -base64 32`. `SENTRY_DSN` заполняется после шага 7.
 5. **GitHub**: Settings → Environments → `production`: обязательный ревьюер (владелец), ветка деплоя `main`. Секреты окружения `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (приватный ключ пользователя deploy), `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan <host>`), переменная окружения `AYDA_DOMAIN`.

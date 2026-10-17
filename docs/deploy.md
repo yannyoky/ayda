@@ -23,8 +23,8 @@ Pull requests touching `deploy/` or `infra/` validate the Compose file and build
 
 ## One-time setup (owner)
 
-1. **VPS in Russia**: Ubuntu 24.04, 2 vCPU, 4 GB RAM, 40 GB disk is enough for the MVP. Install Docker Engine with the Compose plugin, create a `deploy` user in the `docker` group with an SSH key, open ports 22, 80 and 443 only. `sudo mkdir /opt/ayda && sudo chown deploy /opt/ayda`.
-2. **Domain**: an A record for the app (`AYDA_DOMAIN`, e.g. `app.example.ru`) and one for errors (`ERRORS_DOMAIN`, e.g. `errors.example.ru`) pointing to the VPS. Caddy gets the certificates itself.
+1. **VPS in Russia**: Ubuntu 26.04 LTS, 2 vCPU, 4 GB RAM, 60 GB SSD and one static public IPv4 is enough for the MVP. Install Docker Engine with the Compose plugin, create a `deploy` user in the `docker` group with an SSH key, open ports 22, 80 and 443 only. `sudo mkdir /opt/ayda && sudo chown deploy /opt/ayda`.
+2. **Domain**: an A record for the app (`AYDA_DOMAIN`, e.g. `app.example.ru`) and one for errors (`ERRORS_DOMAIN`, e.g. `errors.example.ru`) pointing to the VPS's IPv4. Do not add AAAA records unless IPv6 is set up on the VPS and in Docker. Caddy gets the certificates itself.
 3. **S3 in Russia**: two private buckets (`ayda-media`, `ayda-backups`) and one access key. On the media bucket allow CORS `PUT` and `GET` from `https://<AYDA_DOMAIN>` (the Mini App uploads photos straight to S3 with presigned URLs).
 4. **Secrets on the VPS**: copy `deploy/env.prod.example` to `/opt/ayda/.env`, fill it in, `chmod 600`. Random values: `openssl rand -base64 32`. `SENTRY_DSN` is filled after step 7.
 5. **GitHub**: Settings → Environments → `production`: required reviewer (the owner), deployment branch `main`. Environment secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (private key of the deploy user), `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan <host>`), environment variable `AYDA_DOMAIN`.
