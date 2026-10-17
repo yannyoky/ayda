@@ -1,5 +1,6 @@
 package app.ayda.android.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -22,13 +26,16 @@ import app.ayda.android.R
 import app.ayda.android.ui.home.HomeScreen
 import app.ayda.android.ui.onboarding.ConsentScreen
 import app.ayda.android.ui.onboarding.OnboardingScreen
+import app.ayda.android.ui.profile.ProfileScreen
 import app.ayda.android.ui.signin.SignInScreen
+import app.ayda.api.models.Me
 import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
 import app.ayda.shared.auth.SignIn
 import app.ayda.shared.auth.SignInViewModel
 import app.ayda.shared.onboarding.ConsentViewModel
 import app.ayda.shared.onboarding.OnboardingViewModel
+import app.ayda.shared.profile.ProfileViewModel
 import app.ayda.shared.session.SessionState
 import app.ayda.shared.session.SessionViewModel
 
@@ -69,10 +76,29 @@ fun AydaApp(client: AydaClient) {
                             ) { OnboardingViewModel(client, me, session::onProfileChanged) }
                         OnboardingScreen(model)
                     }
-                    else -> HomeScreen(me, onSignOut = session::signOut)
+                    else -> SignedInHome(client, me, session)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SignedInHome(
+    client: AydaClient,
+    me: Me,
+    session: SessionViewModel,
+) {
+    var profile by rememberSaveable { mutableStateOf(false) }
+    if (profile) {
+        val model =
+            viewModel(key = "profile-${me.id}") {
+                ProfileViewModel(client, me, session::onProfileChanged, session::signOut)
+            }
+        BackHandler { profile = false }
+        ProfileScreen(model, onBack = { profile = false })
+    } else {
+        HomeScreen(me, onOpenProfile = { profile = true })
     }
 }
 
