@@ -54,6 +54,14 @@ export const ru = {
       learning: 'Учёба',
     },
   },
+  event: {
+    free: 'Бесплатно',
+    from: (rub: number) => `от ${rub.toLocaleString('ru-RU')} ₽`,
+    paid: 'Платно',
+    at: (time: string) => `в ${time}`,
+    sources: { timepad: 'Timepad', kudago: 'KudaGo', culture: 'Культура.РФ' },
+    openFor: (title: string, source: string) => `${title}: подробнее на ${source}`,
+  },
   pick: {
     title: 'Квесты на сегодня',
     subtitle: (n: number) => (n > 0 ? `Собраны под твой день · выбери до ${n}` : 'Лимит на сегодня набран'),

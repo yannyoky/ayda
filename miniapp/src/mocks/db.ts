@@ -1,7 +1,7 @@
 // In-memory backend used by the mock API in development and tests.
 // It follows the contract and the PRD rules closely enough to drive every screen.
 import type { Schemas } from '../api/client'
-import { catalog, CONSENT_VERSION, friendNames, sampleCaptions, type CatalogQuest } from './data'
+import { catalog, CONSENT_VERSION, friendNames, sampleCaptions, sampleEvents, type CatalogQuest } from './data'
 
 type DayQuest = Schemas['DayQuest']
 type Post = Schemas['Post']
@@ -452,7 +452,11 @@ export class MockDb {
       const rest = order.findIndex((i) => catalog[i]!.category === 'rest')
       if (rest > 0) order.unshift(...order.splice(rest, 1))
     }
-    for (const i of order.slice(0, Math.max(0, wanted))) fresh.push({ ...newQuest(catalog[i]!), catalogIndex: i })
+    // One local event takes the third catalog slot (US-19)
+    const event = sampleEvents.find((e) => !this.quests.some((q) => q.event?.url === e.url))
+    const catalogWanted = event && wanted >= 3 ? wanted - 1 : wanted
+    for (const i of order.slice(0, Math.max(0, catalogWanted))) fresh.push({ ...newQuest(catalog[i]!), catalogIndex: i })
+    if (event && catalogWanted < wanted) fresh.splice(tasks.length + 2, 0, eventQuest(event))
     this.quests.push(...fresh)
     this.poolStatus = 'ready'
   }
@@ -644,6 +648,25 @@ function newQuest(c: Omit<CatalogQuest, 'why'> & { why: string | null }): DayQue
     points_awarded: null,
     expires_at: tomorrowAt4(),
     coop_id: null,
+    event: null,
+  }
+}
+
+function eventQuest(e: (typeof sampleEvents)[number]): StoredQuest {
+  const { category, in_hours, ...info } = e
+  const starts = new Date(Date.now() + in_hours * 3600_000)
+  starts.setMinutes(0, 0, 0)
+  return {
+    ...newQuest({
+      title: e.title,
+      category,
+      duration_min: 120,
+      outdoor: false,
+      why: e.is_free ? 'Бесплатно и сегодня: хороший повод выбраться.' : 'Событие сегодня в твоём городе.',
+    }),
+    source: 'event',
+    event: { ...info, starts_at: starts.toISOString(), ends_at: new Date(starts.getTime() + 2 * 3600_000).toISOString() },
+    catalogIndex: null,
   }
 }
 

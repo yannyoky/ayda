@@ -2,6 +2,8 @@ import { useCallback, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
 import { useReplaceQuest, useTakeQuests, useToday } from '../api/queries'
+import { eventSummary } from '../features/day/event'
+import { EventLink } from '../features/day/EventLink'
 import { OwnQuestSheet } from '../features/day/OwnQuestSheet'
 import { t } from '../i18n'
 import { useBackButton } from '../telegram/useBackButton'
@@ -175,10 +177,12 @@ function QuestCard({
         </span>
         <span className="text-base leading-tight font-extrabold">{quest.title}</span>
         {quest.why && <span className={`text-xs leading-snug font-semibold ${selected ? '' : 'text-muted'}`}>{quest.why}</span>}
+        {quest.event && <span className="text-xs leading-snug font-bold">{eventSummary(quest.event)}</span>}
         <span className={`text-xs font-bold ${selected ? '' : 'text-muted'}`}>
           {t.quest.minutes(quest.duration_min)} · {t.quest.points(quest.base_points)}
         </span>
       </button>
+      {quest.event && <EventLink event={quest.event} title={quest.title} variant="card" />}
       {canReplace && (
         <button
           type="button"
