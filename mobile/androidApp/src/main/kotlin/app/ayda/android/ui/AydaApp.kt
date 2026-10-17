@@ -23,7 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.ayda.android.R
-import app.ayda.android.ui.home.HomeScreen
+import app.ayda.android.ui.day.PickScreen
+import app.ayda.android.ui.day.TodayScreen
 import app.ayda.android.ui.onboarding.ConsentScreen
 import app.ayda.android.ui.onboarding.OnboardingScreen
 import app.ayda.android.ui.profile.ProfileScreen
@@ -33,6 +34,7 @@ import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
 import app.ayda.shared.auth.SignIn
 import app.ayda.shared.auth.SignInViewModel
+import app.ayda.shared.day.TodayViewModel
 import app.ayda.shared.onboarding.ConsentViewModel
 import app.ayda.shared.onboarding.OnboardingViewModel
 import app.ayda.shared.profile.ProfileViewModel
@@ -83,22 +85,38 @@ fun AydaApp(client: AydaClient) {
     }
 }
 
+private enum class Screen { Today, Pick, Profile }
+
 @Composable
 private fun SignedInHome(
     client: AydaClient,
     me: Me,
     session: SessionViewModel,
 ) {
-    var profile by rememberSaveable { mutableStateOf(false) }
-    if (profile) {
-        val model =
-            viewModel(key = "profile-${me.id}") {
-                ProfileViewModel(client, me, session::onProfileChanged, session::signOut)
-            }
-        BackHandler { profile = false }
-        ProfileScreen(model, onBack = { profile = false })
-    } else {
-        HomeScreen(me, onOpenProfile = { profile = true })
+    var screen by rememberSaveable { mutableStateOf(Screen.Today) }
+    val today = viewModel(key = "today-${me.id}") { TodayViewModel(client) }
+    val back = {
+        today.dismissNotice()
+        screen = Screen.Today
+    }
+    when (screen) {
+        Screen.Today ->
+            TodayScreen(today, me, onPick = { screen = Screen.Pick }, onOpenProfile = {
+                screen =
+                    Screen.Profile
+            })
+        Screen.Pick -> {
+            BackHandler(onBack = back)
+            PickScreen(today, onClose = back)
+        }
+        Screen.Profile -> {
+            val model =
+                viewModel(key = "profile-${me.id}") {
+                    ProfileViewModel(client, me, session::onProfileChanged, session::signOut)
+                }
+            BackHandler(onBack = back)
+            ProfileScreen(model, onBack = back)
+        }
     }
 }
 
