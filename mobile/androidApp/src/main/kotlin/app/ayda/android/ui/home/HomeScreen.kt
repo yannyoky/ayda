@@ -22,7 +22,7 @@ import app.ayda.api.models.Me
 @Composable
 fun HomeScreen(
     me: Me,
-    onSignOut: () -> Unit,
+    onOpenProfile: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
     Column(
@@ -52,6 +52,6 @@ fun HomeScreen(
                 color = colors.onPlate,
             )
         }
-        QuietButton(stringResource(R.string.sign_out), onClick = onSignOut, color = colors.muted)
+        QuietButton(stringResource(R.string.profile_open), onClick = onOpenProfile)
     }
 }

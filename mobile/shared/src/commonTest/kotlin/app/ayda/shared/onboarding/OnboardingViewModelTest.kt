@@ -131,11 +131,11 @@ class OnboardingViewModelTest {
             assertEquals(OnboardingStep.City, model.state.value.step)
             assertFalse(model.state.value.ready)
 
-            model.onCityQueryChange("Кали")
+            model.editor.onCityQueryChange("Кали")
             advanceTimeBy(400)
             advanceUntilIdle()
-            model.pickCity(
-                model.state.value.cities
+            model.editor.pickCity(
+                model.editor.state.value.cities
                     .single(),
             )
             advanceUntilIdle()
@@ -143,25 +143,25 @@ class OnboardingViewModelTest {
             model.next()
             advanceUntilIdle()
 
-            model.toggleGoal("more_movement")
+            model.editor.toggleGoal("more_movement")
             model.next()
             advanceUntilIdle()
 
-            model.addHabit(HabitDirection.more, " читать ")
+            model.editor.addHabit(HabitDirection.more, " читать ")
             advanceUntilIdle()
             assertEquals(
                 listOf("читать"),
-                model.state.value.habits
+                model.editor.state.value.habits
                     .map { it.text },
             )
             model.next()
             advanceUntilIdle()
 
-            model.setEvening(null)
+            model.editor.setEvening(null)
             model.next()
             advanceUntilIdle()
 
-            model.pickTheme(Theme.plum)
+            model.editor.pickTheme(Theme.plum)
             advanceUntilIdle()
             model.next()
             advanceUntilIdle()
@@ -218,9 +218,9 @@ class OnboardingViewModelTest {
             val model = model()
             advanceUntilIdle()
 
-            (1..7).forEach { model.toggleGoal("g$it") }
+            (1..7).forEach { model.editor.toggleGoal("g$it") }
 
-            assertEquals(listOf("g1", "g2", "g3", "g4", "g5"), model.state.value.selectedGoals)
+            assertEquals(listOf("g1", "g2", "g3", "g4", "g5"), model.editor.state.value.selectedGoals)
         }
 
     @Test
@@ -229,7 +229,7 @@ class OnboardingViewModelTest {
             val model = model()
             advanceUntilIdle()
 
-            model.onCityQueryChange("К")
+            model.editor.onCityQueryChange("К")
             advanceTimeBy(1_000)
             advanceUntilIdle()
 
