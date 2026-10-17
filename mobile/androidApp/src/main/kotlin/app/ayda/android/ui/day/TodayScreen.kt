@@ -62,6 +62,7 @@ fun TodayScreen(
     model: TodayViewModel,
     me: Me,
     onPick: () -> Unit,
+    onComplete: (DayQuest) -> Unit,
     onOpenProfile: () -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -92,7 +93,7 @@ fun TodayScreen(
         val day = state.day ?: return@Column
         if (state.showCheckinForm) CheckinForm(state, model) else CheckinDone(day, model)
         StatsRow(day)
-        QuestsCard(state, day, onPick, model::openOwnQuest)
+        QuestsCard(state, day, onPick, onComplete, model::openOwnQuest)
     }
     if (state.ownQuest != null) OwnQuestSheet(state, model)
 }
@@ -325,6 +326,7 @@ private fun QuestsCard(
     state: TodayState,
     day: Day,
     onPick: () -> Unit,
+    onComplete: (DayQuest) -> Unit,
     onOwn: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
@@ -356,7 +358,7 @@ private fun QuestsCard(
         if (state.mine.isNotEmpty()) {
             state.mine.forEachIndexed { index, quest ->
                 if (index > 0) HorizontalDivider(color = colors.bg)
-                QuestRow(quest)
+                QuestRow(quest, onDone = { onComplete(quest) })
             }
         } else if (day.poolStatus == PoolStatus.ready || day.poolStatus == PoolStatus.failed) {
             Muted(stringResource(R.string.today_none_taken))
@@ -415,7 +417,10 @@ private fun Muted(text: String) =
 
 /** A taken, completed or expired quest; an event quest shows its time, place, price and source. */
 @Composable
-private fun QuestRow(quest: DayQuest) {
+private fun QuestRow(
+    quest: DayQuest,
+    onDone: () -> Unit,
+) {
     val colors = LocalAydaColors.current
     val completed = quest.state == QuestState.completed
     val expired = quest.state == QuestState.expired
@@ -462,10 +467,18 @@ private fun QuestRow(quest: DayQuest) {
             )
             if (event != null && !completed && !expired) EventLink(event)
         }
-        Text(
-            stringResource(R.string.quest_points, quest.pointsAwarded ?: quest.basePoints),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        if (quest.state == QuestState.taken) {
+            Button(
+                onClick = onDone,
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
+            ) { Text(stringResource(R.string.today_done), style = MaterialTheme.typography.titleMedium) }
+        } else {
+            Text(
+                stringResource(R.string.quest_points, quest.pointsAwarded ?: quest.basePoints),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
     }
 }
 
