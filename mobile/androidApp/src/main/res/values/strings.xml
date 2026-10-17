@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ayda</string>
+    <string name="tagline">Квесты дня</string>
+    <string name="scaffold_title">Айда!</string>
+    <string name="scaffold_body">Скоро здесь будут квесты на сегодня.</string>
+    <string name="theme_graphite">Графит</string>
+    <string name="theme_plum">Слива</string>
+</resources>
