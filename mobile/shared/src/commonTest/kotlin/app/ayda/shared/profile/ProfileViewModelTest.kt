@@ -1,6 +1,7 @@
 package app.ayda.shared.profile
 
 import app.ayda.api.models.Me
+import app.ayda.api.models.NotificationChannel
 import app.ayda.shared.AydaClient
 import app.ayda.shared.AydaClient.Companion.ApiJson
 import app.ayda.shared.InMemoryTokenStore
@@ -165,5 +166,29 @@ class ProfileViewModelTest {
 
             assertTrue("DELETE /me" in calls)
             assertEquals(1, signedOut)
+        }
+
+    @Test
+    fun theNotificationChannelIsSentOnlyWhenChosen() =
+        runTest(dispatcher) {
+            val model = model()
+            advanceUntilIdle()
+
+            model.pickChannel(NotificationChannel.auto)
+            model.saveName()
+            model.onNameChange("Анна")
+            model.saveName()
+            advanceUntilIdle()
+            model.pickChannel(NotificationChannel.telegram)
+            advanceUntilIdle()
+
+            val patches = calls.filter { it.startsWith("PATCH /me/profile") }
+            assertEquals(
+                listOf(
+                    """PATCH /me/profile {"first_name":"Анна"}""",
+                    """PATCH /me/profile {"notification_channel":"telegram"}""",
+                ),
+                patches,
+            )
         }
 }
