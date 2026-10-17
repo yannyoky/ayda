@@ -28,6 +28,8 @@ The app talks to `http://10.0.2.2:8000/api/v1` by default, which is the host mac
 
 Release builds talk HTTPS only; the debug build also allows plain HTTP to `10.0.2.2` and `localhost` (`androidApp/src/debug/res/xml/network_security_config.xml`).
 
+Push notifications need a Firebase project (ADR 0009). Pass its web-app values at build time, as Gradle properties `ayda.firebase.appId`, `projectId`, `apiKey`, `senderId` or as environment variables `AYDA_FIREBASE_APP_ID`, `AYDA_FIREBASE_PROJECT_ID`, `AYDA_FIREBASE_API_KEY`, `AYDA_FIREBASE_SENDER_ID`. Without them the app builds and runs, just without push. The backend needs `FCM_SERVICE_ACCOUNT_JSON` to send.
+
 Sign-in needs email delivery configured in the backend (`SMTP_*` in `.env`); Telegram sign-in also needs the bot running.
 
 ## Checks

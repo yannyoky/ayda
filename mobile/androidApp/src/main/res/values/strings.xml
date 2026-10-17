@@ -300,4 +300,5 @@
     <string name="coop_limit">Сегодня уже взято 3 квеста</string>
     <string name="coop_answered">Ты уже ответил на это приглашение</string>
     <string name="coop_not_found">Совместный квест не найден</string>
+    <string name="push_channel">Напоминания и новости</string>
 </resources>

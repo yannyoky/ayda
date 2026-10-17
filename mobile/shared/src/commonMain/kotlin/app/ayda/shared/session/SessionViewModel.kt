@@ -28,6 +28,8 @@ sealed interface SessionState {
 /** Shared by Android and iOS: restores the session on launch and follows sign-in and sign-out. */
 class SessionViewModel(
     private val client: AydaClient,
+    /** Runs while the session is still valid, e.g. to stop pushes to this phone. */
+    private val beforeSignOut: suspend () -> Unit = {},
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<SessionState>(SessionState.Loading)
     val state: StateFlow<SessionState> = mutableState.asStateFlow()
@@ -66,6 +68,7 @@ class SessionViewModel(
 
     fun signOut() {
         viewModelScope.launch {
+            beforeSignOut()
             client.signOut()
             mutableState.value = SessionState.SignedOut
         }

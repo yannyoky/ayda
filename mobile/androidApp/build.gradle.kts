@@ -17,6 +17,17 @@ android {
         // Where the API lives; override with -Payda.apiBaseUrl=... (the emulator reaches the host at 10.0.2.2).
         val apiBaseUrl = providers.gradleProperty("ayda.apiBaseUrl").orElse("http://10.0.2.2:8000/api/v1")
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
+        // The Firebase project for push (ADR 0009), from -Payda.firebase.*=... or AYDA_FIREBASE_* variables.
+        // Left empty, the app builds and runs without push.
+        listOf("appId", "projectId", "apiKey", "senderId").forEach { name ->
+            val constant = "FIREBASE_" + name.replace(Regex("([A-Z])"), "_$1").uppercase()
+            val value =
+                providers
+                    .gradleProperty(
+                        "ayda.firebase.$name",
+                    ).orElse(providers.environmentVariable("AYDA_$constant"))
+            buildConfigField("String", constant, "\"${value.getOrElse("")}\"")
+        }
     }
 
     buildFeatures {
@@ -54,6 +65,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)

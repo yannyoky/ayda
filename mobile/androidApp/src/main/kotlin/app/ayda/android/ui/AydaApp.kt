@@ -1,6 +1,11 @@
 package app.ayda.android.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,14 +30,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.ayda.android.R
+import app.ayda.android.push.Push
 import app.ayda.android.ui.chat.ChatScreen
 import app.ayda.android.ui.chat.ChatsScreen
 import app.ayda.android.ui.coop.CoopScreen
@@ -62,17 +70,25 @@ import app.ayda.shared.day.TodayViewModel
 import app.ayda.shared.onboarding.ConsentViewModel
 import app.ayda.shared.onboarding.OnboardingViewModel
 import app.ayda.shared.profile.ProfileViewModel
+import app.ayda.shared.push.PushRegistration
+import app.ayda.shared.push.PushTarget
 import app.ayda.shared.realtime.CentrifugeTransport
 import app.ayda.shared.realtime.Realtime
 import app.ayda.shared.session.SessionState
 import app.ayda.shared.session.SessionViewModel
 import app.ayda.shared.social.FeedViewModel
 import app.ayda.shared.social.FriendsViewModel
+import kotlinx.coroutines.flow.StateFlow
 
 /** Picks the top-level screen from the session state. */
 @Composable
-fun AydaApp(client: AydaClient) {
-    val session = viewModel { SessionViewModel(client) }
+fun AydaApp(
+    client: AydaClient,
+    push: PushRegistration,
+    opened: StateFlow<PushTarget?>,
+    onOpened: () -> Unit,
+) {
+    val session = viewModel { SessionViewModel(client, beforeSignOut = push::unregister) }
     val state by session.state.collectAsStateWithLifecycle()
     val theme = (state as? SessionState.SignedIn)?.me?.theme ?: Theme.graphite
 
@@ -106,7 +122,7 @@ fun AydaApp(client: AydaClient) {
                             ) { OnboardingViewModel(client, me, session::onProfileChanged) }
                         OnboardingScreen(model)
                     }
-                    else -> SignedInHome(client, me, session)
+                    else -> SignedInHome(client, me, session, push, opened, onOpened)
                 }
             }
         }
@@ -139,6 +155,9 @@ private fun SignedInHome(
     client: AydaClient,
     me: Me,
     session: SessionViewModel,
+    push: PushRegistration,
+    opened: StateFlow<PushTarget?>,
+    onOpened: () -> Unit,
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.Today) }
     var completing by rememberSaveable { mutableStateOf<String?>(null) }
@@ -175,6 +194,18 @@ private fun SignedInHome(
         screen = if (screen == Screen.Chat) chatFrom else Screen.Today
     }
     if (screen != Screen.Today) BackHandler(onBack = back)
+    PushSetup(me, push)
+    val target by opened.collectAsStateWithLifecycle()
+    LaunchedEffect(target) {
+        when (val to = target ?: return@LaunchedEffect) {
+            PushTarget.Today -> screen = Screen.Today
+            PushTarget.Feed -> screen = Screen.Feed
+            PushTarget.Friends -> screen = Screen.Friends
+            is PushTarget.Chat -> openChat(to.conversationId)
+            is PushTarget.Coop -> openCoop(to.coopId)
+        }
+        onOpened()
+    }
 
     val tab = screen.tab()
     Column(Modifier.fillMaxSize().background(LocalAydaColors.current.bg)) {
@@ -278,6 +309,25 @@ private fun SignedInHome(
             }
         }
         if (tab != null) TabBar(tab, unreadChats = chatsState.unread, onSelect = { screen = it.screen() })
+    }
+}
+
+/** Asks for the notification permission once and registers this phone's push token. */
+@Composable
+private fun PushSetup(
+    me: Me,
+    push: PushRegistration,
+) {
+    val context = LocalContext.current
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(me.id) {
+        if (!Push.enabled) return@LaunchedEffect
+        val needed =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+        if (needed) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+        Push.token()?.let { push.register(it) }
     }
 }
 
