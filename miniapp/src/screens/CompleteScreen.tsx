@@ -230,6 +230,7 @@ function Success({ result }: { result: Schemas['Completion'] }) {
         <span className="font-display text-lg font-bold">{t.complete.successTitle}</span>
         <span className="font-display text-[88px] leading-none font-extrabold tracking-[-4px]">+{result.points_awarded}</span>
         <span className="text-sm font-bold">{t.complete.breakdown(b.base, b.visibility_multiplier, b.streak_multiplier)}</span>
+        {(result.coop_bonus ?? 0) > 0 && <span className="text-base font-extrabold">{t.complete.coopBonus(result.coop_bonus ?? 0)}</span>}
         <span className="rounded-[10px] bg-surface px-3 py-1.5 text-sm font-extrabold text-ink">
           {t.complete.streak(result.streak.current_days, plural(result.streak.current_days, t.today.days))}
         </span>

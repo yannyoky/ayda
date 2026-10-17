@@ -383,4 +383,40 @@ export const handlers = [
       return new HttpResponse(null, { status: 204 })
     }),
   ),
+
+  // ---- co-op quests (US-18) ----
+  http.post<{ quest_id: string }, { friend_ids: string[] }, DefaultBodyType>(
+    `${API}/day-quests/:quest_id/coop`,
+    authed(async ({ params, request }) => {
+      const { friend_ids } = await request.json()
+      if (!friend_ids?.length || friend_ids.length > 3 || new Set(friend_ids).size !== friend_ids.length) return problem(422, 'Позови от 1 до 3 друзей')
+      const result = db.createCoop(params.quest_id, friend_ids)
+      if (result === 'not_found') return problem(404, 'Такого квеста сегодня нет')
+      if (result === 'not_friends') return problem(403, 'Позвать можно только друзей', 'https://ayda.app/errors/not-friends')
+      if (result === 'conflict') return problem(409, 'Этот квест уже совместный', 'https://ayda.app/errors/quest-already-coop')
+      return HttpResponse.json(result, { status: 201 })
+    }),
+  ),
+  http.get(`${API}/coops`, authed(() => HttpResponse.json({ items: db.listCoops() }))),
+  http.get<{ coop_id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/coops/:coop_id`,
+    authed(({ params }) => {
+      const c = db.findCoop(params.coop_id)
+      return c ? HttpResponse.json(db.publicCoop(c)) : problem(404, 'Совместный квест не найден')
+    }),
+  ),
+  ...(['accept', 'decline'] as const).map((action) =>
+    http.post<{ coop_id: string }, DefaultBodyType, DefaultBodyType>(
+      `${API}/coops/:coop_id/${action}`,
+      authed(({ params }) => {
+        const c = db.findCoop(params.coop_id)
+        if (!c) return problem(404, 'Совместный квест не найден')
+        const result = db.answerCoop(c, action === 'accept')
+        if (result === 'answered') return problem(409, 'Ты уже ответил на это приглашение', 'https://ayda.app/errors/coop-already-answered')
+        if (result === 'limit') return problem(409, `Сегодня уже взято ${MAX_TAKEN} квеста`, 'https://ayda.app/errors/daily-limit-reached')
+        if (result === 'over') return problem(410, 'Этот совместный квест уже закончился', 'https://ayda.app/errors/coop-over')
+        return HttpResponse.json(result)
+      }),
+    ),
+  ),
 ]

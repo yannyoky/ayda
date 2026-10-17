@@ -1,10 +1,10 @@
-// Live chat updates over Centrifugo (ADR 0007): one personal channel per user. REST stays the
+// Live chat and co-op updates over Centrifugo (ADR 0007): one personal channel per user. REST stays the
 // source of truth, so any gap (no token, a long disconnect) is closed by refetching queries.
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import type { Centrifuge } from 'centrifuge'
 import { useEffect, useSyncExternalStore } from 'react'
 import { api, unwrap, type Schemas } from '../api/client'
-import { conversationKey, conversationsKey, removeMessage, upsertMessage } from '../api/queries'
+import { conversationKey, conversationsKey, coopKey, coopsKey, dayKey, removeMessage, upsertMessage } from '../api/queries'
 
 export type RealtimeStatus = 'off' | 'connecting' | 'live'
 
@@ -51,13 +51,23 @@ export function handleRealtimeEvent(client: QueryClient, event: RealtimeEvent): 
       void client.invalidateQueries({ queryKey: conversationKey(e.conversation_id) })
       return
     }
+    case 'coop.updated': {
+      const e = event as Schemas['CoopUpdatedEvent']
+      void client.invalidateQueries({ queryKey: coopsKey })
+      void client.invalidateQueries({ queryKey: coopKey(e.coop_id) })
+      void client.invalidateQueries({ queryKey: dayKey })
+      void client.invalidateQueries({ queryKey: conversationsKey })
+      return
+    }
     default:
       return
   }
 }
 
-/** Events were missed and could not be recovered: reload everything chat-related. */
+/** Events were missed and could not be recovered: reload everything they could change. */
 export function resync(client: QueryClient): void {
+  void client.invalidateQueries({ queryKey: coopsKey })
+  void client.invalidateQueries({ queryKey: ['coop'] })
   void client.invalidateQueries({ queryKey: conversationsKey })
   void client.invalidateQueries({ queryKey: ['conversation'] })
   void client.invalidateQueries({ queryKey: ['messages'] })

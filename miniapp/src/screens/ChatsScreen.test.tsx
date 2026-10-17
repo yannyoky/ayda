@@ -57,7 +57,7 @@ describe('Chats (US-17)', () => {
     await user.click(await screen.findByRole('button', { name: 'Написать Дима' }))
     expect(await screen.findByRole('heading', { name: 'Дима' })).toBeInTheDocument()
     expect(await screen.findByText('Сообщений пока нет')).toBeInTheDocument()
-    expect(db.conversations).toHaveLength(2)
+    expect(db.conversations.filter((c) => !c.coopId)).toHaveLength(2)
   })
 
   it('keeps the history readable once the friendship is removed', async () => {

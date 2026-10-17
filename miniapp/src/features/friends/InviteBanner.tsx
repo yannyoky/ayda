@@ -6,7 +6,7 @@ import { haptic, startParam } from '../../telegram/webapp'
 import { Icon } from '../../ui/Icon'
 
 function isChatParam(code: string | undefined): boolean {
-  return /^c[0-9a-f]{32}$/.test(code ?? '')
+  return /^[cq][0-9a-f]{32}$/.test(code ?? '')
 }
 
 /** Accepts a `startapp` invite code once per launch and says how it went (US-12). */

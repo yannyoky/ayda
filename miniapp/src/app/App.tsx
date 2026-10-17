@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { ChatScreen } from '../screens/ChatScreen'
 import { ChatsScreen } from '../screens/ChatsScreen'
 import { CompleteScreen } from '../screens/CompleteScreen'
+import { CoopScreen } from '../screens/CoopScreen'
 import { FeedScreen } from '../screens/FeedScreen'
 import { FriendsScreen } from '../screens/FriendsScreen'
 import { PickScreen } from '../screens/PickScreen'
@@ -31,6 +32,7 @@ function createRouter(initialPath: string) {
       { path: 'pick', element: <PickScreen /> },
       { path: 'quest/:id/done', element: <CompleteScreen /> },
       { path: 'chats/:id', element: <ChatScreen /> },
+      { path: 'coops/:id', element: <CoopScreen /> },
     ],
     { initialEntries: [initialPath] },
   )

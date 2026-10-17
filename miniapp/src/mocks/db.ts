@@ -63,11 +63,26 @@ interface StoredPost extends Post {
 
 interface StoredConversation {
   id: string
+  /** DM: the friend. Co-op chat: the co-op owner (who answers in dev). */
   peerId: string
+  coopId: string | null
   createdAt: string
   messages: Schemas['Message'][]
   lastRead: number | null
 }
+
+interface StoredCoop {
+  id: string
+  title: string
+  category: Schemas['Category']
+  duration_min: number
+  ownerId: string
+  expiresAt: string
+  participants: { userId: string; status: Schemas['CoopStatus']; questId: string | null; completed: boolean }[]
+  conversationId: string
+}
+
+export const COOP_BONUS_SHARE = 0.5
 
 export interface MockOptions {
   /** Skip consent and onboarding: a returning user. */
@@ -95,6 +110,7 @@ export class MockDb {
   friends: (Friend & { points: number; streak_days: number })[] = []
   invites = new Map<string, { inviterId: string | null; expiresAt: string }>()
   conversations: StoredConversation[] = []
+  coops: StoredCoop[] = []
   private nextMessageId = 1
   poolDelayMs = 1200
   deletionRequested = false
@@ -132,6 +148,7 @@ export class MockDb {
     this.friends = []
     this.invites.clear()
     this.conversations = []
+    this.coops = []
     this.nextMessageId = 1
     this.deletionRequested = false
     // A known invite from a friend who is not yet a friend, for invite acceptance in dev
@@ -196,6 +213,107 @@ export class MockDb {
       stored.lastRead = this.nextMessageId - 1
       this.addMessage(stored, lena.id, 'Договорились 🙌', minutesAgo(5))
     }
+    // An invitation from a friend who has already done the quest: joining and completing it
+    // brings the co-op bonus in dev
+    const dima = this.friends[1]!
+    const conversation: StoredConversation = { id: uuid(), peerId: dima.id, coopId: null, createdAt: minutesAgo(30), messages: [], lastRead: null }
+    const coop: StoredCoop = {
+      id: uuid(),
+      title: 'Прогулка на 10 000 шагов',
+      category: 'walk',
+      duration_min: 60,
+      ownerId: dima.id,
+      expiresAt: tomorrowAt4(),
+      participants: [
+        { userId: dima.id, status: 'owner', questId: uuid(), completed: true },
+        { userId: this.me.id, status: 'invited', questId: null, completed: false },
+      ],
+      conversationId: conversation.id,
+    }
+    conversation.coopId = coop.id
+    this.coops.push(coop)
+    this.conversations.push(conversation)
+    this.addMessage(conversation, dima.id, 'Я уже прошёл, твоя очередь 🙂', minutesAgo(25))
+  }
+
+  // ---- co-op quests (US-18) ----
+
+  publicCoop(c: StoredCoop): Schemas['Coop'] {
+    const me = c.participants.find((p) => p.userId === this.me.id)!
+    const joined = me.status === 'owner' || me.status === 'accepted'
+    const people = c.participants.filter((p) => p.status === 'owner' || p.status === 'accepted')
+    return {
+      id: c.id,
+      title: c.title,
+      category: c.category,
+      duration_min: c.duration_min,
+      owner: this.summary(c.ownerId),
+      my_status: me.status,
+      participants: c.participants.map((p) => ({ user: this.summary(p.userId), status: p.status, completed: p.completed })),
+      my_quest_id: joined ? me.questId : null,
+      conversation_id: joined ? c.conversationId : null,
+      expires_at: c.expiresAt,
+      bonus_awarded: people.length >= 2 && people.every((p) => p.completed),
+    }
+  }
+
+  listCoops(): Schemas['Coop'][] {
+    return this.coops
+      .filter((c) => c.participants.some((p) => p.userId === this.me.id && p.status !== 'declined'))
+      .map((c) => this.publicCoop(c))
+      .sort((a, b) => Number(b.my_status === 'invited') - Number(a.my_status === 'invited'))
+  }
+
+  findCoop(id: string): StoredCoop | undefined {
+    return this.coops.find((c) => c.id === id && c.participants.some((p) => p.userId === this.me.id))
+  }
+
+  createCoop(questId: string, friendIds: string[]): Schemas['Coop'] | 'not_found' | 'not_friends' | 'conflict' {
+    const q = this.quests.find((x) => x.id === questId)
+    if (!q) return 'not_found'
+    if (friendIds.some((id) => !this.friends.some((f) => f.id === id))) return 'not_friends'
+    if (q.state !== 'taken' || q.coop_id) return 'conflict'
+    const conversation: StoredConversation = { id: uuid(), peerId: friendIds[0]!, coopId: null, createdAt: new Date().toISOString(), messages: [], lastRead: null }
+    const coop: StoredCoop = {
+      id: uuid(),
+      title: q.title,
+      category: q.category,
+      duration_min: q.duration_min,
+      ownerId: this.me.id,
+      expiresAt: q.expires_at,
+      participants: [
+        { userId: this.me.id, status: 'owner', questId: q.id, completed: false },
+        ...friendIds.map((userId) => ({ userId, status: 'invited' as const, questId: null, completed: false })),
+      ],
+      conversationId: conversation.id,
+    }
+    conversation.coopId = coop.id
+    q.coop_id = coop.id
+    this.coops.push(coop)
+    this.conversations.push(conversation)
+    return this.publicCoop(coop)
+  }
+
+  answerCoop(c: StoredCoop, accept: boolean): Schemas['Coop'] | 'answered' | 'limit' | 'over' {
+    const me = c.participants.find((p) => p.userId === this.me.id)!
+    if (me.status !== 'invited') return 'answered'
+    if (!accept) {
+      me.status = 'declined'
+      return this.publicCoop(c)
+    }
+    if (Date.parse(c.expiresAt) <= Date.now()) return 'over'
+    if (this.takenCount() >= MAX_TAKEN) return 'limit'
+    const q: StoredQuest = {
+      ...newQuest({ title: c.title, category: c.category, duration_min: c.duration_min, outdoor: false, why: null }),
+      source: 'coop',
+      state: 'taken',
+      coop_id: c.id,
+      catalogIndex: null,
+    }
+    this.quests.push(q)
+    me.status = 'accepted'
+    me.questId = q.id
+    return this.publicCoop(c)
   }
 
   // ---- chats (US-17) ----
@@ -216,14 +334,18 @@ export class MockDb {
   conversation(c: StoredConversation): Schemas['Conversation'] {
     const peer = this.summary(c.peerId)
     const last = c.messages.at(-1) ?? null
+    const coop = c.coopId ? this.coops.find((x) => x.id === c.coopId) : undefined
+    const members = coop
+      ? coop.participants.filter((p) => p.userId !== this.me.id && (p.status === 'owner' || p.status === 'accepted')).map((p) => this.summary(p.userId))
+      : [peer]
     return {
       id: c.id,
-      kind: 'dm',
-      title: peer.first_name,
-      peer,
-      coop_id: null,
-      members: [peer],
-      can_send: this.friends.some((f) => f.id === c.peerId),
+      kind: coop ? 'coop' : 'dm',
+      title: coop ? coop.title : peer.first_name,
+      peer: coop ? null : peer,
+      coop_id: coop?.id ?? null,
+      members,
+      can_send: coop ? true : this.friends.some((f) => f.id === c.peerId),
       last_message: last,
       unread_count: c.messages.filter((m) => m.id > (c.lastRead ?? 0) && m.author.id !== this.me.id).length,
       last_read_message_id: c.lastRead,
@@ -231,19 +353,28 @@ export class MockDb {
     }
   }
 
+  /** Chats the user is in: DMs, and co-op chats once owner or joined. */
+  private member(c: StoredConversation): boolean {
+    if (!c.coopId) return true
+    const me = this.coops.find((x) => x.id === c.coopId)?.participants.find((p) => p.userId === this.me.id)
+    return me?.status === 'owner' || me?.status === 'accepted'
+  }
+
   listConversations(): Schemas['Conversation'][] {
-    return this.conversations.map((c) => this.conversation(c)).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    return this.conversations
+      .filter((c) => this.member(c))
+      .map((c) => this.conversation(c)).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   }
 
   findConversation(id: string): StoredConversation | undefined {
-    return this.conversations.find((c) => c.id === id)
+    return this.conversations.find((c) => c.id === id && this.member(c))
   }
 
   openDirect(userId: string): Schemas['Conversation'] | 'not_friends' {
     if (!this.friends.some((f) => f.id === userId)) return 'not_friends'
-    let c = this.conversations.find((x) => x.peerId === userId)
+    let c = this.conversations.find((x) => x.peerId === userId && !x.coopId)
     if (!c) {
-      c = { id: uuid(), peerId: userId, createdAt: new Date().toISOString(), messages: [], lastRead: null }
+      c = { id: uuid(), peerId: userId, coopId: null, createdAt: new Date().toISOString(), messages: [], lastRead: null }
       this.conversations.push(c)
     }
     return this.conversation(c)
@@ -259,7 +390,7 @@ export class MockDb {
   sendMessage(c: StoredConversation, input: Schemas['MessageInput']): { message: Schemas['Message']; created: boolean } | 'closed' {
     const existing = c.messages.find((m) => m.client_id === input.client_id)
     if (existing) return { message: existing, created: false }
-    if (!this.friends.some((f) => f.id === c.peerId)) return 'closed'
+    if (!c.coopId && !this.friends.some((f) => f.id === c.peerId)) return 'closed'
     return { message: this.addMessage(c, this.me.id, input.text.trim(), undefined, input.client_id), created: true }
   }
 
@@ -377,9 +508,17 @@ export class MockDb {
     const points = Math.round(q.base_points * vm * sm)
     q.state = 'completed'
     q.visibility = input.visibility
-    q.points_awarded = points
-    this.pointsToday += points
-    this.pointsWeek += points
+    // The last one of a co-op brings everyone +50%
+    let coopBonus = 0
+    const coop = q.coop_id ? this.coops.find((c) => c.id === q.coop_id) : undefined
+    if (coop) {
+      const joined = coop.participants.filter((p) => p.status === 'owner' || p.status === 'accepted')
+      joined.find((p) => p.userId === this.me.id)!.completed = true
+      if (joined.length >= 2 && joined.every((p) => p.completed)) coopBonus = Math.round(points * COOP_BONUS_SHARE)
+    }
+    q.points_awarded = points + coopBonus
+    this.pointsToday += points + coopBonus
+    this.pointsWeek += points + coopBonus
     let postId: string | null = null
     if (input.visibility !== 'personal') {
       const proof = input.visibility === 'friends'
@@ -413,6 +552,7 @@ export class MockDb {
       points_breakdown: { base: q.base_points, visibility_multiplier: vm, streak_multiplier: sm },
       streak: this.streak,
       post_id: postId,
+      coop_bonus: coopBonus,
     }
   }
 
@@ -503,6 +643,7 @@ function newQuest(c: Omit<CatalogQuest, 'why'> & { why: string | null }): DayQue
     visibility: null,
     points_awarded: null,
     expires_at: tomorrowAt4(),
+    coop_id: null,
   }
 }
 
