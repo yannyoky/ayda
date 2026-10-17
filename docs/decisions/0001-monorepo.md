@@ -1,5 +1,7 @@
 # 0001. Monorepo
 
+English · [Русский](../ru/decisions/0001-monorepo.md)
+
 ## Context
 Ayda has a backend, an AI service, a Telegram Mini App and two native clients that share one API contract. One person builds it with Claude.
 

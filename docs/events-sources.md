@@ -1,5 +1,7 @@
 # Events sources for Russian cities and regions (issue #38)
 
+English · [Русский](ru/events-sources.md)
+
 Ayda suggests local events (free and paid) as quests in the daily pool (US-19). There is no single free events API that covers all of Russia, so this note compares the candidates and recommends a set. The choice is recorded in ADR 0008.
 
 Research date: 2026-10-17. The cloud environment used for this research cannot reach Russian hosts, so the facts below come from the providers' public documentation pages and search results, not from live calls. Each client is written against those docs and tested with recorded responses; the first nightly run on the Russian VPS is the live check.

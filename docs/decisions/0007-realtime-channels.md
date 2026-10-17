@@ -1,5 +1,7 @@
 # 0007. Realtime through one personal Centrifugo channel per user
 
+English · [Русский](../ru/decisions/0007-realtime-channels.md)
+
 ## Context
 M2 adds direct messages between friends (US-17) and co-op quests with a shared chat (US-18). ADR 0002 chose Centrifugo for realtime. A message has to reach an open chat within a second, the chat list needs live unread counts, history must survive a dropped connection, and a user may only receive what they belong to. A former friend must stop receiving a DM chat's messages at once, and a user can be in many chats.
 

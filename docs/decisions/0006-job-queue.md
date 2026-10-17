@@ -1,5 +1,7 @@
 # 0006. Own job queue on PostgreSQL
 
+English · [Русский](../ru/decisions/0006-job-queue.md)
+
 ## Context
 ADR 0002 chose a job queue in PostgreSQL (no Redis). M1 needs it for photo processing (EXIF removal), morning and evening reminders, the hourly likes digest and the Sunday summary, and later for account erasure and check-in text retention. Load is tiny (about 5 users). The ready-made option, procrastinate, needs the psycopg driver next to our asyncpg, keeps its own schema migrations outside Alembic, and brings more features than these jobs use.
 

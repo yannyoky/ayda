@@ -1,5 +1,7 @@
 # Ayda: roadmap
 
+English · [Русский](ru/roadmap.md)
+
 The MVP ships in three milestones. Each milestone is an epic issue with sub-issues; issues carry an `M1`/`M2`/`M3` label and a component label (`backend`, `miniapp`, `contracts`, `infra`, `docs`). Requirements: `prd.md`.
 
 ## M1: core loop ([#8](https://github.com/yannyoky/ayda/issues/8))

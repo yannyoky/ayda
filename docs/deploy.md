@@ -1,5 +1,7 @@
 # Production
 
+English · [Русский](ru/deploy.md)
+
 One VPS in Russia runs everything with Docker Compose (ADR 0002): Caddy (TLS, the Mini App's static files, reverse proxy), the API, the worker, the bot, PostgreSQL with PostGIS and pgvector, Centrifugo, and GlitchTip for errors. Photos and database backups go to a Russian S3-compatible provider. Files: `deploy/`.
 
 ```

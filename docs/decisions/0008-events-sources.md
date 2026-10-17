@@ -1,5 +1,7 @@
 # 0008. Events from Timepad and KudaGo, PRO.Культура.РФ next
 
+English · [Русский](../ru/decisions/0008-events-sources.md)
+
 ## Context
 M3 (US-19) shows free and paid events in the user's city and region as quests in the daily pool. There is no single free events API that covers all of Russia. Ayda is not tied to one city, so a user in a small town must also get something from their region. The comparison of sources is in `docs/events-sources.md` (issue #38).
 

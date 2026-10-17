@@ -1,5 +1,7 @@
 # 0009. Native apps: Kotlin Multiplatform, Android first, sign-in by email
 
+English · [Русский](../ru/decisions/0009-native-apps.md)
+
 ## Context
 After the MVP (M1-M3 as a Telegram Mini App) Ayda needs native apps (ADR 0002: Kotlin Multiplatform with Compose on Android and SwiftUI on iOS). They must reach parity with the Mini App's core loop and later carry native-only features (screen time, Steam nudges).
 
