@@ -29,6 +29,7 @@ enum class Tab(
 ) {
     Today(R.drawable.ic_today, R.string.nav_today),
     Feed(R.drawable.ic_feed, R.string.nav_feed),
+    Friends(R.drawable.ic_friends, R.string.nav_friends),
     Profile(R.drawable.ic_profile, R.string.nav_profile),
 }
 
