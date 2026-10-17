@@ -1,5 +1,7 @@
 # Ayda: architecture
 
+English · [Русский](ru/architecture.md)
+
 Stack and module boundaries are decided in ADR 0002 and 0003; the API contract approach in ADR 0004. This file describes how the parts fit and the MVP data model.
 
 ## Runtime

@@ -1,5 +1,7 @@
 # LLM provider eval, 2026-10-16
 
+English · [Русский](ru/llm-eval.md)
+
 Issue #23. Harness: `backend/evals/llm` (24 fake profiles, 40-quest sample catalog, both assistant tasks per profile, Pydantic validation with one retry). Run from a cloud environment with free-tier keys; no request was refused for region (no 403/451) on any provider. The choice is recorded in ADR 0005.
 
 ## Results

@@ -1,5 +1,7 @@
 # 0005. Free LLM providers for the assistant
 
+English · [Русский](../ru/decisions/0005-llm-providers.md)
+
 ## Context
 The assistant makes two calls per morning pool: parse the check-in and rank 5-7 of about 20 code-selected candidates with a "why you" line (PRD, "AI assistant"). Only free providers are allowed, the pool must be ready in 10 s or less, and an LLM outage must not break the loop. ADR 0002 set an in-house adapter over the OpenAI-compatible API with providers switched by config. The eval in `docs/llm-eval.md` compared Groq, Cloudflare Workers AI, Z.ai and OpenRouter free models on 24 fake profiles.
 

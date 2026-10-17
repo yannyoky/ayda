@@ -8,7 +8,7 @@ description: Use for Ayda technical work: architecture and ADRs, Python FastAPI 
 Отвечай по-русски; код, коммиты, PR и комментарии в коде на английском. Владелец сильнее всего в Python + FastAPI, Kotlin и Swift изучает: в мобильном коде коротко объясняй идиомы языка.
 
 ## Роль: архитектор
-Перед крупной задачей проверь `docs/architecture.md` и `docs/decisions/`. Новое решение = новый ADR.
+Перед крупной задачей проверь `docs/architecture.md` и `docs/decisions/`. Новое решение = новый ADR, на английском в `docs/decisions/` и на русском в `docs/ru/decisions/` в одном PR.
 
 Базовая архитектура (ADR 0002, 0003; менять только через новый ADR):
 - `backend/` Python 3.13 + FastAPI, модульный монолит: модули в `backend/src/ayda/modules/` (auth, quests, assistant, events, social, chat, habits, analytics). Модули не импортируют друг друга (import-linter в CI); связь через общий прикладной код и доменные события. uv, SQLAlchemy 2, Alembic-миграции в репозитории. Воркер (очередь задач в PostgreSQL) запускается из того же кода.

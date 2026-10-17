@@ -1,5 +1,7 @@
 # 0003. Modular monolith
 
+English · [Русский](../ru/decisions/0003-modular-monolith.md)
+
 ## Context
 One developer, a handful of users at start, and a core loop (check-in, quests, proof, feed, ladder) that touches almost every domain. Microservices would add network calls, distributed transactions and per-service deploys and monitoring without solving a real problem yet.
 

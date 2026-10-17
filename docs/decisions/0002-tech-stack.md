@@ -1,5 +1,7 @@
 # 0002. Tech stack
 
+English · [Русский](../ru/decisions/0002-tech-stack.md)
+
 ## Context
 The earlier tentative stack was a C# ASP.NET + SignalR backend plus a separate Python AI service. The owner asked to pick the technically best option today, regardless of existing skills. The AI part (ranking, bandits, embeddings, LLM output validated against a schema) needs Python anyway, load is tiny at start (~5 users), one person builds it, and LLMs must be free and pluggable. Data must stay in Russia (152-FZ).
 

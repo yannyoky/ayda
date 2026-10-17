@@ -1,6 +1,8 @@
 # Ayda: MVP product requirements
 
-Status: approved by the owner on 2026-10-16. The working copy in Russian is the [PRD doc](https://claude.ai/code/artifact/a7705f98-da00-4c76-a6d8-f768868c2d2e); this file is the source of truth for the repository. Milestones and issues: `roadmap.md`.
+English · [Русский](ru/prd.md)
+
+Status: approved by the owner on 2026-10-16. The working copy in Russian is the [PRD doc](https://claude.ai/code/artifact/a7705f98-da00-4c76-a6d8-f768868c2d2e); this file and its Russian mirror `ru/prd.md` are the source of truth for the repository. Milestones and issues: `roadmap.md`.
 
 ## Goal and metrics
 
