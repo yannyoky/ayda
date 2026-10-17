@@ -9,6 +9,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -98,7 +99,8 @@ class AydaClientTest {
             val store = InMemoryTokenStore(Tokens("old", "stolen"))
             val engine = MockEngine { unauthorized() }
             val client = AydaClient(base, store, engine)
-            val signedOut = async { client.signedOut.first() }
+            // Subscribe before the call: the flow has no replay, so a late collector would miss the event.
+            val signedOut = async(start = CoroutineStart.UNDISPATCHED) { client.signedOut.first() }
 
             val response = client.profile.getMe()
 
