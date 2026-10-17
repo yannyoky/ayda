@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Ayda API
-  version: 0.4.0
+  version: 0.5.0
   summary: MVP contract, milestones M1-M3 (US-01..US-19), native sign-in (M4)
   description: |
     Contract-first API of the Ayda backend (ADR 0004). The Mini App and native clients
@@ -173,6 +173,79 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
 
+  /auth/telegram/login-requests:
+    post:
+      tags: [auth]
+      operationId: createTelegramLoginRequest
+      summary: Start signing in (or linking Telegram) through the bot from a native app
+      description: |
+        Returns a link to the bot (`t.me/<bot>?start=login_<code>`) valid for 5 minutes and a
+        secret that only this app knows. The user opens the link, presses Start and confirms
+        in the bot; the app then calls exchangeTelegramLoginRequest with the secret.
+        With a bearer token the confirmed Telegram account is linked to the signed-in user
+        instead (ADR 0009).
+      security:
+        - {}
+        - bearer: []
+      responses:
+        '201':
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLoginRequest'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+
+  /auth/telegram/login-requests/{request_id}/exchange:
+    post:
+      tags: [auth]
+      operationId: exchangeTelegramLoginRequest
+      summary: Get the session once the user confirmed in the bot
+      description: |
+        202 while the user has not confirmed yet (poll every 2-3 seconds); 200 with a native
+        session exactly once after confirmation. A new Telegram account creates the user.
+        For a linking request, the session belongs to the user who started it; 409 when this
+        Telegram account already belongs to another Ayda account.
+      security: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [poll_secret]
+              properties:
+                poll_secret:
+                  type: string
+                  maxLength: 128
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '202':
+          description: Not confirmed yet
+        '401':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
   /auth/refresh:
     post:
       tags: [auth]
@@ -245,6 +318,84 @@ paths:
         '202':
           description: Deletion scheduled
         '401':
+          $ref: '#/components/responses/Problem'
+
+  /me/identities:
+    get:
+      tags: [profile]
+      operationId: listMyIdentities
+      summary: Ways the user can sign in (email, Telegram)
+      responses:
+        '200':
+          description: Sign-in methods
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SignInIdentity'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /me/identities/email:
+    post:
+      tags: [profile]
+      operationId: linkMyEmail
+      summary: Link an email after receiving a code from startEmailSignIn
+      description: 409 when the email already signs in to another account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+      responses:
+        '201':
+          description: Linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInIdentity'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /me/identities/{identity_id}:
+    delete:
+      tags: [profile]
+      operationId: unlinkMyIdentity
+      summary: Remove a sign-in method; the last one can't be removed
+      parameters:
+        - name: identity_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Removed
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
           $ref: '#/components/responses/Problem'
 
   /me/profile:
@@ -1332,7 +1483,7 @@ components:
     bearer:
       type: http
       scheme: bearer
-      description: Access token from signInWithTelegram.
+      description: Access token from signInWithTelegram, verifyEmailSignIn or refreshSession.
 
   parameters:
     QuestId:
@@ -1455,6 +1606,41 @@ components:
           description: When `refresh_token` expires (60 days after it was issued).
         user:
           $ref: '#/components/schemas/Me'
+
+    TelegramLoginRequest:
+      type: object
+      required: [id, poll_secret, bot_url, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        poll_secret:
+          type: string
+          description: Shown once; keep it in memory and send it to exchangeTelegramLoginRequest.
+        bot_url:
+          type: string
+          format: uri
+          examples: ['https://t.me/ayda_quest_bot?start=login_x8Kq2LmN0pQr7sTu']
+        expires_at:
+          type: string
+          format: date-time
+
+    SignInIdentity:
+      type: object
+      required: [id, provider, label, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [telegram, email]
+        label:
+          type: string
+          description: The email itself, or "Telegram".
+        created_at:
+          type: string
+          format: date-time
 
     RefreshTokenInput:
       type: object

@@ -53,3 +53,17 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[auth.User, Depends(get_current_user)]
+
+
+async def get_optional_user(
+    session: DbSession,
+    settings: AppSettings,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> auth.User | None:
+    """No token: anonymous. A token that fails the checks is still a 401."""
+    if credentials is None:
+        return None
+    return await get_current_user(session, settings, credentials)
+
+
+OptionalUser = Annotated[auth.User | None, Depends(get_optional_user)]
