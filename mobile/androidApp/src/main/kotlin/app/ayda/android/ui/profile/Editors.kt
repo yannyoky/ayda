@@ -261,6 +261,7 @@ fun TextInput(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
+    placeholder: String? = null,
     onDone: () -> Unit = {},
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences,
     keyboardType: KeyboardType = KeyboardType.Text,
@@ -269,6 +270,7 @@ fun TextInput(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
         singleLine = true,
         shape = MaterialTheme.shapes.medium,
         keyboardOptions =
