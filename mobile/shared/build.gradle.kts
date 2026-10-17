@@ -55,7 +55,8 @@ kotlin {
         commonMain {
             kotlin.srcDir(generateApiClient.map { generatedClient.get().dir("src/commonMain/kotlin") })
             dependencies {
-                implementation(libs.kotlinx.coroutines.core)
+                api(libs.kotlinx.coroutines.core)
+                api(libs.lifecycle.viewmodel)
                 implementation(libs.kotlinx.serialization.json)
                 api(libs.kotlinx.datetime)
                 api(libs.ktor.client.core)
