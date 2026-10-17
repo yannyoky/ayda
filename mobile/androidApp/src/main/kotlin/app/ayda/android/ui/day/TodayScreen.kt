@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -63,7 +62,6 @@ fun TodayScreen(
     me: Me,
     onPick: () -> Unit,
     onComplete: (DayQuest) -> Unit,
-    onOpenProfile: () -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
@@ -83,7 +81,7 @@ fun TodayScreen(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Header(state.day, me, onOpenProfile)
+        Header(state.day, me)
         state.loadError?.let { error ->
             Card {
                 Text(error, style = MaterialTheme.typography.bodyLarge)
@@ -104,7 +102,6 @@ private val dayTitle = DateTimeFormatter.ofPattern("EEEE, d MMMM", Russian)
 private fun Header(
     day: Day?,
     me: Me,
-    onOpenProfile: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -125,12 +122,6 @@ private fun Header(
                 },
                 style = MaterialTheme.typography.headlineLarge,
             )
-        }
-        IconButton(
-            onClick = onOpenProfile,
-            modifier = Modifier.size(48.dp).background(colors.surface, MaterialTheme.shapes.extraLarge),
-        ) {
-            AydaIcon(R.drawable.ic_profile, colors.ink, contentDescription = stringResource(R.string.profile_open))
         }
     }
 }

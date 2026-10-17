@@ -69,7 +69,6 @@
     <string name="theme_graphite">Графит</string>
     <string name="theme_plum">Слива</string>
     <string name="profile_title">Профиль</string>
-    <string name="profile_open">Профиль</string>
     <string name="profile_save">Сохранить</string>
     <string name="profile_change">Изменить</string>
     <string name="profile_done">Готово</string>
@@ -193,4 +192,45 @@
     <string name="complete_coop_bonus">+%1$d за совместный квест: все справились 🎉</string>
     <string name="complete_streak">Серия: %1$d %2$s</string>
     <string name="complete_to_today">На главную</string>
+    <string name="nav_today">Сегодня</string>
+    <string name="nav_feed">Лента</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="feed_title">Лента</string>
+    <string name="feed_empty">Пока пусто. Выполни квест с фото или позови друзей.</string>
+    <string name="feed_routine">Рутина</string>
+    <string name="feed_routine_hidden">Квест скрыт, видно только, что он выполнен</string>
+    <string name="feed_like">Нравится, %1$d</string>
+    <string name="feed_unlike">Убрать лайк, %1$d</string>
+    <string name="feed_comments">Комментарии, %1$d</string>
+    <string name="feed_delete">Удалить пост</string>
+    <string name="feed_delete_confirm">Удалить пост? Фото удалятся, очки останутся.</string>
+    <string name="feed_delete_yes">Удалить</string>
+    <string name="feed_more">Показать ещё</string>
+    <string name="feed_me">Ты</string>
+    <string name="feed_photo">Фото %1$d из %2$d</string>
+    <string name="comments_title">Комментарии</string>
+    <string name="comments_empty">Пока никто не написал</string>
+    <string name="comments_placeholder">Написать комментарий</string>
+    <string name="comments_send">Отправить</string>
+    <string name="comments_delete">Удалить комментарий</string>
+    <string name="time_just_now">только что</string>
+    <string name="time_yesterday">вчера</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">%1$d минуту назад</item>
+        <item quantity="few">%1$d минуты назад</item>
+        <item quantity="many">%1$d минут назад</item>
+        <item quantity="other">%1$d минуты назад</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">%1$d час назад</item>
+        <item quantity="few">%1$d часа назад</item>
+        <item quantity="many">%1$d часов назад</item>
+        <item quantity="other">%1$d часа назад</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">%1$d день назад</item>
+        <item quantity="few">%1$d дня назад</item>
+        <item quantity="many">%1$d дней назад</item>
+        <item quantity="other">%1$d дня назад</item>
+    </plurals>
 </resources>
