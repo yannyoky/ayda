@@ -40,6 +40,8 @@ class User(Base):
     morning_reminder_at: Mapped[time | None] = mapped_column(Time)
     evening_reminder_at: Mapped[time | None] = mapped_column(Time)
     bot_reachable: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    # `auto`: push when the user has a device with the app, otherwise the bot.
+    notification_channel: Mapped[str] = mapped_column(Text, server_default=text("'auto'"))
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -118,3 +120,18 @@ class TelegramLoginRequest(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Device(Base):
+    """A phone with the native app that receives push notifications (FCM token)."""
+
+    __tablename__ = "devices"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"))
+    platform: Mapped[str] = mapped_column(Text)
+    token: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

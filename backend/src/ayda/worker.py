@@ -19,6 +19,7 @@ from ayda.core.db import Database
 from ayda.core.errors import init_error_tracking
 from ayda.core.jobs import Handler, Periodic, Worker
 from ayda.core.logging import configure_logging
+from ayda.core.push import FcmSender, LogPushSender
 from ayda.core.realtime import Realtime
 from ayda.core.storage import Storage
 from ayda.modules import social
@@ -31,17 +32,25 @@ def default_sender(settings: Settings) -> notifications.Sender:
     return AiogramSender(Bot(settings.telegram_bot_token.get_secret_value()))
 
 
+def default_push_sender(settings: Settings) -> notifications.PushSender:
+    if settings.fcm_service_account_json is None:
+        return LogPushSender()
+    return FcmSender(settings.fcm_service_account_json.get_secret_value())
+
+
 def build_worker(
     settings: Settings,
     db: Database,
     storage: Storage | None = None,
     sender: notifications.Sender | None = None,
+    push_sender: notifications.PushSender | None = None,
     realtime_client: Realtime | None = None,
     event_sources: Sequence[EventSource] | None = None,
 ) -> Worker:
     storage = storage or Storage(settings)
     publisher = realtime_client or Realtime(settings)
     sender = sender or default_sender(settings)
+    push_sender = push_sender or default_push_sender(settings)
     if event_sources is None:
         event_sources = local_events.default_sources(settings, local_events.source_http())
     reminders.register(settings)
@@ -49,7 +58,7 @@ def build_worker(
     coop.register(settings)
 
     async def send_notification(session: AsyncSession, payload: dict[str, Any]) -> None:
-        await notifications.send(session, sender, payload)
+        await notifications.send(session, sender, payload, push_sender)
 
     async def process_media(session: AsyncSession, payload: dict[str, Any]) -> None:
         await social.process(session, storage, uuid.UUID(payload["media_id"]))
