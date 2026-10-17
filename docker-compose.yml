@@ -93,7 +93,8 @@ services:
     environment:
       CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_SECRET:-change-me}
       CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_API_KEY:-change-me}
-      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: '["*"]'
+      # Space-separated list: Centrifugo reads JSON only for arrays of objects.
+      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: "*"
       CENTRIFUGO_CHANNEL_NAMESPACES: '[{"name":"personal","allow_user_limited_channels":true,"history_size":100,"history_ttl":"1h","force_recovery":true}]'
     ports:
       - "8001:8000"

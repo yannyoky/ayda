@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+import uvicorn
 from fastapi import FastAPI
 from sqlalchemy import func, select, text, update
 
@@ -12,7 +13,7 @@ from ayda.app import privacy
 from ayda.core.config import Settings
 from ayda.core.db import Database
 from ayda.core.jobs import Job
-from ayda.core.logging import RedactingFilter, redact
+from ayda.core.logging import RedactingFilter, configure_logging, redact
 from ayda.modules import auth, quests, social
 from ayda.worker import build_worker
 from tests.helpers import make_init_data, sign_in
@@ -67,6 +68,23 @@ def test_filter_applies_to_formatted_args() -> None:
 async def count(database: Database, sql: str, **params: object) -> int:
     async with database.sessionmaker() as session:
         return int((await session.execute(text(sql), params)).scalar_one())
+
+
+@pytest.mark.parametrize("access_log", [False, True])
+def test_uvicorn_no_access_log_stays_off(access_log: bool) -> None:
+    """Production runs `uvicorn --no-access-log`; the app's logging setup must not undo it."""
+    names = ("", "uvicorn", "uvicorn.error", "uvicorn.access")
+    saved = {n: (logging.getLogger(n).handlers[:], logging.getLogger(n).propagate) for n in names}
+    level = logging.getLogger().level
+    try:
+        uvicorn.Config("ayda.main:app", access_log=access_log).configure_logging()
+        configure_logging()
+        assert logging.getLogger("uvicorn.access").hasHandlers() is access_log
+    finally:
+        for n, (handlers, propagate) in saved.items():
+            logging.getLogger(n).handlers = handlers
+            logging.getLogger(n).propagate = propagate
+        logging.getLogger().setLevel(level)
 
 
 async def test_account_deletion_erases_and_anonymizes(

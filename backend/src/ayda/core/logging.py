@@ -66,7 +66,13 @@ def configure_logging(level: int = logging.INFO) -> None:
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(level)
+    # `uvicorn --no-access-log` (production) turns the access logger off before the app is
+    # imported; keep it off, request lines can carry personal data.
+    access = logging.getLogger("uvicorn.access")
+    access_off = not access.propagate and not access.handlers
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "aiogram", "httpx"):
         logger = logging.getLogger(name)
         logger.handlers = []
         logger.propagate = True
+    if access_off:
+        access.propagate = False

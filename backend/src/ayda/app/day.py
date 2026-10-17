@@ -310,7 +310,7 @@ async def submit_checkin(
     new_quests = [
         NewQuest(
             source="checkin_task",
-            title=t.title,
+            title=t.title[:1].upper() + t.title[1:],
             category=t.category,
             duration_min=t.duration_min,
             why=TASK_WHY,

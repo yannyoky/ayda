@@ -150,8 +150,8 @@ async def test_checkin_without_llm_uses_code_and_weather(
     assert day["pool_status"] == "ready"
     tasks = [q for q in day["quests"] if q["source"] == "checkin_task"]
     assert [(t["title"], t["category"]) for t in tasks] == [
-        ("позвонить маме", "social"),
-        ("почитать книгу", "learning"),
+        ("Позвонить маме", "social"),
+        ("Почитать книгу", "learning"),
     ]
     catalog = [q for q in day["quests"] if q["source"] == "catalog"]
     assert len(catalog) == 6
