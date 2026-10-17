@@ -109,6 +109,31 @@ class AydaClientTest {
         }
 
     @Test
+    fun aWrongCodeIsNotAReasonToRefresh() =
+        runTest {
+            val store = InMemoryTokenStore(Tokens("a1", "r1"))
+            val paths = mutableListOf<String>()
+            val engine =
+                MockEngine { request ->
+                    paths += request.url.encodedPath
+                    respond(
+                        PROBLEM,
+                        HttpStatusCode.Unauthorized,
+                        headersOf(HttpHeaders.ContentType, "application/problem+json"),
+                    )
+                }
+            val client = AydaClient(base, store, engine)
+
+            client.auth.verifyEmailSignIn(
+                app.ayda.api.models
+                    .VerifyEmailSignInRequest(email = "anya@example.com", code = "000000"),
+            )
+
+            assertEquals(listOf("/api/v1/auth/email/verify"), paths)
+            assertEquals(Tokens("a1", "r1"), store.load())
+        }
+
+    @Test
     fun keepsTheTokensWhenTheServerIsDown() =
         runTest {
             val store = InMemoryTokenStore(Tokens("old", "r1"))

@@ -23,6 +23,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
@@ -93,6 +94,9 @@ class AydaClient(
     }
 
     private suspend fun RefreshTokensParams.refresh(): BearerTokens? {
+        // Only an expired or revoked access token is a reason to refresh. Other 401s, such as a
+        // wrong email code, come without the Bearer challenge and go back to the caller as they are.
+        if (response.headers[HttpHeaders.WWWAuthenticate]?.startsWith("Bearer") != true) return null
         val refreshToken = oldTokens?.refreshToken ?: tokens.load()?.refreshToken ?: return null
         val response =
             client.post("$baseUrl/auth/refresh") {
