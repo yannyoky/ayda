@@ -35,6 +35,9 @@ SECRET = "Сдать анализы в поликлинике"
         (f'{{"text": "{SECRET}", "mood": "tired"}}', "поликлиник"),
         ('{"caption": "мой адрес", "title": "x"}', "адрес"),
         ("https://s3/x?X-Amz-Signature=abcdef123&X-Amz-Credential=key", "abcdef123"),
+        ("SMTP send to sasha.p@example.ru failed", "sasha.p"),
+        ('{"email": "a@b.ru", "code": "123456"}', "123456"),
+        ('{"refresh_token": "abcDEF_secret"}', "abcDEF"),
     ],
 )
 def test_redaction(raw: str, leak: str) -> None:

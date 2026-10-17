@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.config import Settings
 from ayda.core.db import get_session
+from ayda.core.mail import Mailer
 from ayda.core.problems import Problem
 from ayda.modules import auth
 
@@ -20,6 +21,14 @@ def get_app_settings(request: Request) -> Settings:
 
 
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
+
+
+def get_mailer(request: Request) -> Mailer:
+    mailer: Mailer = request.app.state.mailer
+    return mailer
+
+
+AppMailer = Annotated[Mailer, Depends(get_mailer)]
 
 
 def _unauthorized() -> Problem:

@@ -52,8 +52,8 @@ Conventions: primary keys are UUID v7 (`uuid`) unless noted; times are `timestam
 | Column | Type | Notes |
 | --- | --- | --- |
 | id | uuid PK | |
-| telegram_id | bigint unique | |
-| first_name | text | from Telegram |
+| telegram_id | bigint unique null | null for users who signed in only by email (M4) |
+| first_name | text | from Telegram; empty for a new email user until set in onboarding |
 | last_name, username | text null | from Telegram |
 | avatar_url | text null | Telegram photo URL |
 | city_id | int null | → events.cities |
@@ -68,7 +68,13 @@ Conventions: primary keys are UUID v7 (`uuid`) unless noted; times are `timestam
 
 **auth.consents**: id, user_id FK, version text, accepted_at. One row per accepted version.
 
-No session table: the API issues short-lived signed tokens after the initData check.
+**auth.identities** (M4, ADR 0009): id, user_id FK cascade, provider `telegram` \| `email`, subject (Telegram user id or the normalized email), created_at; unique provider + subject. Telegram sign-in adds its identity; email sign-in finds or creates the user by it.
+
+**auth.email_codes**: email_key bytea PK (HMAC of the email), code_hash, attempts, expires_at (10 minutes), created_at. One live code per email; 5 wrong attempts burn it. **auth.email_sends**: email_key, client_key (HMAC of the client address), sent_at; rate limits (1 a minute and 5 an hour per email, 20 an hour per client), rows older than a day are dropped. No address is stored until its owner signs in.
+
+**auth.refresh_tokens**: id, user_id FK cascade, family_id, token_hash (SHA-256) unique, expires_at (60 days), used_at, revoked_at, created_at. Native sessions only; each refresh marks the token used and issues the next one in the family; a used token presented again revokes the family. Logout revokes the family, account deletion revokes all of the user's tokens.
+
+The API issues short-lived signed access tokens (12 hours) after the initData check or an email code; the Mini App signs in again with initData, native apps use refresh tokens.
 
 ### habits
 
@@ -208,7 +214,7 @@ Event quests (US-19): when the pool is built, code picks up to 2 events starting
 | id | bigint identity PK | |
 | occurred_at | timestamptz | indexed with type |
 | user_id | uuid null | replaced with a random id on account deletion |
-| type | text | `checkin_submitted`, `pool_shown`, `quest_taken`, `quest_rejected`, `quest_completed`, `proof_posted`, `reaction_added`, `reminder_sent`, `reminder_opened`, ... |
+| type | text | `checkin_submitted`, `pool_shown`, `quest_taken`, `quest_rejected`, `quest_completed`, `proof_posted`, `reaction_added`, `reminder_sent`, `reminder_opened`, `signed_in` (native sign-in, payload provider and new), ... |
 | schema_version | smallint | per type |
 | payload | jsonb | ids, enums and numbers only; a denylist test bans text, coordinates, initData and URLs |
 

@@ -1,4 +1,4 @@
-"""Logging setup with a redaction filter: no initData, tokens, free text or coordinates in
+"""Logging setup with a redaction filter: no initData, tokens, emails, free text or coordinates in
 logs, whatever a library or a careless log line passes in."""
 
 import logging
@@ -20,6 +20,13 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(r"(\"(?:lat|lon|lng|latitude|longitude)\"\s*:\s*)[-+]?\d+(\.\d+)?", re.I),
         rf"\1{REDACTED}",
+    ),
+    # Email addresses anywhere (email sign-in, ADR 0009)
+    (re.compile(r"[^@\s\"'<>,;:()]+@[^@\s\"'<>,;:()]+\.[A-Za-z]{2,}"), REDACTED),
+    # Sign-in codes and refresh tokens in JSON bodies and dict reprs
+    (
+        re.compile(r"""(["'](?:code|refresh_token)["']\s*:\s*)(?:"[^"]*"|'[^']*')"""),
+        rf'\1"{REDACTED}"',
     ),
     # Free text fields in JSON bodies and dict reprs
     (

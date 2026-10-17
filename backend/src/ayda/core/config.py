@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     centrifugo_api_key: SecretStr | None = None
     centrifugo_token_secret: SecretStr | None = None
 
+    # Email for sign-in codes in the native apps (ADR 0009), e.g. Yandex 360 or Unisender Go.
+    # Without a host, email sign-in answers 503 and Telegram stays the only way in.
+    smtp_host: str | None = None
+    smtp_port: int = 465
+    smtp_security: Literal["ssl", "starttls", "none"] = "ssl"
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from: str = "Ayda <noreply@ayda.example>"
+
     # Error tracking: a Sentry-compatible DSN of the self-hosted GlitchTip; empty: off.
     sentry_dsn: SecretStr | None = None
     # Set by the image build (git sha), so errors are grouped by release.

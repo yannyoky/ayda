@@ -42,6 +42,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/email/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a one-time sign-in code to an email (ADR 0009)
+         * @description Sends a 6-digit code valid for 10 minutes. The answer is the same whether or not an
+         *     account with this email exists. A new code replaces the previous one. At most one code
+         *     a minute and 5 an hour per email, and 20 an hour per client address; the email and
+         *     the code are never logged.
+         */
+        post: operations["startEmailSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange an email code for a session (ADR 0009)
+         * @description The first successful sign-in with an email creates the user with an empty
+         *     `first_name`; the client asks for a name during onboarding. A code works once, and
+         *     after 5 wrong attempts it stops working. The session carries a refresh token.
+         */
+        post: operations["verifyEmailSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange a refresh token for a new access token and refresh token
+         * @description The refresh token is single-use: the response carries a new one. Presenting a used
+         *     token again revokes every token issued from the same sign-in, so a stolen token
+         *     stops working for both sides.
+         */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a refresh token and every token issued from the same sign-in
+         * @description Idempotent; an unknown token also returns 204.
+         */
+        post: operations["signOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -95,7 +182,7 @@ export interface paths {
         put?: never;
         /**
          * Mark onboarding finished (US-02)
-         * @description Requires an accepted consent and a city.
+         * @description Requires an accepted consent, a city and a non-empty `first_name`.
          */
         post: operations["completeOnboarding"];
         delete?: never;
@@ -778,13 +865,27 @@ export interface components {
             access_token: string;
             /** Format: date-time */
             expires_at: string;
+            /**
+             * @description Only in native sessions (email sign-in and refreshSession). Single-use; keep it
+             *     in the platform's secure storage. Null or missing for Mini App sign-in.
+             */
+            refresh_token?: string | null;
+            /**
+             * Format: date-time
+             * @description When `refresh_token` expires (60 days after it was issued).
+             */
+            refresh_expires_at?: string | null;
             user: components["schemas"]["Me"];
+        };
+        RefreshTokenInput: {
+            refresh_token: string;
         };
         /** @enum {string} */
         Theme: "graphite" | "plum";
         Me: {
             /** Format: uuid */
             id: string;
+            /** @description Empty for a new user who signed in by email until they set a name. */
             first_name: string;
             last_name?: string | null;
             username?: string | null;
@@ -812,6 +913,8 @@ export interface components {
             evening_at: string | null;
         };
         ProfileUpdate: {
+            /** @description Leading and trailing spaces are trimmed. */
+            first_name?: string;
             city_id?: number;
             theme?: components["schemas"]["Theme"];
             reminders?: components["schemas"]["Reminders"];
@@ -1332,6 +1435,113 @@ export interface operations {
                 };
             };
             401: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    startEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Code sent */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    verifyEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Signed in */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshTokenInput"];
+            };
+        };
+        responses: {
+            /** @description New session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshTokenInput"];
+            };
+        };
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             422: components["responses"]["Problem"];
         };
     };

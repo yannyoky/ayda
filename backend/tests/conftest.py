@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from ayda.core.config import Settings
 from ayda.core.db import Database
+from ayda.core.mail import Mailer, MailError
 from ayda.core.models import ALL_SCHEMAS
 from ayda.core.realtime import Realtime
 from ayda.main import create_app
@@ -165,4 +166,27 @@ class FakeRealtime(Realtime):
 def realtime(app: FastAPI, settings: Settings) -> FakeRealtime:
     fake = FakeRealtime(settings)
     app.state.realtime = fake
+    return fake
+
+
+class FakeMailer(Mailer):
+    def __init__(self, settings: Settings) -> None:
+        super().__init__(settings)
+        self.sent: list[tuple[str, str, str]] = []
+        self.fail = False
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    async def send(self, to: str, subject: str, body: str) -> None:
+        if self.fail:
+            raise MailError("test")
+        self.sent.append((to, subject, body))
+
+
+@pytest.fixture
+def mailer(app: FastAPI, settings: Settings) -> FakeMailer:
+    fake = FakeMailer(settings)
+    app.state.mailer = fake
     return fake

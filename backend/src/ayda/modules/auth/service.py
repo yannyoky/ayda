@@ -6,7 +6,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.ids import uuid7
-from ayda.modules.auth.models import Consent, User
+from ayda.modules.auth.models import Consent, User, UserIdentity
+from ayda.modules.auth.refresh import revoke_user_refresh_tokens
 from ayda.modules.auth.telegram import TelegramUser
 
 # Version of the personal data processing consent the user must accept (docs/privacy).
@@ -33,7 +34,51 @@ async def upsert_telegram_user(session: AsyncSession, tg: TelegramUser) -> tuple
     )
     user = (await session.execute(stmt)).scalar_one()
     await session.refresh(user)
+    await _add_identity(session, user.id, "telegram", str(tg.id))
     return user, user.id == new_id
+
+
+async def _add_identity(
+    session: AsyncSession, user_id: uuid.UUID, provider: str, subject: str
+) -> None:
+    await session.execute(
+        insert(UserIdentity)
+        .values(id=uuid7(), user_id=user_id, provider=provider, subject=subject)
+        .on_conflict_do_nothing(index_elements=[UserIdentity.provider, UserIdentity.subject])
+    )
+
+
+async def find_or_create_email_user(session: AsyncSession, email: str) -> tuple[User, bool]:
+    """The user signed in with this normalized email, or a new one with an empty name.
+
+    Returns the user and whether it was created now.
+    """
+    user_id = await session.scalar(
+        select(UserIdentity.user_id).where(
+            UserIdentity.provider == "email", UserIdentity.subject == email
+        )
+    )
+    if user_id is not None:
+        user = await session.get(User, user_id)
+        assert user is not None  # identities cascade with their user
+        return user, False
+    user = User(id=uuid7(), telegram_id=None, first_name="")
+    session.add(user)
+    await session.flush()
+    await _add_identity(session, user.id, "email", email)
+    # A concurrent sign-in with the same email may have won; use its user.
+    owner = await session.scalar(
+        select(UserIdentity.user_id).where(
+            UserIdentity.provider == "email", UserIdentity.subject == email
+        )
+    )
+    if owner != user.id:
+        await session.delete(user)
+        winner = await session.get(User, owner)
+        assert winner is not None
+        return winner, False
+    await session.refresh(user)
+    return user, True
 
 
 async def get_user(session: AsyncSession, user_id: uuid.UUID) -> User | None:
@@ -84,6 +129,7 @@ async def request_deletion(session: AsyncSession, user: User) -> None:
     """Sign-out everywhere is immediate: tokens of a user with this mark are rejected."""
     if user.deletion_requested_at is None:
         user.deletion_requested_at = datetime.now(UTC)
+    await revoke_user_refresh_tokens(session, user.id)
 
 
 async def delete_user(session: AsyncSession, user_id: uuid.UUID) -> None:

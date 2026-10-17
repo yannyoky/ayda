@@ -23,6 +23,7 @@ from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
 from ayda.core.errors import init_error_tracking
 from ayda.core.logging import configure_logging
+from ayda.core.mail import Mailer
 from ayda.core.problems import install_problem_handlers
 from ayda.core.realtime import Realtime
 from ayda.core.storage import Storage
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.day_tools = day_tools
     app.state.storage = Storage(settings)
     app.state.realtime = Realtime(settings, http)
+    app.state.mailer = Mailer(settings)
     install_problem_handlers(app)
     for router in (
         system.router,
