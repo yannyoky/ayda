@@ -42,10 +42,7 @@ private enum class Section { Name, City, Goals, Habits, Reminders }
 
 /** US-03 and ADR 0009: settings, sign-in methods, sign-out and account deletion. */
 @Composable
-fun ProfileScreen(
-    model: ProfileViewModel,
-    onBack: () -> Unit,
-) {
+fun ProfileScreen(model: ProfileViewModel) {
     val state by model.state.collectAsStateWithLifecycle()
     val editor by model.editor.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
@@ -68,10 +65,11 @@ fun ProfileScreen(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            QuietButton(stringResource(R.string.onboarding_back), onClick = onBack)
-            Text(stringResource(R.string.profile_title), style = MaterialTheme.typography.headlineLarge)
-        }
+        Text(
+            stringResource(R.string.profile_title),
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
         (state.error ?: editor.error)?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
 
         Editable(stringResource(R.string.onboarding_name_label), state.me.firstName, open == Section.Name, {

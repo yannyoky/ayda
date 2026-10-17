@@ -5,7 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +35,7 @@ import app.ayda.android.ui.onboarding.ConsentScreen
 import app.ayda.android.ui.onboarding.OnboardingScreen
 import app.ayda.android.ui.profile.ProfileScreen
 import app.ayda.android.ui.signin.SignInScreen
+import app.ayda.android.ui.social.FeedScreen
 import app.ayda.api.models.Me
 import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
@@ -43,6 +48,7 @@ import app.ayda.shared.onboarding.OnboardingViewModel
 import app.ayda.shared.profile.ProfileViewModel
 import app.ayda.shared.session.SessionState
 import app.ayda.shared.session.SessionViewModel
+import app.ayda.shared.social.FeedViewModel
 
 /** Picks the top-level screen from the session state. */
 @Composable
@@ -88,7 +94,22 @@ fun AydaApp(client: AydaClient) {
     }
 }
 
-private enum class Screen { Today, Pick, Complete, Profile }
+private enum class Screen { Today, Feed, Profile, Pick, Complete }
+
+private fun Screen.tab(): Tab? =
+    when (this) {
+        Screen.Today -> Tab.Today
+        Screen.Feed -> Tab.Feed
+        Screen.Profile -> Tab.Profile
+        else -> null
+    }
+
+private fun Tab.screen(): Screen =
+    when (this) {
+        Tab.Today -> Screen.Today
+        Tab.Feed -> Screen.Feed
+        Tab.Profile -> Screen.Profile
+    }
 
 @Composable
 private fun SignedInHome(
@@ -104,42 +125,55 @@ private fun SignedInHome(
         today.dismissNotice()
         screen = Screen.Today
     }
-    when (screen) {
-        Screen.Today ->
-            TodayScreen(
-                today,
-                me,
-                onPick = { screen = Screen.Pick },
-                onComplete = { quest ->
-                    completing = quest.id
-                    screen = Screen.Complete
-                },
-                onOpenProfile = { screen = Screen.Profile },
-            )
-        Screen.Pick -> {
-            BackHandler(onBack = back)
-            PickScreen(today, onClose = back)
-        }
-        Screen.Complete -> {
-            val day = todayState.day
-            val quest = day?.quests?.firstOrNull { it.id == completing }
-            if (day == null || quest == null) {
-                LaunchedEffect(Unit) { back() }
-                return
-            }
-            val model =
-                viewModel(key = "complete-${quest.id}") { CompleteViewModel(client, quest, day, today::refresh) }
-            BackHandler(onBack = back)
-            CompleteScreen(model, onClose = back)
-        }
-        Screen.Profile -> {
-            val model =
-                viewModel(key = "profile-${me.id}") {
-                    ProfileViewModel(client, me, session::onProfileChanged, session::signOut)
+    if (screen != Screen.Today) BackHandler(onBack = back)
+
+    val tab = screen.tab()
+    Column(Modifier.fillMaxSize().background(LocalAydaColors.current.bg)) {
+        // The tab bar takes the navigation bar inset, so the screen above must not add it again.
+        Box(
+            Modifier.weight(1f).then(
+                if (tab != null) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier,
+            ),
+        ) {
+            when (screen) {
+                Screen.Today ->
+                    TodayScreen(
+                        today,
+                        me,
+                        onPick = { screen = Screen.Pick },
+                        onComplete = { quest ->
+                            completing = quest.id
+                            screen = Screen.Complete
+                        },
+                    )
+                Screen.Feed -> {
+                    val model = viewModel(key = "feed-${me.id}") { FeedViewModel(client) }
+                    FeedScreen(model, me, contentPadding = PaddingValues(16.dp))
                 }
-            BackHandler(onBack = back)
-            ProfileScreen(model, onBack = back)
+                Screen.Profile -> {
+                    val model =
+                        viewModel(key = "profile-${me.id}") {
+                            ProfileViewModel(client, me, session::onProfileChanged, session::signOut)
+                        }
+                    ProfileScreen(model)
+                }
+                Screen.Pick -> PickScreen(today, onClose = back)
+                Screen.Complete -> {
+                    val day = todayState.day
+                    val quest = day?.quests?.firstOrNull { it.id == completing }
+                    if (day == null || quest == null) {
+                        LaunchedEffect(Unit) { back() }
+                    } else {
+                        val model =
+                            viewModel(key = "complete-${quest.id}") {
+                                CompleteViewModel(client, quest, day, today::refresh)
+                            }
+                        CompleteScreen(model, onClose = back)
+                    }
+                }
+            }
         }
+        if (tab != null) TabBar(tab, onSelect = { screen = it.screen() })
     }
 }
 
