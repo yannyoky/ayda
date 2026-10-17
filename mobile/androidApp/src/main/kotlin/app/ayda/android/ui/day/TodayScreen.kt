@@ -41,6 +41,8 @@ import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.QuietButton
+import app.ayda.android.ui.coop.CoopButton
+import app.ayda.android.ui.coop.CoopInvites
 import app.ayda.api.models.Day
 import app.ayda.api.models.DayQuest
 import app.ayda.api.models.Me
@@ -49,6 +51,7 @@ import app.ayda.api.models.PoolStatus
 import app.ayda.api.models.QuestState
 import app.ayda.api.models.Visibility
 import app.ayda.api.models.Weather
+import app.ayda.shared.coop.CoopsViewModel
 import app.ayda.shared.day.TodayState
 import app.ayda.shared.day.TodayViewModel
 import java.text.NumberFormat
@@ -60,14 +63,18 @@ import kotlin.math.roundToInt
 fun TodayScreen(
     model: TodayViewModel,
     me: Me,
+    coops: CoopsViewModel,
     onPick: () -> Unit,
     onComplete: (DayQuest) -> Unit,
+    onOpenCoop: (String) -> Unit,
+    onInviteCoop: (DayQuest) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
     // A day ends at 04:00 local time, so coming back to the app may mean a new day.
     LifecycleResumeEffect(model) {
         model.refresh()
+        coops.refresh()
         onPauseOrDispose {}
     }
 
@@ -89,9 +96,10 @@ fun TodayScreen(
             }
         }
         val day = state.day ?: return@Column
+        CoopInvites(coops, onOpen = onOpenCoop)
         if (state.showCheckinForm) CheckinForm(state, model) else CheckinDone(day, model)
         StatsRow(day)
-        QuestsCard(state, day, onPick, onComplete, model::openOwnQuest)
+        QuestsCard(state, day, onPick, onComplete, model::openOwnQuest) { CoopButton(it, onOpenCoop, onInviteCoop) }
     }
     if (state.ownQuest != null) OwnQuestSheet(state, model)
 }
@@ -319,6 +327,7 @@ private fun QuestsCard(
     onPick: () -> Unit,
     onComplete: (DayQuest) -> Unit,
     onOwn: () -> Unit,
+    coopButton: @Composable (DayQuest) -> Unit,
 ) {
     val colors = LocalAydaColors.current
     Column(
@@ -349,7 +358,7 @@ private fun QuestsCard(
         if (state.mine.isNotEmpty()) {
             state.mine.forEachIndexed { index, quest ->
                 if (index > 0) HorizontalDivider(color = colors.bg)
-                QuestRow(quest, onDone = { onComplete(quest) })
+                QuestRow(quest, onDone = { onComplete(quest) }, coopButton = { coopButton(quest) })
             }
         } else if (day.poolStatus == PoolStatus.ready || day.poolStatus == PoolStatus.failed) {
             Muted(stringResource(R.string.today_none_taken))
@@ -411,6 +420,7 @@ private fun Muted(text: String) =
 private fun QuestRow(
     quest: DayQuest,
     onDone: () -> Unit,
+    coopButton: @Composable () -> Unit,
 ) {
     val colors = LocalAydaColors.current
     val completed = quest.state == QuestState.completed
@@ -425,6 +435,7 @@ private fun QuestRow(
             event != null -> eventSummary(event)
             else ->
                 listOfNotNull(
+                    quest.coopId?.let { stringResource(R.string.coop_together) },
                     stringResource(R.string.quest_minutes, quest.durationMin),
                     quest.why,
                 ).joinToString(" · ")
@@ -458,6 +469,7 @@ private fun QuestRow(
             )
             if (event != null && !completed && !expired) EventLink(event)
         }
+        coopButton()
         if (quest.state == QuestState.taken) {
             Button(
                 onClick = onDone,
