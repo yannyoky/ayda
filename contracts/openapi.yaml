@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Ayda API
-  version: 0.2.0
-  summary: MVP contract, milestones M1 and M2 (US-01..US-18)
+  version: 0.3.0
+  summary: MVP contract, milestones M1-M3 (US-01..US-19)
   description: |
     Contract-first API of the Ayda backend (ADR 0004). The Mini App and native clients
     generate their API code from this file; the backend must conform to it.
@@ -1500,8 +1500,10 @@ components:
 
     QuestSource:
       type: string
-      enum: [catalog, checkin_task, custom, coop]
-      description: '`coop`: joined from a friend''s co-op invitation.'
+      enum: [catalog, checkin_task, custom, coop, event]
+      description: |
+        `coop`: joined from a friend's co-op invitation. `event`: a local event from the
+        listings (US-19); details are in `DayQuest.event`.
 
     DayQuest:
       type: object
@@ -1542,9 +1544,54 @@ components:
           type: [string, 'null']
           format: uuid
           description: The co-op this quest belongs to (as its owner or a participant).
+        event:
+          description: Set only for `source = event`.
+          oneOf:
+            - $ref: '#/components/schemas/EventInfo'
+            - type: 'null'
         expires_at:
           type: string
           format: date-time
+
+    EventInfo:
+      type: object
+      description: |
+        A local event behind an event quest (US-19), as of when the pool was built. The
+        client shows the place, time, price and a link to the source page, and names the
+        source (ADR 0008).
+      required: [title, starts_at, is_free, url, source]
+      properties:
+        title:
+          type: string
+          description: The event's own title; the quest title may be phrased differently.
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: [string, 'null']
+          format: date-time
+        venue:
+          type: [string, 'null']
+          description: Place name, for example a club or a museum.
+        address:
+          type: [string, 'null']
+        city:
+          type: [string, 'null']
+          description: City name; shown when the event is in another city of the user's region.
+        is_free:
+          type: boolean
+        price_min:
+          type: [integer, 'null']
+          minimum: 0
+          description: Lowest ticket price in rubles when known; null for free events or unknown price.
+        url:
+          type: string
+          format: uri
+          description: The event page at the source; open it in the external browser.
+        source:
+          type: string
+          enum: [timepad, kudago, culture]
+          description: '`timepad` (Timepad), `kudago` (KudaGo), `culture` (PRO.Культура.РФ).'
 
     PoolStatus:
       type: string

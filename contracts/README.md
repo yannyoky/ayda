@@ -1,6 +1,6 @@
 # contracts
 
-`openapi.yaml` is the hand-written OpenAPI 3.1 contract of the Ayda API and the source of truth for every client (ADR 0004). It covers milestones M1 and M2 (US-01..US-18 in `docs/prd.md`); M3 endpoints are added with their issues. Realtime events sent over Centrifugo are described as `RealtimeEvent` (ADR 0007).
+`openapi.yaml` is the hand-written OpenAPI 3.1 contract of the Ayda API and the source of truth for every client (ADR 0004). It covers milestones M1-M3 (US-01..US-19 in `docs/prd.md`). Realtime events sent over Centrifugo are described as `RealtimeEvent` (ADR 0007).
 
 Lint (same as CI):
 

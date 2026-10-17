@@ -869,10 +869,11 @@ export interface components {
         /** @enum {string} */
         QuestState: "offered" | "taken" | "replaced" | "completed" | "expired";
         /**
-         * @description `coop`: joined from a friend's co-op invitation.
+         * @description `coop`: joined from a friend's co-op invitation. `event`: a local event from the
+         *     listings (US-19); details are in `DayQuest.event`.
          * @enum {string}
          */
-        QuestSource: "catalog" | "checkin_task" | "custom" | "coop";
+        QuestSource: "catalog" | "checkin_task" | "custom" | "coop" | "event";
         DayQuest: {
             /** Format: uuid */
             id: string;
@@ -895,8 +896,41 @@ export interface components {
              * @description The co-op this quest belongs to (as its owner or a participant).
              */
             coop_id?: string | null;
+            /** @description Set only for `source = event`. */
+            event?: components["schemas"]["EventInfo"] | null;
             /** Format: date-time */
             expires_at: string;
+        };
+        /**
+         * @description A local event behind an event quest (US-19), as of when the pool was built. The
+         *     client shows the place, time, price and a link to the source page, and names the
+         *     source (ADR 0008).
+         */
+        EventInfo: {
+            /** @description The event's own title; the quest title may be phrased differently. */
+            title: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at?: string | null;
+            /** @description Place name, for example a club or a museum. */
+            venue?: string | null;
+            address?: string | null;
+            /** @description City name; shown when the event is in another city of the user's region. */
+            city?: string | null;
+            is_free: boolean;
+            /** @description Lowest ticket price in rubles when known; null for free events or unknown price. */
+            price_min?: number | null;
+            /**
+             * Format: uri
+             * @description The event page at the source; open it in the external browser.
+             */
+            url: string;
+            /**
+             * @description `timepad` (Timepad), `kudago` (KudaGo), `culture` (PRO.Культура.РФ).
+             * @enum {string}
+             */
+            source: "timepad" | "kudago" | "culture";
         };
         /**
          * @description `none` until the check-in; `failed` still returns the code-only pool when possible.
