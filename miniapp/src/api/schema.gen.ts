@@ -1019,8 +1019,9 @@ export interface components {
         };
         /**
          * @description Where reminders and notices go: `auto` pushes to phones with the app and uses the
-         *     Telegram bot otherwise; `push` only pushes; `telegram` only uses the bot.
-         * @default auto
+         *     Telegram bot otherwise; `push` only pushes; `telegram` only uses the bot. New users
+         *     start with `auto`. Clients send it only to change it: generated clients that fill in
+         *     a schema default would otherwise reset the choice on every profile update.
          * @enum {string}
          */
         NotificationChannel: "auto" | "push" | "telegram";

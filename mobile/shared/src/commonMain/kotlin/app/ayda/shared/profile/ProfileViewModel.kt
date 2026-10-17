@@ -3,6 +3,7 @@ package app.ayda.shared.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.ayda.api.models.Me
+import app.ayda.api.models.NotificationChannel
 import app.ayda.api.models.ProfileUpdate
 import app.ayda.api.models.SignInIdentity
 import app.ayda.api.models.StartEmailSignInRequest
@@ -79,6 +80,12 @@ class ProfileViewModel(
     fun saveGoals() = busy { editor.saveGoals().orFail() }
 
     fun saveReminders() = busy { editor.saveReminders().orFail() }
+
+    /** Where reminders and notices go: `auto` pushes to phones with the app and uses the bot otherwise. */
+    fun pickChannel(channel: NotificationChannel) {
+        if (channel == (state.value.me.notificationChannel ?: NotificationChannel.auto)) return
+        busy { editor.updateProfile(ProfileUpdate(notificationChannel = channel)).orFail() }
+    }
 
     fun startEmailLink() = mutableState.update { it.copy(emailLink = EmailLink(), error = null) }
 

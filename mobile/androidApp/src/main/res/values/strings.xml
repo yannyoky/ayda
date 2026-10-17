@@ -301,4 +301,11 @@
     <string name="coop_answered">Ты уже ответил на это приглашение</string>
     <string name="coop_not_found">Совместный квест не найден</string>
     <string name="push_channel">Напоминания и новости</string>
+    <string name="profile_channel">Куда присылать уведомления</string>
+    <string name="profile_channel_auto">Авто</string>
+    <string name="profile_channel_auto_hint">Пуш на телефон, а если приложения нет, в Telegram</string>
+    <string name="profile_channel_push">Пуш</string>
+    <string name="profile_channel_push_hint">Только пуши на телефон</string>
+    <string name="profile_channel_telegram">Telegram</string>
+    <string name="profile_channel_telegram_hint">Только сообщения от бота</string>
 </resources>

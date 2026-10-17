@@ -6,13 +6,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -34,6 +40,7 @@ import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.QuietButton
+import app.ayda.api.models.NotificationChannel
 import app.ayda.api.models.SignInIdentity
 import app.ayda.shared.profile.ProfileState
 import app.ayda.shared.profile.ProfileViewModel
@@ -141,6 +148,8 @@ fun ProfileScreen(model: ProfileViewModel) {
             )
         }
 
+        ChannelPicker(state, model)
+
         SignInMethods(state, model)
 
         Card {
@@ -159,6 +168,55 @@ fun ProfileScreen(model: ProfileViewModel) {
             },
             dismissButton = { TextButton(onClick = model::cancelDeletion) { Text(stringResource(R.string.cancel)) } },
         )
+    }
+}
+
+@Composable
+private fun ChannelPicker(
+    state: ProfileState,
+    model: ProfileViewModel,
+) {
+    val colors = LocalAydaColors.current
+    val current = state.me.notificationChannel ?: NotificationChannel.auto
+    val options =
+        listOf(
+            Triple(NotificationChannel.auto, R.string.profile_channel_auto, R.string.profile_channel_auto_hint),
+            Triple(NotificationChannel.push, R.string.profile_channel_push, R.string.profile_channel_push_hint),
+            Triple(
+                NotificationChannel.telegram,
+                R.string.profile_channel_telegram,
+                R.string.profile_channel_telegram_hint,
+            ),
+        )
+    Card {
+        Text(stringResource(R.string.profile_channel), style = MaterialTheme.typography.headlineSmall)
+        Column(Modifier.selectableGroup()) {
+            options.forEach { (channel, title, hint) ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .selectable(selected = channel == current, enabled = !state.busy, role = Role.RadioButton) {
+                            model.pickChannel(channel)
+                        }.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    RadioButton(
+                        selected = channel == current,
+                        onClick = null,
+                        colors =
+                            RadioButtonDefaults.colors(
+                                selectedColor = colors.accent,
+                                unselectedColor = colors.muted,
+                            ),
+                    )
+                    Column {
+                        Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(hint), style = MaterialTheme.typography.bodyMedium, color = colors.muted)
+                    }
+                }
+            }
+        }
     }
 }
 
