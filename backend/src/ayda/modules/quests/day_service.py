@@ -1,7 +1,7 @@
 """Check-ins, daily pools and day quests: storage and the daily limits."""
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -17,6 +17,10 @@ from ayda.modules.quests.selection import CODE_WHY, pick_alternative
 
 MAX_CHECKINS_PER_DAY = 10
 ACTIVE_STATES = ("taken", "completed")
+
+
+# Finds another event for a replaced event quest, skipping the given listing ids.
+EventPicker = Callable[[DayPool, set[int]], Awaitable["NewQuest | None"]]
 
 
 class DayError(Exception):
@@ -37,6 +41,8 @@ class NewQuest:
     template_id: int | None = None
     description: str | None = None
     why: str | None = None
+    event_id: int | None = None
+    event: dict[str, Any] | None = None
 
 
 def quest_from_template(template: Template, why: str | None = None) -> NewQuest:
@@ -121,6 +127,19 @@ async def excluded_template_ids(session: AsyncSession, user_id: uuid.UUID, day: 
     return out
 
 
+async def excluded_event_ids(session: AsyncSession, user_id: uuid.UUID, day: date) -> set[int]:
+    """Events not to offer again today: replaced, taken or done."""
+    rows = await session.scalars(
+        select(DayQuest.event_id).where(
+            DayQuest.user_id == user_id,
+            DayQuest.local_date == day,
+            DayQuest.event_id.is_not(None),
+            DayQuest.state != "offered",
+        )
+    )
+    return {i for i in rows if i is not None}
+
+
 async def save_checkin(
     session: AsyncSession,
     user_id: uuid.UUID,
@@ -169,6 +188,7 @@ async def rebuild_pool(
     candidate_ids: list[int],
     expires_at: datetime,
     now: datetime,
+    event_ids: list[int] | None = None,
 ) -> list[DayQuest]:
     """Drop quests that were only offered and add the new ones after the kept ones."""
     await session.execute(
@@ -185,7 +205,7 @@ async def rebuild_pool(
     pool.ranked_by = ranked_by
     pool.provider = provider
     pool.weather = weather
-    pool.context = {"candidate_ids": candidate_ids}
+    pool.context = {"candidate_ids": candidate_ids, "event_ids": event_ids or []}
     pool.updated_at = now
     await session.flush()
     return added
@@ -201,6 +221,8 @@ def new_day_quest(
         local_date=pool.local_date,
         source=quest.source,
         template_id=quest.template_id,
+        event_id=quest.event_id,
+        event=quest.event,
         title=quest.title,
         description=quest.description,
         category=quest.category,
@@ -281,33 +303,43 @@ async def replace_quest(
     reason: str | None,
     day: date,
     now: datetime,
+    pick_event: EventPicker | None = None,
 ) -> tuple[DayQuest, DayQuest | None, DayPool]:
-    """Mark an offered quest replaced and offer an alternative from the day's candidates."""
+    """Mark an offered quest replaced and offer an alternative from the day's candidates:
+    another event for an event quest when `pick_event` finds one, else a catalog quest."""
     pool, quest = await quest_for_update(session, user_id, quest_id, day)
     if quest.state != "offered":
         raise DayError("quest-not-offered")
     if replacements_left(pool) == 0:
         raise DayError("no-replacements-left")
 
-    candidate_ids: list[int] = list(pool.context.get("candidate_ids", []))
-    in_pool = {q.template_id for q in await day_quests(session, pool.id) if q.template_id}
-    excluded = in_pool | await excluded_template_ids(session, user_id, day)
-    templates = {
-        t.id: t
-        for t in await session.scalars(
-            select(Template).where(Template.id.in_(candidate_ids), Template.active)
-        )
-    }
-    candidates = [templates[i] for i in candidate_ids if i in templates and i not in excluded]
-    alternative = pick_alternative(candidates, quest.category, quest.duration_min)
+    in_pool_quests = await day_quests(session, pool.id)
+    new: NewQuest | None = None
+    if quest.source == "event" and pick_event is not None:
+        skip = {q.event_id for q in in_pool_quests if q.event_id is not None}
+        skip |= await excluded_event_ids(session, user_id, day)
+        new = await pick_event(pool, skip)
+    if new is None:
+        candidate_ids: list[int] = list(pool.context.get("candidate_ids", []))
+        in_pool = {q.template_id for q in in_pool_quests if q.template_id}
+        excluded = in_pool | await excluded_template_ids(session, user_id, day)
+        templates = {
+            t.id: t
+            for t in await session.scalars(
+                select(Template).where(Template.id.in_(candidate_ids), Template.active)
+            )
+        }
+        candidates = [templates[i] for i in candidate_ids if i in templates and i not in excluded]
+        alternative = pick_alternative(candidates, quest.category, quest.duration_min)
+        if alternative is not None:
+            new = quest_from_template(alternative, CODE_WHY.get(alternative.category))
 
     quest.state = "replaced"
     quest.reject_reason = reason
     pool.replacements_used += 1
     pool.updated_at = now
     replacement: DayQuest | None = None
-    if alternative is not None:
-        new = quest_from_template(alternative, CODE_WHY.get(alternative.category))
+    if new is not None:
         replacement = new_day_quest(pool, new, quest.position, "offered", quest.expires_at, now)
         session.add(replacement)
         quest.replaced_by_id = replacement.id

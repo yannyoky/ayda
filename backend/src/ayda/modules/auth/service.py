@@ -47,6 +47,16 @@ async def get_users(session: AsyncSession, user_ids: list[uuid.UUID]) -> dict[uu
     return {u.id: u for u in rows.scalars()}
 
 
+async def user_city_ids(session: AsyncSession) -> list[int]:
+    """Distinct cities of active users (for loading local events)."""
+    rows = await session.scalars(
+        select(User.city_id)
+        .where(User.city_id.is_not(None), User.deletion_requested_at.is_(None))
+        .distinct()
+    )
+    return sorted(i for i in rows if i is not None)
+
+
 async def accepted_consent_versions(session: AsyncSession, user_id: uuid.UUID) -> set[str]:
     rows = await session.execute(select(Consent.version).where(Consent.user_id == user_id))
     return set(rows.scalars())

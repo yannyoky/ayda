@@ -30,6 +30,7 @@ Pull requests touching `deploy/` or `infra/` validate the Compose file and build
 7. **GlitchTip**: `docker compose -f docker-compose.prod.yml exec glitchtip ./manage.py createsuperuser`, sign in at `https://<ERRORS_DOMAIN>`, create the organization and the `ayda` project, put its DSN into `SENTRY_DSN` in `.env`, run the Deploy workflow again. User registration is off; events are kept 30 days.
 8. **@BotFather**: Bot Settings → Configure Mini App → Main Mini App URL `https://<AYDA_DOMAIN>/`; Menu Button → the same URL. The bot sets its webhook to `https://<AYDA_DOMAIN>/telegram/webhook` with `TELEGRAM_WEBHOOK_SECRET` on start.
 9. **LLM providers**: from the VPS, run the eval smoke check (`docs/llm-eval.md`, `--limit 3`) to confirm Groq and Cloudflare answer from a Russian IP. If Groq is blocked, put `cloudflare-llama70b` first in `LLM_PROVIDERS`.
+10. **Local events** (M3, ADR 0008): nothing to set up; Timepad and KudaGo need no keys (`TIMEPAD_TOKEN` is optional). The worker loads events once a day after 04:00 Moscow time, and right after the first deploy if that time has passed; `docker compose -f docker-compose.prod.yml logs worker | grep events:` shows the counts per source.
 
 ## Backups
 

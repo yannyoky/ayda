@@ -28,7 +28,13 @@ class EventType(StrEnum):
     COOP_BONUS = "coop_bonus"
 
 
-SCHEMA_VERSIONS: dict[EventType, int] = dict.fromkeys(EventType, 1)
+SCHEMA_VERSIONS: dict[EventType, int] = dict.fromkeys(EventType, 1) | {
+    # v2 (M3): event listing ids next to template ids.
+    EventType.POOL_SHOWN: 2,
+    EventType.QUEST_TAKEN: 2,
+    EventType.QUEST_REJECTED: 2,
+    EventType.QUEST_COMPLETED: 2,
+}
 
 # Keys that would carry raw personal data. Matched case-insensitively against
 # every key at any depth, ignoring `_` and `-`.

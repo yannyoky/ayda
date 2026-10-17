@@ -33,7 +33,7 @@ async def test_record_writes_event_with_schema_version(session: AsyncSession) ->
     event = (await session.execute(select(Event))).scalar_one()
     assert event.type == "quest_rejected"
     assert event.user_id == user_id
-    assert event.schema_version == 1
+    assert event.schema_version == 2
     assert event.payload == {
         "day_quest_id": str(quest_id),
         "reason": "no_time",

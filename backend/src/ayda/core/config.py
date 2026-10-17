@@ -53,6 +53,14 @@ class Settings(BaseSettings):
     backup_at: time = time(3, 30)
     backup_timezone: str = "Europe/Moscow"
 
+    # Local events (ADR 0008): sources in order, comma-separated (`timepad`, `kudago`); empty:
+    # no events. Loaded once a day after `events_ingest_at` local time for the next 3 days.
+    events_sources: str = "timepad,kudago"
+    events_ingest_at: time = time(4, 0)
+    events_timezone: str = "Europe/Moscow"
+    # Optional: a Timepad API token only raises the rate limit; public events need none.
+    timepad_token: SecretStr | None = None
+
     # Realtime through Centrifugo (ADR 0007). Without the API key nothing is published;
     # without the token secret the Mini App gets no realtime token and polls REST instead.
     centrifugo_api_url: str = "http://localhost:8001/api"
