@@ -87,6 +87,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/telegram/login-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing in (or linking Telegram) through the bot from a native app
+         * @description Returns a link to the bot (`t.me/<bot>?start=login_<code>`) valid for 5 minutes and a
+         *     secret that only this app knows. The user opens the link, presses Start and confirms
+         *     in the bot; the app then calls exchangeTelegramLoginRequest with the secret.
+         *     With a bearer token the confirmed Telegram account is linked to the signed-in user
+         *     instead (ADR 0009).
+         */
+        post: operations["createTelegramLoginRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/telegram/login-requests/{request_id}/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get the session once the user confirmed in the bot
+         * @description 202 while the user has not confirmed yet (poll every 2-3 seconds); 200 with a native
+         *     session exactly once after confirmation. A new Telegram account creates the user.
+         *     For a linking request, the session belongs to the user who started it; 409 when this
+         *     Telegram account already belongs to another Ayda account.
+         */
+        post: operations["exchangeTelegramLoginRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/refresh": {
         parameters: {
             query?: never;
@@ -146,6 +193,60 @@ export interface paths {
          *     within 30 days; analytics events are anonymized.
          */
         delete: operations["requestAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ways the user can sign in (email, Telegram) */
+        get: operations["listMyIdentities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/identities/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link an email after receiving a code from startEmailSignIn
+         * @description 409 when the email already signs in to another account.
+         */
+        post: operations["linkMyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/identities/{identity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a sign-in method; the last one can't be removed */
+        delete: operations["unlinkMyIdentity"];
         options?: never;
         head?: never;
         patch?: never;
@@ -877,6 +978,29 @@ export interface components {
             refresh_expires_at?: string | null;
             user: components["schemas"]["Me"];
         };
+        TelegramLoginRequest: {
+            /** Format: uuid */
+            id: string;
+            /** @description Shown once; keep it in memory and send it to exchangeTelegramLoginRequest. */
+            poll_secret: string;
+            /**
+             * Format: uri
+             * @example https://t.me/ayda_quest_bot?start=login_x8Kq2LmN0pQr7sTu
+             */
+            bot_url: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        SignInIdentity: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            provider: "telegram" | "email";
+            /** @description The email itself, or "Telegram". */
+            label: string;
+            /** Format: date-time */
+            created_at: string;
+        };
         RefreshTokenInput: {
             refresh_token: string;
         };
@@ -1496,6 +1620,67 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
+    createTelegramLoginRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Request created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramLoginRequest"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    exchangeTelegramLoginRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    poll_secret: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Signed in */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Not confirmed yet */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
     refreshSession: {
         parameters: {
             query?: never;
@@ -1583,6 +1768,83 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Problem"];
+        };
+    };
+    listMyIdentities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sign-in methods */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["SignInIdentity"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+        };
+    };
+    linkMyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Linked */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInIdentity"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    unlinkMyIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
     updateProfile: {

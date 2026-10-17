@@ -98,3 +98,23 @@ class RefreshToken(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TelegramLoginRequest(Base):
+    """A pending sign-in (or Telegram linking) from a native app, confirmed in the bot."""
+
+    __tablename__ = "telegram_login_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary, unique=True)
+    secret_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    client_key: Mapped[bytes] = mapped_column(LargeBinary)
+    link_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'pending'"))
+    telegram_id: Mapped[int | None] = mapped_column(BigInteger)
+    first_name: Mapped[str | None] = mapped_column(Text)
+    last_name: Mapped[str | None] = mapped_column(Text)
+    username: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

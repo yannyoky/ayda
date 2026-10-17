@@ -53,6 +53,24 @@ class EmailVerify(BaseModel):
     code: Annotated[str, StringConstraints(pattern=r"^[0-9]{6}$")]
 
 
+class TelegramLoginRequestOut(BaseModel):
+    id: uuid.UUID
+    poll_secret: str
+    bot_url: str
+    expires_at: datetime
+
+
+class TelegramLoginExchange(BaseModel):
+    poll_secret: str = Field(max_length=128)
+
+
+class SignInIdentity(BaseModel):
+    id: uuid.UUID
+    provider: Literal["telegram", "email"]
+    label: str
+    created_at: datetime
+
+
 class RefreshTokenInput(BaseModel):
     refresh_token: str = Field(max_length=256)
 

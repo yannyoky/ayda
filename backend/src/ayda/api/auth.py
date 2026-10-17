@@ -1,10 +1,19 @@
+import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.api.deps import AppMailer, AppSettings, DbSession
-from ayda.api.schemas import EmailStart, EmailVerify, RefreshTokenInput, Session, TelegramSignIn
+from ayda.api.deps import AppMailer, AppSettings, DbSession, OptionalUser
+from ayda.api.schemas import (
+    EmailStart,
+    EmailVerify,
+    RefreshTokenInput,
+    Session,
+    TelegramLoginExchange,
+    TelegramLoginRequestOut,
+    TelegramSignIn,
+)
 from ayda.app.profile import build_me
 from ayda.app.reminders import reminder_opened
 from ayda.core.config import Settings
@@ -154,3 +163,77 @@ async def sign_out(body: RefreshTokenInput, session: DbSession) -> Response:
     await auth.revoke_refresh_token(session, body.refresh_token)
     await session.commit()
     return Response(status_code=204)
+
+
+def _client(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+@router.post(
+    "/auth/telegram/login-requests", operation_id="createTelegramLoginRequest", status_code=201
+)
+async def create_telegram_login_request(
+    request: Request, session: DbSession, settings: AppSettings, user: OptionalUser
+) -> TelegramLoginRequestOut:
+    if settings.telegram_bot_token is None:
+        raise Problem(503, "telegram-not-configured", detail="Вход через Telegram не настроен")
+    try:
+        created = await auth.create_request(
+            session, _client(request), settings.token_secret, user.id if user else None
+        )
+    except auth.LoginRequestError:
+        raise Problem(
+            429, "too-many-requests", detail="Слишком много попыток, попробуйте чуть позже"
+        ) from None
+    await session.commit()
+    return TelegramLoginRequestOut(
+        id=created.id,
+        poll_secret=created.poll_secret,
+        bot_url=f"https://t.me/{settings.telegram_bot_username}?start={auth.CODE_PREFIX}{created.code}",
+        expires_at=created.expires_at,
+    )
+
+
+@router.post(
+    "/auth/telegram/login-requests/{request_id}/exchange",
+    operation_id="exchangeTelegramLoginRequest",
+    responses={202: {"description": "Not confirmed yet"}},
+)
+async def exchange_telegram_login_request(
+    request_id: uuid.UUID, body: TelegramLoginExchange, session: DbSession, settings: AppSettings
+) -> Response:
+    try:
+        approved = await auth.exchange_request(session, request_id, body.poll_secret)
+    except auth.LoginRequestError as exc:
+        if exc.code == "pending":
+            return Response(status_code=202)
+        raise Problem(
+            401, "invalid-login-request", detail="Вход не подтверждён, попробуйте ещё раз"
+        ) from None
+
+    if approved.link_user_id is not None:
+        user = await auth.get_user(session, approved.link_user_id)
+        if user is None or user.deletion_requested_at is not None:
+            await session.rollback()
+            raise _invalid_refresh()
+        try:
+            await auth.link_telegram(session, user, approved.telegram_user)
+        except auth.IdentityError:
+            await session.commit()  # the request stays used
+            raise Problem(
+                409, "identity-taken", detail="Этот Telegram уже привязан к другому аккаунту"
+            ) from None
+        created = False
+    else:
+        user, created = await auth.upsert_telegram_user(session, approved.telegram_user)
+        if user.deletion_requested_at is not None:
+            await session.rollback()
+            raise Problem(401, "account-deleted", detail="Аккаунт удаляется")
+    await analytics.record(
+        session, EventType.SIGNED_IN, user.id, {"provider": "telegram", "new": created}
+    )
+    token, refresh_expires_at = await auth.issue_refresh_token(session, user.id)
+    result = await _native_session(session, settings, user, token, refresh_expires_at)
+    return Response(
+        content=result.model_dump_json(), media_type="application/json", status_code=200
+    )

@@ -19,12 +19,14 @@ async def upsert_telegram_user(session: AsyncSession, tg: TelegramUser) -> tuple
 
     Returns the user and whether it was created now.
     """
-    values = {
+    values: dict[str, str | None] = {
         "first_name": tg.first_name,
         "last_name": tg.last_name,
         "username": tg.username,
-        "avatar_url": tg.photo_url,
     }
+    # Sign-in through the bot carries no photo; keep the one from the Mini App then.
+    if tg.photo_url is not None:
+        values["avatar_url"] = tg.photo_url
     new_id = uuid7()
     stmt = (
         insert(User)
