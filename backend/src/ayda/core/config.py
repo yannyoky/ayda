@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_from: str = "Ayda <noreply@ayda.example>"
 
+    # Push notifications for the native apps through FCM HTTP v1 (ADR 0009): the whole
+    # service-account JSON of the Firebase project. Empty: pushes are only logged.
+    fcm_service_account_json: SecretStr | None = None
+
     # Error tracking: a Sentry-compatible DSN of the self-hosted GlitchTip; empty: off.
     sentry_dsn: SecretStr | None = None
     # Set by the image build (git sha), so errors are grouped by release.

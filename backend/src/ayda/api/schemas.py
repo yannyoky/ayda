@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field, StringConstraints
 
 Theme = Literal["graphite", "plum"]
+NotificationChannel = Literal["auto", "push", "telegram"]
 LocalTime = Annotated[str, StringConstraints(pattern=r"^([01][0-9]|2[0-3]):[0-5][0-9]$")]
 
 
@@ -34,6 +35,7 @@ class Me(BaseModel):
     reminders: Reminders
     consent_required: str | None
     onboarded: bool
+    notification_channel: NotificationChannel = "auto"
 
 
 class Session(BaseModel):
@@ -92,6 +94,18 @@ class ProfileUpdate(BaseModel):
     city_id: int | None = None
     theme: Theme | None = None
     reminders: Reminders | None = None
+    notification_channel: NotificationChannel | None = None
+
+
+class DeviceIn(BaseModel):
+    platform: Literal["android", "ios"]
+    token: str = Field(min_length=1, max_length=4096)
+
+
+class Device(BaseModel):
+    id: uuid.UUID
+    platform: Literal["android", "ios"]
+    created_at: datetime
 
 
 class ConsentInput(BaseModel):

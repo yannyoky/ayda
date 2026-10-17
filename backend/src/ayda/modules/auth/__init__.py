@@ -1,5 +1,6 @@
 """Sign-in (Telegram initData, email codes), users, consents, access and refresh tokens."""
 
+from ayda.modules.auth.devices import forget_token, list_devices, register_device, remove_device
 from ayda.modules.auth.email import EmailError, check_code, issue_code, normalize_email
 from ayda.modules.auth.identities import (
     IdentityError,
@@ -8,7 +9,7 @@ from ayda.modules.auth.identities import (
     list_identities,
     unlink_identity,
 )
-from ayda.modules.auth.models import User, UserIdentity
+from ayda.modules.auth.models import Device, User, UserIdentity
 from ayda.modules.auth.refresh import (
     RefreshError,
     issue_refresh_token,
@@ -42,6 +43,7 @@ from ayda.modules.auth.tokens import TokenError, issue_token, read_token
 __all__ = [
     "CODE_PREFIX",
     "CURRENT_CONSENT_VERSION",
+    "Device",
     "EmailError",
     "IdentityError",
     "InitData",
@@ -61,6 +63,7 @@ __all__ = [
     "exchange_request",
     "find_or_create_email_user",
     "find_pending",
+    "forget_token",
     "get_user",
     "get_users",
     "issue_code",
@@ -68,10 +71,13 @@ __all__ = [
     "issue_token",
     "link_email",
     "link_telegram",
+    "list_devices",
     "list_identities",
     "mark_bot_reachable",
     "normalize_email",
     "read_token",
+    "register_device",
+    "remove_device",
     "request_deletion",
     "revoke_refresh_token",
     "rotate_refresh_token",

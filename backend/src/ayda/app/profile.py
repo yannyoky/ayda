@@ -2,7 +2,7 @@ from datetime import UTC, datetime, time
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.api.schemas import City, Me, ProfileUpdate, Reminders
+from ayda.api.schemas import City, Me, NotificationChannel, ProfileUpdate, Reminders
 from ayda.core.problems import Problem
 from ayda.modules import auth, events
 
@@ -36,7 +36,12 @@ async def build_me(session: AsyncSession, user: auth.User) -> Me:
         ),
         consent_required=await auth.consent_required(session, user.id),
         onboarded=user.onboarded_at is not None,
+        notification_channel=_channel(user.notification_channel),
     )
+
+
+def _channel(value: str) -> NotificationChannel:
+    return "push" if value == "push" else "telegram" if value == "telegram" else "auto"
 
 
 async def update_profile(session: AsyncSession, user: auth.User, update: ProfileUpdate) -> None:
@@ -58,6 +63,8 @@ async def update_profile(session: AsyncSession, user: auth.User, update: Profile
         user.timezone = city.timezone
     if "theme" in fields and update.theme is not None:
         user.theme = update.theme
+    if "notification_channel" in fields and update.notification_channel is not None:
+        user.notification_channel = update.notification_channel
     if "reminders" in fields and update.reminders is not None:
         user.morning_reminder_at = parse_local_time(update.reminders.morning_at)
         user.evening_reminder_at = parse_local_time(update.reminders.evening_at)

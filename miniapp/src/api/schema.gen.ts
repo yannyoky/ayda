@@ -252,6 +252,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register this phone's FCM token for push notifications (ADR 0009)
+         * @description Idempotent per token; call on every app start and when FCM rotates the token. A
+         *     token registered by another user moves to the caller. Pushes carry a generic text
+         *     and `kind` plus ids in their data; the app opens the matching screen.
+         */
+        put: operations["registerMyDevice"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Stop pushes to a phone (call before signing out) */
+        delete: operations["removeMyDevice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/profile": {
         parameters: {
             query?: never;
@@ -978,6 +1017,21 @@ export interface components {
             refresh_expires_at?: string | null;
             user: components["schemas"]["Me"];
         };
+        /**
+         * @description Where reminders and notices go: `auto` pushes to phones with the app and uses the
+         *     Telegram bot otherwise; `push` only pushes; `telegram` only uses the bot.
+         * @default auto
+         * @enum {string}
+         */
+        NotificationChannel: "auto" | "push" | "telegram";
+        Device: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            platform: "android" | "ios";
+            /** Format: date-time */
+            created_at: string;
+        };
         TelegramLoginRequest: {
             /** Format: uuid */
             id: string;
@@ -1026,6 +1080,7 @@ export interface components {
             /** @description Consent version the user must accept before anything else, or null. */
             consent_required: string | null;
             onboarded: boolean;
+            notification_channel?: components["schemas"]["NotificationChannel"];
         };
         Reminders: {
             /**
@@ -1042,6 +1097,7 @@ export interface components {
             city_id?: number;
             theme?: components["schemas"]["Theme"];
             reminders?: components["schemas"]["Reminders"];
+            notification_channel?: components["schemas"]["NotificationChannel"];
         };
         City: {
             id: number;
@@ -1845,6 +1901,58 @@ export interface operations {
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+        };
+    };
+    registerMyDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "android" | "ios";
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Registered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Device"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    removeMyDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
     updateProfile: {

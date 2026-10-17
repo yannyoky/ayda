@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Ayda API
-  version: 0.5.0
+  version: 0.6.0
   summary: MVP contract, milestones M1-M3 (US-01..US-19), native sign-in (M4)
   description: |
     Contract-first API of the Ayda backend (ADR 0004). The Mini App and native clients
@@ -396,6 +396,62 @@ paths:
         '404':
           $ref: '#/components/responses/Problem'
         '409':
+          $ref: '#/components/responses/Problem'
+
+  /me/devices:
+    put:
+      tags: [profile]
+      operationId: registerMyDevice
+      summary: Register this phone's FCM token for push notifications (ADR 0009)
+      description: |
+        Idempotent per token; call on every app start and when FCM rotates the token. A
+        token registered by another user moves to the caller. Pushes carry a generic text
+        and `kind` plus ids in their data; the app opens the matching screen.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, token]
+              properties:
+                platform:
+                  type: string
+                  enum: [android, ios]
+                token:
+                  type: string
+                  minLength: 1
+                  maxLength: 4096
+      responses:
+        '200':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /me/devices/{device_id}:
+    delete:
+      tags: [profile]
+      operationId: removeMyDevice
+      summary: Stop pushes to a phone (call before signing out)
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Removed
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
           $ref: '#/components/responses/Problem'
 
   /me/profile:
@@ -1607,6 +1663,28 @@ components:
         user:
           $ref: '#/components/schemas/Me'
 
+    NotificationChannel:
+      type: string
+      enum: [auto, push, telegram]
+      default: auto
+      description: |
+        Where reminders and notices go: `auto` pushes to phones with the app and uses the
+        Telegram bot otherwise; `push` only pushes; `telegram` only uses the bot.
+
+    Device:
+      type: object
+      required: [id, platform, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [android, ios]
+        created_at:
+          type: string
+          format: date-time
+
     TelegramLoginRequest:
       type: object
       required: [id, poll_secret, bot_url, expires_at]
@@ -1688,6 +1766,8 @@ components:
           description: Consent version the user must accept before anything else, or null.
         onboarded:
           type: boolean
+        notification_channel:
+          $ref: '#/components/schemas/NotificationChannel'
 
     Reminders:
       type: object
@@ -1718,6 +1798,8 @@ components:
           $ref: '#/components/schemas/Theme'
         reminders:
           $ref: '#/components/schemas/Reminders'
+        notification_channel:
+          $ref: '#/components/schemas/NotificationChannel'
 
     City:
       type: object
