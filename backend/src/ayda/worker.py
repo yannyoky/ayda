@@ -3,13 +3,15 @@
 import asyncio
 import signal
 import uuid
-from datetime import datetime
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.app import chat, coop, notifications, privacy, realtime, reminders
+from ayda.app import events as local_events
 from ayda.bot.sender import AiogramSender
 from ayda.core import backup
 from ayda.core.config import Settings, get_settings
@@ -20,6 +22,7 @@ from ayda.core.logging import configure_logging
 from ayda.core.realtime import Realtime
 from ayda.core.storage import Storage
 from ayda.modules import social
+from ayda.modules.events import EventSource
 
 
 def default_sender(settings: Settings) -> notifications.Sender:
@@ -34,10 +37,13 @@ def build_worker(
     storage: Storage | None = None,
     sender: notifications.Sender | None = None,
     realtime_client: Realtime | None = None,
+    event_sources: Sequence[EventSource] | None = None,
 ) -> Worker:
     storage = storage or Storage(settings)
     publisher = realtime_client or Realtime(settings)
     sender = sender or default_sender(settings)
+    if event_sources is None:
+        event_sources = local_events.default_sources(settings, local_events.source_http())
     reminders.register(settings)
     chat.register(settings)
     coop.register(settings)
@@ -66,7 +72,11 @@ def build_worker(
     async def publish_event(session: AsyncSession, payload: dict[str, Any]) -> None:
         await realtime.deliver(session, publisher, payload["kind"], payload["params"])
 
+    async def ingest_events(session: AsyncSession, payload: dict[str, Any]) -> None:
+        await local_events.run_ingest(session, event_sources, datetime.now(UTC))
+
     handlers: dict[str, Handler] = {
+        local_events.INGEST_JOB: ingest_events,
         realtime.PUBLISH_JOB: publish_event,
         backup.BACKUP_JOB: run_backup,
         privacy.ERASE_JOB: erase_account,
@@ -87,7 +97,11 @@ def build_worker(
     async def schedule_backup(session: AsyncSession, now: datetime) -> None:
         await backup.schedule_backup(session, settings, now)
 
+    async def schedule_events(session: AsyncSession, now: datetime) -> None:
+        await local_events.schedule_ingest(session, settings, now)
+
     periodic = [
+        Periodic("events.ingest", 600, schedule_events),
         Periodic("db.backup", 600, schedule_backup),
         Periodic("media.delete_unattached", 3600, delete_unattached_media),
         Periodic("reminders", 60, schedule_reminders),

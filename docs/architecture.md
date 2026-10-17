@@ -115,8 +115,9 @@ No session table: the API issues short-lived signed tokens after the initData ch
 | pool_id | uuid FK | → quests.day_pools |
 | user_id | uuid | → auth.users |
 | local_date | date | |
-| source | enum | `catalog`, `checkin_task`, `custom`, `coop` (joined from a friend's co-op); later `event` |
+| source | enum | `catalog`, `checkin_task`, `custom`, `coop` (joined from a friend's co-op), `event` (M3) |
 | template_id | int FK null | for `catalog` |
+| event_id, event | bigint null, jsonb null | for `event`: the listing id (no FK across modules) and a snapshot of title, time, venue, address, city, price, link and source |
 | title | text | snapshot, so catalog edits don't rewrite history |
 | category | enum | |
 | duration_min | smallint | |
@@ -194,7 +195,9 @@ Only friends can open a DM; once the friendship is removed the chat stays readab
 
 **events.cities** (M1, reference data loaded from an open dataset): id int PK, name, region_code, region_name, timezone, location geography(Point), population. Used by onboarding (nearest city to a one-time geolocation; the raw coordinates are not stored) and by weather.
 
-M3 adds **events.listings**: id, source, source_id (unique with source), title, starts_at, ends_at null, venue, location geography(Point), city_id null, region_code, is_free, price_min null, url, fetched_at.
+**events.listings** (M3, ADR 0008): id, source (`timepad`, `kudago`, `culture`), source_id (unique with source; KudaGo adds the start time, one row per date), title, starts_at, ends_at null, venue null, address null, location geography(Point) null, city_id → events.cities, region_code, is_free, price_min null (rubles), url, category, fetched_at. No personal data. The worker's `events.ingest` job runs once a day after 04:00 Moscow time: it loads the next 3 days for every city that has users plus the largest city of each of their regions, and drops listings that ended more than 2 days ago.
+
+Event quests (US-19): when the pool is built, code picks up to 2 events starting between now + 1 hour and the end of the quest day, in the user's city first, then elsewhere in the region by distance, one per title and not longer than the user's free time; they take the place of catalog quests, so the pool keeps 6 suggestions. Replacing an event quest offers the next event candidate, else a catalog quest.
 
 ### analytics
 

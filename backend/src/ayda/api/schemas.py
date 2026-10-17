@@ -89,7 +89,7 @@ Category = Literal["sport", "walk", "city", "rest", "project", "social", "home",
 Visibility = Literal["personal", "routine", "friends"]
 RejectReason = Literal["no_time", "dont_want", "cant"]
 QuestState = Literal["offered", "taken", "replaced", "completed", "expired"]
-QuestSource = Literal["catalog", "checkin_task", "custom", "coop"]
+QuestSource = Literal["catalog", "checkin_task", "custom", "coop", "event"]
 PoolStatus = Literal["none", "generating", "ready", "failed"]
 Condition = Literal["clear", "cloudy", "rain", "snow", "storm", "unknown"]
 
@@ -103,6 +103,19 @@ class Checkin(BaseModel):
     text: str
     mood: Mood
     submitted_at: datetime
+
+
+class EventInfo(BaseModel):
+    title: str
+    starts_at: datetime
+    ends_at: datetime | None
+    venue: str | None
+    address: str | None
+    city: str | None
+    is_free: bool
+    price_min: int | None
+    url: str
+    source: Literal["timepad", "kudago", "culture"]
 
 
 class DayQuest(BaseModel):
@@ -120,6 +133,7 @@ class DayQuest(BaseModel):
     points_awarded: int | None
     expires_at: datetime
     coop_id: uuid.UUID | None = None
+    event: EventInfo | None = None
 
 
 class Weather(BaseModel):

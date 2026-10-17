@@ -11,6 +11,7 @@ from ayda.modules.auth.service import (
     mark_bot_reachable,
     request_deletion,
     upsert_telegram_user,
+    user_city_ids,
 )
 from ayda.modules.auth.telegram import InitData, InitDataError, TelegramUser, validate_init_data
 from ayda.modules.auth.tokens import TokenError, issue_token, read_token
@@ -32,5 +33,6 @@ __all__ = [
     "read_token",
     "request_deletion",
     "upsert_telegram_user",
+    "user_city_ids",
     "validate_init_data",
 ]

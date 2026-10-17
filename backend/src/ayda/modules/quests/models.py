@@ -2,7 +2,17 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, SmallInteger, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -73,6 +83,9 @@ class DayQuest(Base):
     local_date: Mapped[date] = mapped_column(Date)
     source: Mapped[str] = mapped_column(Text)
     template_id: Mapped[int | None] = mapped_column(ForeignKey(Template.id))
+    # Event quests (M3): the listing id and a snapshot of the event as offered.
+    event_id: Mapped[int | None] = mapped_column(BigInteger)
+    event: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     title: Mapped[str] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str] = mapped_column(Text)

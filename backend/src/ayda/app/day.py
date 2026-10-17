@@ -21,12 +21,14 @@ from ayda.api.schemas import (
     Day,
     DayLimits,
     DayQuest,
+    EventInfo,
     OwnQuestInput,
     PointsBreakdown,
     Replacement,
     Streak,
     Weather,
 )
+from ayda.app import events as local_events
 from ayda.app.coop import COOP_UPDATED, record_bonuses
 from ayda.app.day_problems import day_problem
 from ayda.app.realtime import publish
@@ -40,6 +42,7 @@ from ayda.modules.quests.day_service import DayError, NewQuest
 from ayda.modules.quests.scoring import base_points, scoring_config
 from ayda.modules.quests.selection import (
     CODE_WHY,
+    POOL_SIZE,
     DayConditions,
     WeatherFlags,
     code_rank,
@@ -138,6 +141,7 @@ def quest_schema(
         points_awarded=points,
         expires_at=quest.expires_at,
         coop_id=coop_id,
+        event=EventInfo.model_validate(quest.event) if quest.event else None,
     )
 
 
@@ -279,13 +283,27 @@ async def submit_checkin(
             deadline_s=left,
         )
 
+    expires_at = day_clock.day_expires_at(day, user.timezone)
+    event_options = await local_events.event_candidates(
+        session,
+        user,
+        expires_at,
+        conditions.max_duration_min,
+        await quests.excluded_event_ids(session, user.id, day),
+        now,
+    )
+    event_picks = local_events.pick_for_pool(event_options, seed=f"{user.id}:{day}:events")
+    catalog_size = POOL_SIZE - len(event_picks)
+
     by_id = {c.id: c for c in candidates}
     if ranked is not None:
-        picks = [(by_id[item.id], item.why) for item in ranked.value.items]
+        picks = [(by_id[item.id], item.why) for item in ranked.value.items][:catalog_size]
     else:
         picks = [
-            (by_id[i], CODE_WHY.get(by_id[i].category)) for i in code_rank(candidates, needs_rest)
+            (by_id[i], CODE_WHY.get(by_id[i].category))
+            for i in code_rank(candidates, needs_rest, catalog_size)
         ]
+    catalog_quests = [quests.quest_from_template(t, why) for t, why in picks]
 
     new_quests = [
         NewQuest(
@@ -296,7 +314,9 @@ async def submit_checkin(
             why=TASK_WHY,
         )
         for t in parsed.tasks[:MAX_TASK_QUESTS]
-    ] + [quests.quest_from_template(t, why) for t, why in picks]
+    ]
+    # Events go after the two best catalog quests.
+    new_quests += catalog_quests[:2] + event_picks + catalog_quests[2:]
 
     try:
         checkin, replaced = await quests.save_checkin(
@@ -322,8 +342,9 @@ async def submit_checkin(
         if weather
         else None,
         candidate_ids=[c.id for c in candidates],
-        expires_at=day_clock.day_expires_at(day, user.timezone),
+        expires_at=expires_at,
         now=now,
+        event_ids=[q.event_id for q in event_options if q.event_id is not None],
     )
     # Events carry counts and ids only; the check-in text never leaves the checkins table.
     await analytics.record(
@@ -348,6 +369,8 @@ async def submit_checkin(
             "pool_id": pool.id,
             "candidate_ids": [c.id for c in candidates],
             "shown_ids": [t.id for t, _ in picks],
+            "event_candidate_ids": [q.event_id for q in event_options],
+            "event_ids": [q.event_id for q in event_picks],
             "tasks": min(len(parsed.tasks), MAX_TASK_QUESTS),
             "ranked_by": "llm" if ranked else "code",
             "provider": ranked.provider if ranked else "code",
@@ -365,6 +388,7 @@ def _taken_payload(quest: quests.DayQuest) -> dict[str, object]:
     return {
         "day_quest_id": quest.id,
         "template_id": quest.template_id,
+        "event_id": quest.event_id,
         "source": quest.source,
         "category": quest.category,
         "position": quest.position,
@@ -414,7 +438,13 @@ async def replace_quest(
     day = day_clock.local_day(now, user.timezone)
     try:
         replaced, replacement, pool = await quests.replace_quest(
-            session, user.id, quest_id, reason, day, now
+            session,
+            user.id,
+            quest_id,
+            reason,
+            day,
+            now,
+            pick_event=local_events.event_picker(session, user, now),
         )
     except DayError as exc:
         raise day_problem(exc) from None
@@ -425,11 +455,13 @@ async def replace_quest(
         {
             "day_quest_id": replaced.id,
             "template_id": replaced.template_id,
+            "event_id": replaced.event_id,
             "source": replaced.source,
             "category": replaced.category,
             "reason": reason,
             "replacement_id": replacement.id if replacement else None,
             "replacement_template_id": replacement.template_id if replacement else None,
+            "replacement_event_id": replacement.event_id if replacement else None,
         },
         occurred_at=now,
     )
@@ -507,6 +539,7 @@ async def complete_quest(
         {
             "day_quest_id": quest.id,
             "template_id": quest.template_id,
+            "event_id": quest.event_id,
             "source": quest.source,
             "category": quest.category,
             "visibility": body.visibility,
