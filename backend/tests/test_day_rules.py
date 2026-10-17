@@ -48,6 +48,9 @@ CLEAR = WeatherFlags(min_temp_c=8, max_temp_c=14, rain=False, frost=False, stron
 RAIN = WeatherFlags(min_temp_c=8, max_temp_c=14, rain=True, frost=False, strong_wind=False)
 FROST = WeatherFlags(min_temp_c=-20, max_temp_c=-16, rain=False, frost=True, strong_wind=False)
 WIND = WeatherFlags(min_temp_c=8, max_temp_c=14, rain=False, frost=False, strong_wind=True)
+STORM = WeatherFlags(
+    min_temp_c=8, max_temp_c=14, rain=True, frost=False, strong_wind=True, storm=True
+)
 
 
 @pytest.mark.parametrize(
@@ -65,12 +68,33 @@ WIND = WeatherFlags(min_temp_c=8, max_temp_c=14, rain=False, frost=False, strong
         (template(1, outdoor=True, weather={"min_temp_c": 10}), CLEAR, False, False),
         (template(1, outdoor=True, weather={"max_temp_c": 2}), CLEAR, False, False),
         (template(1, outdoor=True, weather={"min_temp_c": 5}), CLEAR, False, True),
+        # An explicit wish to be outside lifts only the general rain rule.
+        (template(1, outdoor=True, duration=60), FROST, True, False),
+        (template(1, outdoor=True, duration=60), STORM, True, False),
+        (template(1, outdoor=True, duration=15), STORM, False, False),
+        (template(1, outdoor=True, weather={"no_wind": True}), WIND, True, False),
+        (template(1, outdoor=True, weather={"min_temp_c": 10}), CLEAR, True, False),
     ],
 )
 def test_weather_rules(
     quest: Template, weather: WeatherFlags | None, wants_outdoor: bool, allowed: bool
 ) -> None:
     assert weather_allows(quest, weather, wants_outdoor) is allowed
+
+
+@pytest.mark.parametrize(
+    ("quest", "weather", "allowed"),
+    [
+        (template(1, outdoor=True, duration=60), CLEAR, False),
+        (template(1, outdoor=True, duration=60), None, False),
+        (template(1, outdoor=True, duration=15), CLEAR, True),
+        (template(1, outdoor=False, duration=90), CLEAR, True),
+    ],
+)
+def test_feeling_unwell_drops_long_outdoor_quests(
+    quest: Template, weather: WeatherFlags | None, allowed: bool
+) -> None:
+    assert weather_allows(quest, weather, wants_outdoor=True, feels_unwell=True) is allowed
 
 
 def conditions(**overrides: Any) -> DayConditions:
@@ -104,6 +128,14 @@ def test_candidates_respect_exclusions_duration_and_category_cap() -> None:
     assert select_candidates(templates, conditions(), "same") == select_candidates(
         templates, conditions(), "same"
     )
+
+
+def test_candidates_drop_long_outdoor_quests_when_unwell() -> None:
+    templates = [template(1, "walk", 60, outdoor=True), template(2, "rest", 60)]
+
+    picked = select_candidates(templates, conditions(feels_unwell=True), seed="u")
+
+    assert [t.id for t in picked] == [2]
 
 
 def test_code_rank_puts_rest_first_for_tired_and_keeps_variety() -> None:

@@ -28,6 +28,7 @@ class Weather:
     rain: bool
     frost: bool
     strong_wind: bool
+    storm: bool = False
 
 
 def condition_for(code: int) -> Condition:
@@ -70,6 +71,7 @@ def summarize(data: dict[str, Any], now_local: datetime) -> Weather:
         rain=wet,
         frost=min(temps) < FROST_C,
         strong_wind=max(winds) >= STRONG_WIND_MS,
+        storm="storm" in conditions,
     )
 
 
