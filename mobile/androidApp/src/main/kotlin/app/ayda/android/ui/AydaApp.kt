@@ -35,6 +35,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.ayda.android.R
 import app.ayda.android.ui.chat.ChatScreen
 import app.ayda.android.ui.chat.ChatsScreen
+import app.ayda.android.ui.coop.CoopScreen
+import app.ayda.android.ui.coop.CoopSheet
 import app.ayda.android.ui.day.CompleteScreen
 import app.ayda.android.ui.day.PickScreen
 import app.ayda.android.ui.day.TodayScreen
@@ -44,6 +46,7 @@ import app.ayda.android.ui.profile.ProfileScreen
 import app.ayda.android.ui.signin.SignInScreen
 import app.ayda.android.ui.social.FeedScreen
 import app.ayda.android.ui.social.FriendsScreen
+import app.ayda.api.models.DayQuest
 import app.ayda.api.models.Me
 import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
@@ -51,6 +54,9 @@ import app.ayda.shared.auth.SignIn
 import app.ayda.shared.auth.SignInViewModel
 import app.ayda.shared.chat.ChatViewModel
 import app.ayda.shared.chat.ChatsViewModel
+import app.ayda.shared.coop.CoopInviteViewModel
+import app.ayda.shared.coop.CoopViewModel
+import app.ayda.shared.coop.CoopsViewModel
 import app.ayda.shared.day.CompleteViewModel
 import app.ayda.shared.day.TodayViewModel
 import app.ayda.shared.onboarding.ConsentViewModel
@@ -107,7 +113,7 @@ fun AydaApp(client: AydaClient) {
     }
 }
 
-private enum class Screen { Today, Feed, Chats, Friends, Profile, Pick, Complete, Chat }
+private enum class Screen { Today, Feed, Chats, Friends, Profile, Pick, Complete, Chat, Coop }
 
 private fun Screen.tab(): Tab? =
     when (this) {
@@ -138,6 +144,8 @@ private fun SignedInHome(
     var completing by rememberSaveable { mutableStateOf<String?>(null) }
     var chatId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFrom by rememberSaveable { mutableStateOf(Screen.Chats) }
+    var coopId by rememberSaveable { mutableStateOf<String?>(null) }
+    var inviting by rememberSaveable { mutableStateOf<String?>(null) }
     val today = viewModel(key = "today-${me.id}") { TodayViewModel(client) }
     val todayState by today.state.collectAsStateWithLifecycle()
     val realtime = viewModel(key = "realtime-${me.id}") { Realtime(client, CentrifugeTransport()) }
@@ -148,6 +156,15 @@ private fun SignedInHome(
     }
     val chats = viewModel(key = "chats-${me.id}") { ChatsViewModel(client, realtime) }
     val chatsState by chats.state.collectAsStateWithLifecycle()
+    val coops = viewModel(key = "coops-${me.id}") { CoopsViewModel(client, realtime, today::refresh) }
+    val openCoop = { id: String ->
+        coopId = id
+        screen = Screen.Coop
+    }
+    val complete = { quest: DayQuest ->
+        completing = quest.id
+        screen = Screen.Complete
+    }
     val openChat = { id: String ->
         chatFrom = if (screen == Screen.Chat) chatFrom else screen
         chatId = id
@@ -172,11 +189,11 @@ private fun SignedInHome(
                     TodayScreen(
                         today,
                         me,
+                        coops,
                         onPick = { screen = Screen.Pick },
-                        onComplete = { quest ->
-                            completing = quest.id
-                            screen = Screen.Complete
-                        },
+                        onComplete = complete,
+                        onOpenCoop = openCoop,
+                        onInviteCoop = { inviting = it.id },
                     )
                 Screen.Feed -> {
                     val model = viewModel(key = "feed-${me.id}") { FeedViewModel(client) }
@@ -194,6 +211,30 @@ private fun SignedInHome(
                                 ChatViewModel(client, realtime, id, chats::markedRead)
                             }
                         ChatScreen(model, me.id, onBack = back)
+                    }
+                }
+                Screen.Coop -> {
+                    val id = coopId
+                    if (id == null) {
+                        LaunchedEffect(Unit) { back() }
+                    } else {
+                        val model =
+                            viewModel(viewModelStoreOwner = rememberScreenStore("coop-$id")) {
+                                CoopViewModel(client, realtime, id) {
+                                    coops.updated(it)
+                                    today.refresh()
+                                }
+                            }
+                        val coop by model.state.collectAsStateWithLifecycle()
+                        val myQuestId = coop.coop?.myQuestId
+                        CoopScreen(
+                            model,
+                            me.id,
+                            myQuest = todayState.day?.quests?.firstOrNull { it.id == myQuestId },
+                            onBack = back,
+                            onComplete = complete,
+                            onChat = openChat,
+                        )
                     }
                 }
                 Screen.Friends -> {
@@ -221,6 +262,19 @@ private fun SignedInHome(
                         CompleteScreen(model, onClose = back)
                     }
                 }
+            }
+        }
+        val invitingQuest = todayState.day?.quests?.firstOrNull { it.id == inviting }
+        if (invitingQuest != null) {
+            val model =
+                viewModel(viewModelStoreOwner = rememberScreenStore("invite-${invitingQuest.id}")) {
+                    CoopInviteViewModel(client, invitingQuest.id)
+                }
+            CoopSheet(model, invitingQuest, onClose = { inviting = null }) { coop ->
+                inviting = null
+                coops.updated(coop)
+                today.refresh()
+                openCoop(coop.id)
             }
         }
         if (tab != null) TabBar(tab, unreadChats = chatsState.unread, onSelect = { screen = it.screen() })
