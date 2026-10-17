@@ -82,7 +82,7 @@ A story is done when all its criteria hold, it has tests, and its events are wri
 - **US-06. Daily pool.** As a user, after the check-in I see 5-7 quests for today.
     - The pool holds tasks from the check-in turned into quests and catalog quests for free time.
     - Each quest has a title, category, duration, points and one "why you" line.
-    - In rain or frost below -15 °C there are no long outdoor quests unless the user asked for them.
+    - In rain there are no long outdoor quests unless the user said the weather will not stop them; frost below -15 °C, a thunderstorm and feeling unwell rule them out anyway (a storm rules out every outdoor quest).
     - With the "tired" mood the pool has at least one rest quest.
     - The pool appears in 10 seconds or less; without an LLM a code-only pool is shown (see the assistant section).
 - **US-07. Take and replace.** As a user, I take up to 3 quests and replace the ones that don't fit.

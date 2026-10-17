@@ -58,6 +58,17 @@ async def test_rain_frost_and_wind_flags() -> None:
     assert likely and likely.rain
     assert frosty and frosty.frost and frosty.condition == "snow" and not frosty.rain
     assert windy and windy.strong_wind
+    assert rainy and not rainy.storm
+
+
+async def test_storm_later_today() -> None:
+    payload = forecast()
+    payload["hourly"]["weather_code"][15] = 95  # 15:00 local, later than NOW
+
+    weather = await client_for(payload, []).today(5, 0, 0, TZ, NOW)
+
+    assert weather and weather.condition == "clear"
+    assert weather.storm and weather.rain
 
 
 async def test_cached_per_city() -> None:

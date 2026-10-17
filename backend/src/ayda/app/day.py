@@ -238,6 +238,7 @@ async def submit_checkin(
             rain=weather.rain,
             frost=weather.frost,
             strong_wind=weather.strong_wind,
+            storm=weather.storm,
         )
         if weather
         else None
@@ -248,6 +249,7 @@ async def submit_checkin(
         wants_outdoor=parsed.wants_outdoor,
         max_duration_min=max_duration(parsed),
         exclude_ids=frozenset(await quests.excluded_template_ids(session, user.id, day)),
+        feels_unwell=parsed.feels_unwell,
     )
     candidates = select_candidates(
         await quests.active_templates(session), conditions, seed=f"{user.id}:{day}"
