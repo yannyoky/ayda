@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Ayda API
-  version: 0.3.0
-  summary: MVP contract, milestones M1-M3 (US-01..US-19)
+  version: 0.4.0
+  summary: MVP contract, milestones M1-M3 (US-01..US-19), native sign-in (M4)
   description: |
     Contract-first API of the Ayda backend (ADR 0004). The Mini App and native clients
     generate their API code from this file; the backend must conform to it.
@@ -23,7 +23,9 @@ security:
   - bearer: []
 tags:
   - name: auth
-    description: Sign-in with Telegram Mini App initData.
+    description: |
+      Sign-in with Telegram Mini App initData, or by a one-time email code in the native
+      apps (ADR 0009). Native sessions also get a rotating refresh token.
   - name: profile
     description: Profile settings, onboarding, consent, goals and own habits.
   - name: reference
@@ -101,6 +103,123 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
 
+  /auth/email/start:
+    post:
+      tags: [auth]
+      operationId: startEmailSignIn
+      summary: Send a one-time sign-in code to an email (ADR 0009)
+      description: |
+        Sends a 6-digit code valid for 10 minutes. The answer is the same whether or not an
+        account with this email exists. A new code replaces the previous one. At most one code
+        a minute and 5 an hour per email, and 20 an hour per client address; the email and
+        the code are never logged.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+      responses:
+        '202':
+          description: Code sent
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+
+  /auth/email/verify:
+    post:
+      tags: [auth]
+      operationId: verifyEmailSignIn
+      summary: Exchange an email code for a session (ADR 0009)
+      description: |
+        The first successful sign-in with an email creates the user with an empty
+        `first_name`; the client asks for a name during onboarding. A code works once, and
+        after 5 wrong attempts it stops working. The session carries a refresh token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Exchange a refresh token for a new access token and refresh token
+      description: |
+        The refresh token is single-use: the response carries a new one. Presenting a used
+        token again revokes every token issued from the same sign-in, so a stolen token
+        stops working for both sides.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenInput'
+      responses:
+        '200':
+          description: New session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: signOut
+      summary: Revoke a refresh token and every token issued from the same sign-in
+      description: Idempotent; an unknown token also returns 204.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenInput'
+      responses:
+        '204':
+          description: Signed out
+        '422':
+          $ref: '#/components/responses/Problem'
+
   /me:
     get:
       tags: [profile]
@@ -157,7 +276,7 @@ paths:
       tags: [profile]
       operationId: completeOnboarding
       summary: Mark onboarding finished (US-02)
-      description: Requires an accepted consent and a city.
+      description: Requires an accepted consent, a city and a non-empty `first_name`.
       responses:
         '200':
           description: Updated user
@@ -1325,8 +1444,25 @@ components:
         expires_at:
           type: string
           format: date-time
+        refresh_token:
+          type: [string, 'null']
+          description: |
+            Only in native sessions (email sign-in and refreshSession). Single-use; keep it
+            in the platform's secure storage. Null or missing for Mini App sign-in.
+        refresh_expires_at:
+          type: [string, 'null']
+          format: date-time
+          description: When `refresh_token` expires (60 days after it was issued).
         user:
           $ref: '#/components/schemas/Me'
+
+    RefreshTokenInput:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          maxLength: 256
 
     Theme:
       type: string
@@ -1341,6 +1477,7 @@ components:
           format: uuid
         first_name:
           type: string
+          description: Empty for a new user who signed in by email until they set a name.
         last_name:
           type: [string, 'null']
         username:
@@ -1384,6 +1521,11 @@ components:
       type: object
       minProperties: 1
       properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Leading and trailing spaces are trimmed.
         city_id:
           type: integer
         theme:

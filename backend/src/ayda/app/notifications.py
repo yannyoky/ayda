@@ -92,6 +92,8 @@ async def send(session: AsyncSession, sender: Sender, payload: Mapping[str, Any]
     user = await auth.get_user(session, uuid.UUID(payload["user_id"]))
     if user is None or user.deletion_requested_at is not None:
         return SendResult(False, "no-user")
+    if user.telegram_id is None:
+        return SendResult(False, "no-telegram")
     if not user.bot_reachable:
         return SendResult(False, "unreachable")
     message = await RENDERERS[payload["kind"]](session, user, payload.get("params", {}))

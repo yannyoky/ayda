@@ -1,7 +1,19 @@
 import uuid
 from datetime import datetime, time
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Text, Time, func, text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Identity,
+    Integer,
+    LargeBinary,
+    Text,
+    Time,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -17,7 +29,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
-    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    telegram_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
     first_name: Mapped[str] = mapped_column(Text)
     last_name: Mapped[str | None] = mapped_column(Text)
     username: Mapped[str | None] = mapped_column(Text)
@@ -42,3 +54,47 @@ class Consent(Base):
     accepted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class UserIdentity(Base):
+    """A way to sign in: `telegram` (subject = Telegram user id) or `email` (normalized)."""
+
+    __tablename__ = "identities"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"))
+    provider: Mapped[str] = mapped_column(Text)
+    subject: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EmailCode(Base):
+    __tablename__ = "email_codes"
+
+    email_key: Mapped[bytes] = mapped_column(LargeBinary, primary_key=True)
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EmailSend(Base):
+    __tablename__ = "email_sends"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    email_key: Mapped[bytes] = mapped_column(LargeBinary)
+    client_key: Mapped[bytes] = mapped_column(LargeBinary)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(User.id, ondelete="CASCADE"))
+    family_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    token_hash: Mapped[bytes] = mapped_column(LargeBinary, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

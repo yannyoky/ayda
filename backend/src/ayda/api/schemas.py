@@ -39,7 +39,22 @@ class Me(BaseModel):
 class Session(BaseModel):
     access_token: str
     expires_at: datetime
+    refresh_token: str | None = None
+    refresh_expires_at: datetime | None = None
     user: Me
+
+
+class EmailStart(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class EmailVerify(BaseModel):
+    email: str = Field(max_length=254)
+    code: Annotated[str, StringConstraints(pattern=r"^[0-9]{6}$")]
+
+
+class RefreshTokenInput(BaseModel):
+    refresh_token: str = Field(max_length=256)
 
 
 class TelegramSignIn(BaseModel):
@@ -53,6 +68,9 @@ class UserSummary(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
+    first_name: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)] | None
+    ) = None
     city_id: int | None = None
     theme: Theme | None = None
     reminders: Reminders | None = None

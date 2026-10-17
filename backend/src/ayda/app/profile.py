@@ -43,6 +43,10 @@ async def update_profile(session: AsyncSession, user: auth.User, update: Profile
     fields = update.model_fields_set
     if not fields:
         raise Problem(422, "validation-failed", detail="Нужно хотя бы одно поле")
+    if "first_name" in fields:
+        if update.first_name is None:
+            raise Problem(422, "validation-failed", detail="Имя нельзя убрать")
+        user.first_name = update.first_name
     if "city_id" in fields:
         if update.city_id is None:
             raise Problem(422, "validation-failed", detail="Город нельзя убрать")
@@ -64,5 +68,7 @@ async def complete_onboarding(session: AsyncSession, user: auth.User) -> None:
         raise Problem(409, "consent-required", detail="Сначала нужно принять согласие")
     if user.city_id is None:
         raise Problem(409, "city-required", detail="Сначала выберите город")
+    if not user.first_name.strip():
+        raise Problem(409, "name-required", detail="Сначала укажите имя")
     if user.onboarded_at is None:
         user.onboarded_at = datetime.now(UTC)

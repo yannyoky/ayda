@@ -26,6 +26,7 @@ class EventType(StrEnum):
     COOP_CREATED = "coop_created"
     COOP_ANSWERED = "coop_answered"
     COOP_BONUS = "coop_bonus"
+    SIGNED_IN = "signed_in"
 
 
 SCHEMA_VERSIONS: dict[EventType, int] = dict.fromkeys(EventType, 1) | {
