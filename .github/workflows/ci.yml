@@ -15,6 +15,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend == 'true' && steps.exists.outputs.backend == 'true' }}
       miniapp: ${{ steps.filter.outputs.miniapp == 'true' && steps.exists.outputs.miniapp == 'true' }}
+      mobile: ${{ steps.filter.outputs.mobile == 'true' && steps.exists.outputs.mobile == 'true' }}
       contracts: ${{ steps.filter.outputs.contracts }}
     steps:
       - uses: actions/checkout@v7
@@ -30,6 +31,10 @@ jobs:
               - 'miniapp/**'
               - 'contracts/openapi.yaml' # the Mini App's API client is generated from it
               - '.github/workflows/ci.yml'
+            mobile:
+              - 'mobile/**'
+              - 'contracts/openapi.yaml' # the Kotlin API client is generated from it
+              - '.github/workflows/ci.yml'
             contracts:
               - 'contracts/**'
               - '.github/workflows/ci.yml'
@@ -38,6 +43,7 @@ jobs:
         run: |
           echo "backend=$( test -f backend/pyproject.toml && echo true || echo false )" >> "$GITHUB_OUTPUT"
           echo "miniapp=$( test -f miniapp/package.json && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "mobile=$( test -f mobile/settings.gradle.kts && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
   backend:
     needs: changes
@@ -105,6 +111,28 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  mobile:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      # The Android SDK is preinstalled on GitHub runners (ANDROID_HOME); AGP fetches missing platforms.
+      - run: ./gradlew ktlintCheck lint :shared:testAndroidHostTest :androidApp:testDebugUnitTest assembleDebug
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ayda-debug-apk
+          path: mobile/androidApp/build/outputs/apk/debug/*.apk
+          retention-days: 7
 
   contracts:
     needs: changes
