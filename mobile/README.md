@@ -53,6 +53,10 @@ The Xcode build runs `./gradlew :shared:embedAndSignAppleFrameworkForXcode` firs
 
 The access and refresh tokens are kept in one file in the app's private storage, encrypted with AES-256-GCM under a key in the Android Keystore (`EncryptedTokenStore`, `KeystoreCipher`). Backups and device transfer exclude app data, so a restored phone signs in again.
 
+## Proof photos
+
+Photos come from the system photo picker or the camera app, so the app asks for no storage or camera permission. `PhotoCompressor` decodes each photo, turns it upright, scales it to 2048 px on the longest side and saves it again as JPEG. Re-encoding drops all EXIF, so the location never leaves the phone. The JPEG goes straight to storage through the presigned URL from `POST /media/uploads`; the access token is sent only to the API, never to storage.
+
 ## Fonts
 
 Unbounded and Manrope (variable TTF from Google Fonts, SIL Open Font License, texts in `androidApp/src/main/assets/licenses/`) are bundled in the APK, so the app makes no requests to Google for fonts.

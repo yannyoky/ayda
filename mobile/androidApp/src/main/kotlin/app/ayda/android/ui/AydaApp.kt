@@ -12,6 +12,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.ayda.android.R
+import app.ayda.android.ui.day.CompleteScreen
 import app.ayda.android.ui.day.PickScreen
 import app.ayda.android.ui.day.TodayScreen
 import app.ayda.android.ui.onboarding.ConsentScreen
@@ -34,6 +36,7 @@ import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
 import app.ayda.shared.auth.SignIn
 import app.ayda.shared.auth.SignInViewModel
+import app.ayda.shared.day.CompleteViewModel
 import app.ayda.shared.day.TodayViewModel
 import app.ayda.shared.onboarding.ConsentViewModel
 import app.ayda.shared.onboarding.OnboardingViewModel
@@ -85,7 +88,7 @@ fun AydaApp(client: AydaClient) {
     }
 }
 
-private enum class Screen { Today, Pick, Profile }
+private enum class Screen { Today, Pick, Complete, Profile }
 
 @Composable
 private fun SignedInHome(
@@ -94,20 +97,40 @@ private fun SignedInHome(
     session: SessionViewModel,
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.Today) }
+    var completing by rememberSaveable { mutableStateOf<String?>(null) }
     val today = viewModel(key = "today-${me.id}") { TodayViewModel(client) }
+    val todayState by today.state.collectAsStateWithLifecycle()
     val back = {
         today.dismissNotice()
         screen = Screen.Today
     }
     when (screen) {
         Screen.Today ->
-            TodayScreen(today, me, onPick = { screen = Screen.Pick }, onOpenProfile = {
-                screen =
-                    Screen.Profile
-            })
+            TodayScreen(
+                today,
+                me,
+                onPick = { screen = Screen.Pick },
+                onComplete = { quest ->
+                    completing = quest.id
+                    screen = Screen.Complete
+                },
+                onOpenProfile = { screen = Screen.Profile },
+            )
         Screen.Pick -> {
             BackHandler(onBack = back)
             PickScreen(today, onClose = back)
+        }
+        Screen.Complete -> {
+            val day = todayState.day
+            val quest = day?.quests?.firstOrNull { it.id == completing }
+            if (day == null || quest == null) {
+                LaunchedEffect(Unit) { back() }
+                return
+            }
+            val model =
+                viewModel(key = "complete-${quest.id}") { CompleteViewModel(client, quest, day, today::refresh) }
+            BackHandler(onBack = back)
+            CompleteScreen(model, onClose = back)
         }
         Screen.Profile -> {
             val model =

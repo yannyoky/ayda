@@ -60,7 +60,8 @@ class AydaClient(
                 bearer {
                     loadTokens { tokens.load()?.toBearer() }
                     refreshTokens { refresh() }
-                    sendWithoutRequest { true }
+                    // Only our API gets the token; presigned storage uploads must go without it.
+                    sendWithoutRequest { it.url.buildString().startsWith(this@AydaClient.baseUrl) }
                 }
             }
         }
