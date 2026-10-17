@@ -20,11 +20,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.ayda.android.R
 import app.ayda.android.ui.home.HomeScreen
+import app.ayda.android.ui.onboarding.ConsentScreen
+import app.ayda.android.ui.onboarding.OnboardingScreen
 import app.ayda.android.ui.signin.SignInScreen
 import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
 import app.ayda.shared.auth.SignIn
 import app.ayda.shared.auth.SignInViewModel
+import app.ayda.shared.onboarding.ConsentViewModel
+import app.ayda.shared.onboarding.OnboardingViewModel
 import app.ayda.shared.session.SessionState
 import app.ayda.shared.session.SessionViewModel
 
@@ -47,7 +51,27 @@ fun AydaApp(client: AydaClient) {
                 val signIn = viewModel { SignInViewModel(SignIn(client), session::onSignedIn) }
                 SignInScreen(signIn)
             }
-            is SessionState.SignedIn -> HomeScreen(current.me, onSignOut = session::signOut)
+            is SessionState.SignedIn -> {
+                val me = current.me
+                val consent = me.consentRequired
+                when {
+                    consent != null -> {
+                        val model =
+                            viewModel(
+                                key = "consent-$consent",
+                            ) { ConsentViewModel(client, consent, session::onProfileChanged) }
+                        ConsentScreen(model)
+                    }
+                    !me.onboarded -> {
+                        val model =
+                            viewModel(
+                                key = "onboarding-${me.id}",
+                            ) { OnboardingViewModel(client, me, session::onProfileChanged) }
+                        OnboardingScreen(model)
+                    }
+                    else -> HomeScreen(me, onSignOut = session::signOut)
+                }
+            }
         }
     }
 }

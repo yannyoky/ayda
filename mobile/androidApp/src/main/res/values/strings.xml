@@ -24,4 +24,49 @@
     <string name="hello">Привет!</string>
     <string name="hello_name">Привет, %1$s!</string>
     <string name="sign_out">Выйти</string>
+    <string name="consent_title">Пара слов о данных</string>
+    <string name="consent_intro">Чтобы собирать квесты под твой день, Ayda обрабатывает немного персональных данных. Вот что именно:</string>
+    <string-array name="consent_items">
+        <item>Почта для входа и имя, чтобы друзья тебя узнали. Если входишь через Telegram, то имя и аватар оттуда.</item>
+        <item>Город, но не точное место.</item>
+        <item>Текст утреннего чек-ина. Видишь его только ты, через 30 дней он удаляется.</item>
+        <item>Фото, которые ты сам выкладываешь. Геометки и EXIF стираем.</item>
+    </string-array>
+    <string name="consent_llm">Текст чек-ина обрабатывает внешний сервис ИИ, без имени, почты и города.</string>
+    <string name="consent_storage">Данные хранятся на серверах в России (152-ФЗ). Аккаунт можно удалить в профиле в любой момент.</string>
+    <string name="consent_accept">Согласен на обработку персональных данных</string>
+    <string name="consent_continue">Продолжить</string>
+    <string name="onboarding_progress">Шаг %1$d из %2$d</string>
+    <string name="onboarding_next">Дальше</string>
+    <string name="onboarding_skip">Пропустить</string>
+    <string name="onboarding_back">Назад</string>
+    <string name="onboarding_finish">Начать</string>
+    <string name="onboarding_name_title">Как тебя зовут?</string>
+    <string name="onboarding_name_text">Так тебя увидят друзья в ленте и рейтинге.</string>
+    <string name="onboarding_name_label">Имя</string>
+    <string name="onboarding_city_title">Где ты живёшь?</string>
+    <string name="onboarding_city_text">Квесты и погода будут для твоего города. Точное место не храним.</string>
+    <string name="onboarding_city_search">Город</string>
+    <string name="onboarding_city_nothing">Ничего не нашли</string>
+    <string name="onboarding_city_selected">Выбран</string>
+    <string name="onboarding_goals_title">Чего хочется?</string>
+    <string name="onboarding_goals_text">Выбери до пяти целей, из них соберём квесты.</string>
+    <string name="onboarding_goals_limit">Не больше пяти</string>
+    <string name="onboarding_habits_title">Свои привычки</string>
+    <string name="onboarding_habits_text">Напиши своими словами, чего хочешь больше и чего меньше. Мы не оцениваем.</string>
+    <string name="onboarding_habits_more">Хочу больше</string>
+    <string name="onboarding_habits_less">Хочу меньше</string>
+    <string name="onboarding_habits_more_hint">Например, читать</string>
+    <string name="onboarding_habits_less_hint">Например, залипать в рилсы</string>
+    <string name="onboarding_habits_add">Добавить</string>
+    <string name="onboarding_habits_remove">Удалить «%1$s»</string>
+    <string name="onboarding_reminders_title">Когда напоминать?</string>
+    <string name="onboarding_reminders_text">Утром спросим про день, а вечером напомним показать его друзьям.</string>
+    <string name="onboarding_reminders_morning">Утром</string>
+    <string name="onboarding_reminders_evening">Вечером</string>
+    <string name="onboarding_reminders_off">Выключено</string>
+    <string name="onboarding_theme_title">Выбери тему</string>
+    <string name="onboarding_theme_text">Потом можно поменять в профиле.</string>
+    <string name="theme_graphite">Графит</string>
+    <string name="theme_plum">Слива</string>
 </resources>

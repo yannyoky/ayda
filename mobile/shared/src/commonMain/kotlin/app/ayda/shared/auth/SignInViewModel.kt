@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.ayda.api.models.Me
 import app.ayda.shared.ApiResult
+import app.ayda.shared.errorText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -117,22 +118,13 @@ class SignInViewModel(
         }
     }
 
-    private fun fail(result: ApiResult<*>) =
-        fail(
-            when (result) {
-                is ApiResult.Failed -> result.problem.message.ifBlank { GENERIC }
-                is ApiResult.Offline -> OFFLINE
-                is ApiResult.Ok -> GENERIC
-            },
-        )
+    private fun fail(result: ApiResult<*>) = fail(result.errorText())
 
     private fun fail(message: String) =
         mutableState.update { it.copy(busy = false, telegramUrl = null, error = message) }
 
     private companion object {
         const val CODE_LENGTH = 6
-        const val OFFLINE = "Нет связи с сервером. Проверьте интернет и попробуйте ещё раз."
-        const val GENERIC = "Что-то пошло не так. Попробуйте ещё раз."
         const val TELEGRAM_EXPIRED = "Вход через Telegram не подтверждён. Попробуйте ещё раз или войдите по почте."
     }
 }

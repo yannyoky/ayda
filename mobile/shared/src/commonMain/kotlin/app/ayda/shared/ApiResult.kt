@@ -52,3 +52,16 @@ private suspend fun HttpResponse<*>.problem(): ApiProblem {
         message = parsed?.detail ?: parsed?.title ?: "",
     )
 }
+
+/** A ready-to-show Russian text for a failed call. */
+fun ApiResult<*>.errorText(): String =
+    when (this) {
+        is ApiResult.Failed -> problem.message.ifBlank { ErrorTexts.GENERIC }
+        is ApiResult.Offline -> ErrorTexts.OFFLINE
+        is ApiResult.Ok -> ErrorTexts.GENERIC
+    }
+
+object ErrorTexts {
+    const val OFFLINE = "Нет связи с сервером. Проверьте интернет и попробуйте ещё раз."
+    const val GENERIC = "Что-то пошло не так. Попробуйте ещё раз."
+}
