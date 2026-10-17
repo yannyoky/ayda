@@ -194,3 +194,12 @@ The owner accepted every default:
 - Weather from Open-Meteo (free, no key).
 - Check-in text is kept 30 days, then deleted; only events stay for recommendations.
 - Bot handle (@ayda_quest_bot) is not checked yet; the owner creates the token in @BotFather before M1 starts.
+
+## After the MVP: native app (M4)
+
+Decided 2026-10-17 (ADR 0009, epic #89). Telegram does not work in Russia without a VPN, so the native app is the way in for friends without Telegram.
+
+- **Scope:** the same loop as the Mini App: sign-in, consents and onboarding, morning check-in, daily pool with events, photo proofs, feed, friends and invites, ladder, DMs and co-op chat. Native-only features (Steam, screen time) are not in M4.
+- **Sign-in:** email with a one-time code, VK ID, Yandex ID, and Telegram as an extra option; several methods can be linked to one account. No SMS (paid). The app must work with no Telegram at all.
+- **Notifications:** push (FCM); the bot stays for those who have Telegram.
+- **Order:** Android first (APK for friends, then RuStore, Google Play later); iOS when a Mac and an Apple Developer account are available.

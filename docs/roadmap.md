@@ -49,6 +49,22 @@ Release:
 - #38 Research events sources across Russian cities and regions
 - #39 Events ingestion and event quests (US-19)
 
-## After the MVP
+## M4: native Android app, iOS later ([#89](https://github.com/yannyoky/ayda/issues/89))
 
-Native apps (Kotlin Multiplatform), nudges from Steam and screen time, strict mode and self-chosen penalties, trust rating and call-outs, recipes, video proofs, predictive recommendations on the logged events.
+Same core loop as the Mini App in a native app that works in Russia without Telegram (ADR 0009). Android first; iOS needs a Mac.
+
+- #90 Native app plan: ADR 0009, PRD and roadmap
+- #91 Sign-in without Telegram: email code, VK ID, Yandex ID, linked identities, refresh tokens
+- #92 Mobile scaffold: KMP project, generated API client, theme, CI
+- #93 Android: sign-in, consents and onboarding
+- #94 Android: Today screen with check-in, quest pool, events and photo proofs
+- #95 Android: feed, friends, invites and ladder
+- #96 Android: direct messages and co-op quests over Centrifugo
+- #97 Push notifications for the app (FCM)
+- #98 Invite links that open the app (App Links)
+- #99 Android release: signing, APK for friends, RuStore
+- #100 iOS app in SwiftUI on the shared module (needs a Mac)
+
+## After M4
+
+Nudges from Steam and screen time, strict mode and self-chosen penalties, trust rating and call-outs, recipes, video proofs, predictive recommendations on the logged events.
