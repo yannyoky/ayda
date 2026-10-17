@@ -24,6 +24,7 @@ export interface TelegramWebApp {
   setBackgroundColor(color: string): void
   setBottomBarColor?(color: string): void
   openTelegramLink(url: string): void
+  openLink(url: string): void
   BackButton: TelegramBackButton
   HapticFeedback: TelegramHaptics
 }
@@ -80,4 +81,11 @@ export function shareLink(url: string, text: string): void {
   const app = webApp()
   if (app) app.openTelegramLink(share)
   else window.open(share, '_blank', 'noopener')
+}
+
+/** An outside page (an event at its source) in the external browser. */
+export function openExternal(url: string): void {
+  const app = webApp()
+  if (app) app.openLink(url)
+  else window.open(url, '_blank', 'noopener')
 }

@@ -3,9 +3,12 @@ import type { Schemas } from '../../api/client'
 import { t } from '../../i18n'
 import { Icon } from '../../ui/Icon'
 import { CategoryIcon } from '../../ui/quest'
+import { eventSummary } from './event'
+import { EventLink } from './EventLink'
 
 /** A taken, completed or expired quest on the Today card; `onInvite` offers to do it with
- * friends (US-18), and a co-op quest links to its co-op. */
+ * friends (US-18), a co-op quest links to its co-op, and an event quest shows its time,
+ * place and price with a link to the source (US-19). */
 export function QuestRow({ quest, onDone, onInvite }: { quest: Schemas['DayQuest']; onDone?: () => void; onInvite?: () => void }) {
   const completed = quest.state === 'completed'
   const expired = quest.state === 'expired'
@@ -13,7 +16,9 @@ export function QuestRow({ quest, onDone, onInvite }: { quest: Schemas['DayQuest
     ? `${t.today.completed} · ${quest.visibility ? t.today.visibilityDone[quest.visibility] : ''}`
     : expired
       ? t.today.expired
-      : [quest.coop_id ? t.coop.together : null, t.quest.minutes(quest.duration_min), quest.why].filter(Boolean).join(' · ')
+      : quest.event
+        ? eventSummary(quest.event)
+        : [quest.coop_id ? t.coop.together : null, t.quest.minutes(quest.duration_min), quest.why].filter(Boolean).join(' · ')
   return (
     <li className="flex items-center gap-3 border-t border-bg py-2.5 first:border-t-0">
       {completed ? (
@@ -25,7 +30,8 @@ export function QuestRow({ quest, onDone, onInvite }: { quest: Schemas['DayQuest
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className={`text-[15px] font-bold ${completed || expired ? 'text-muted line-through' : ''}`}>{quest.title}</span>
-        <span className="truncate text-xs font-semibold text-muted">{meta}</span>
+        <span className={`text-xs font-semibold text-muted ${quest.event ? '' : 'truncate'}`}>{meta}</span>
+        {quest.event && !completed && !expired && <EventLink event={quest.event} title={quest.title} variant="inline" />}
       </div>
       {quest.coop_id ? (
         <Link

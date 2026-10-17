@@ -57,3 +57,31 @@ export const catalog: CatalogQuest[] = [
 export const friendNames = ['Лена', 'Дима', 'Костя', 'Аня', 'Миша']
 
 export const sampleCaptions = ['Сделано!', 'Тяжело, но кайф', 'Наконец-то', 'Завтра повторю']
+
+/** Local events for event quests (US-19); start times are set when the pool is built. */
+export const sampleEvents: (Omit<Schemas['EventInfo'], 'starts_at' | 'ends_at'> & { category: Schemas['Category']; in_hours: number })[] = [
+  {
+    title: 'Лекция «Как устроено Балтийское море»',
+    venue: 'Музей Мирового океана',
+    address: 'наб. Петра Великого, 1',
+    city: null,
+    is_free: true,
+    price_min: null,
+    url: 'https://example.timepad.ru/event/1/',
+    source: 'timepad',
+    category: 'learning',
+    in_hours: 4,
+  },
+  {
+    title: 'Джаз во дворе',
+    venue: 'Дом искусств',
+    address: 'ул. Театральная, 1',
+    city: 'Зеленоградск',
+    is_free: false,
+    price_min: 700,
+    url: 'https://example.timepad.ru/event/2/',
+    source: 'timepad',
+    category: 'city',
+    in_hours: 6,
+  },
+]
