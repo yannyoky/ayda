@@ -36,6 +36,7 @@ import app.ayda.android.ui.onboarding.OnboardingScreen
 import app.ayda.android.ui.profile.ProfileScreen
 import app.ayda.android.ui.signin.SignInScreen
 import app.ayda.android.ui.social.FeedScreen
+import app.ayda.android.ui.social.FriendsScreen
 import app.ayda.api.models.Me
 import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
@@ -49,6 +50,7 @@ import app.ayda.shared.profile.ProfileViewModel
 import app.ayda.shared.session.SessionState
 import app.ayda.shared.session.SessionViewModel
 import app.ayda.shared.social.FeedViewModel
+import app.ayda.shared.social.FriendsViewModel
 
 /** Picks the top-level screen from the session state. */
 @Composable
@@ -94,12 +96,13 @@ fun AydaApp(client: AydaClient) {
     }
 }
 
-private enum class Screen { Today, Feed, Profile, Pick, Complete }
+private enum class Screen { Today, Feed, Friends, Profile, Pick, Complete }
 
 private fun Screen.tab(): Tab? =
     when (this) {
         Screen.Today -> Tab.Today
         Screen.Feed -> Tab.Feed
+        Screen.Friends -> Tab.Friends
         Screen.Profile -> Tab.Profile
         else -> null
     }
@@ -108,6 +111,7 @@ private fun Tab.screen(): Screen =
     when (this) {
         Tab.Today -> Screen.Today
         Tab.Feed -> Screen.Feed
+        Tab.Friends -> Screen.Friends
         Tab.Profile -> Screen.Profile
     }
 
@@ -149,6 +153,10 @@ private fun SignedInHome(
                 Screen.Feed -> {
                     val model = viewModel(key = "feed-${me.id}") { FeedViewModel(client) }
                     FeedScreen(model, me, contentPadding = PaddingValues(16.dp))
+                }
+                Screen.Friends -> {
+                    val model = viewModel(key = "friends-${me.id}") { FriendsViewModel(client) }
+                    FriendsScreen(model)
                 }
                 Screen.Profile -> {
                     val model =

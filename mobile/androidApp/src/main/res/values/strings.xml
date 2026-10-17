@@ -233,4 +233,20 @@
         <item quantity="many">%1$d дней назад</item>
         <item quantity="other">%1$d дня назад</item>
     </plurals>
+    <string name="nav_friends">Друзья</string>
+    <string name="friends_title">Рейтинг друзей</string>
+    <string name="friends_week_from">Неделя с %1$s</string>
+    <string name="friends_week_current">Эта неделя</string>
+    <string name="friends_week_previous">Прошлая</string>
+    <string name="friends_streak">серия %1$d</string>
+    <string name="friends_rank">%1$d место</string>
+    <string name="friends_alone">В рейтинге пока только ты. Позови друзей, чтобы соревноваться.</string>
+    <string name="friends_list_title">Друзья</string>
+    <string name="friends_invite">Позвать друга</string>
+    <string name="friends_invite_text">Пойдём со мной в Ayda: каждый день квесты, вечером показываем друг другу, что сделали</string>
+    <string name="friends_invite_shared">Ссылка действует 7 дней, по ней можно звать нескольких</string>
+    <string name="friends_remove">Убрать %1$s из друзей</string>
+    <string name="friends_remove_confirm">Убрать %1$s из друзей? Вы перестанете видеть посты друг друга.</string>
+    <string name="friends_remove_yes">Убрать</string>
+    <string name="friends_since">друзья с %1$s</string>
 </resources>
