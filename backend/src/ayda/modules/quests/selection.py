@@ -13,6 +13,8 @@ MAX_PER_CATEGORY = 5
 POOL_SIZE = 6
 MAX_PER_CATEGORY_IN_POOL = 2
 LONG_OUTDOOR_MIN = 30
+# A quest whose own minimum is above this needs warm weather (a picnic).
+NEEDS_WARMTH_C = 5
 
 # One "why you" line per category for the code-only ranking.
 CODE_WHY = {
@@ -62,11 +64,16 @@ def weather_allows(
     long_outdoor = template.duration_min >= LONG_OUTDOOR_MIN
     if feels_unwell and long_outdoor:
         return False
+    rule = template.weather
     if weather is None:
-        return True
+        # Unknown weather: skip quests that only make sense in particular weather
+        # (snow and ice need frost, a picnic needs warmth).
+        min_temp = rule.get("min_temp_c")
+        return "max_temp_c" not in rule and not (
+            isinstance(min_temp, int | float) and min_temp > NEEDS_WARMTH_C
+        )
     if weather.storm:
         return False
-    rule = template.weather
     if rule.get("no_rain") and weather.rain:
         return False
     if rule.get("no_wind") and weather.strong_wind:

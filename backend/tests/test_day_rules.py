@@ -57,6 +57,9 @@ STORM = WeatherFlags(
     ("quest", "weather", "wants_outdoor", "allowed"),
     [
         (template(1, outdoor=True, duration=60), None, False, True),
+        (template(1, outdoor=True, weather={"min_temp_c": -15}), None, False, True),
+        (template(1, outdoor=True, weather={"max_temp_c": 1}), None, False, False),
+        (template(1, outdoor=True, weather={"min_temp_c": 15}), None, False, False),
         (template(1, outdoor=True, duration=60), CLEAR, False, True),
         (template(1, outdoor=True, duration=60), RAIN, False, False),
         (template(1, outdoor=True, duration=60), RAIN, True, True),
