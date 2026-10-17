@@ -67,6 +67,18 @@ MVP выходит в три вехи. Каждая веха - эпик-issue с
 - #99 Релиз Android: подпись, APK для друзей, RuStore
 - #100 Приложение iOS на SwiftUI поверх общего модуля (нужен Mac)
 
+## M5: совместные планы ([#119](https://github.com/yannyoky/ayda/issues/119))
+
+Совместные квесты из частей со своими исполнителями: встреча, организованная из чата, и готовка со списком покупок, переданным другу.
+
+- #120 Shared plans design: ADR for co-op quests with parts
+- #121 Research venue sources: bars, cafes, restaurants with reviews and average bill
+- #122 Research recipe sources and a curated recipe catalog
+- #123 Backend: co-op quests with parts, assignees, checklists and hand-off
+- #124 Assistant: "Айда, организуй" meetup from a chat
+- #125 Cooking quests: recipes in the check-in, shopping list and hand-off
+- #126 Mini App and Android: shared plans UI
+
 ## После M4
 
-Подталкивания на основе Steam и экранного времени, строгий режим и самостоятельно выбранные штрафы, рейтинг доверия и вызовы, рецепты, видеоподтверждения, предиктивные рекомендации по залогированным событиям.
+Подталкивания на основе Steam и экранного времени, строгий режим и самостоятельно выбранные штрафы, рейтинг доверия и вызовы, видеоподтверждения, предиктивные рекомендации по залогированным событиям.

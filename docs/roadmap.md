@@ -67,6 +67,18 @@ Same core loop as the Mini App in a native app that works in Russia without Tele
 - #99 Android release: signing, APK for friends, RuStore
 - #100 iOS app in SwiftUI on the shared module (needs a Mac)
 
+## M5: shared plans ([#119](https://github.com/yannyoky/ayda/issues/119))
+
+Co-op quests made of parts with their own assignees: a meetup organized from a chat, and cooking with a shopping list handed to a friend.
+
+- #120 Shared plans design: ADR for co-op quests with parts
+- #121 Research venue sources: bars, cafes, restaurants with reviews and average bill
+- #122 Research recipe sources and a curated recipe catalog
+- #123 Backend: co-op quests with parts, assignees, checklists and hand-off
+- #124 Assistant: "Айда, организуй" meetup from a chat
+- #125 Cooking quests: recipes in the check-in, shopping list and hand-off
+- #126 Mini App and Android: shared plans UI
+
 ## After M4
 
-Nudges from Steam and screen time, strict mode and self-chosen penalties, trust rating and call-outs, recipes, video proofs, predictive recommendations on the logged events.
+Nudges from Steam and screen time, strict mode and self-chosen penalties, trust rating and call-outs, video proofs, predictive recommendations on the logged events.
