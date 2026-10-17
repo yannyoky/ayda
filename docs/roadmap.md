@@ -54,7 +54,7 @@ Release:
 Same core loop as the Mini App in a native app that works in Russia without Telegram (ADR 0009). Android first; iOS needs a Mac.
 
 - #90 Native app plan: ADR 0009, PRD and roadmap
-- #91 Sign-in without Telegram: email code, VK ID, Yandex ID, linked identities, refresh tokens
+- #91 Sign-in without Telegram: email code, linked identities, refresh tokens
 - #92 Mobile scaffold: KMP project, generated API client, theme, CI
 - #93 Android: sign-in, consents and onboarding
 - #94 Android: Today screen with check-in, quest pool, events and photo proofs
