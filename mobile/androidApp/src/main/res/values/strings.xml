@@ -249,4 +249,25 @@
     <string name="friends_remove_confirm">Убрать %1$s из друзей? Вы перестанете видеть посты друг друга.</string>
     <string name="friends_remove_yes">Убрать</string>
     <string name="friends_since">друзья с %1$s</string>
+    <string name="nav_chats">Чаты</string>
+    <string name="nav_chats_unread">Чаты, непрочитанных: %1$d</string>
+    <string name="chats_title">Чаты</string>
+    <string name="chats_empty">Пока ни одного чата. Напиши другу, договоритесь о квесте.</string>
+    <string name="chats_no_friends">Чтобы переписываться, позови друзей</string>
+    <string name="chats_write_to">Написать: %1$s</string>
+    <string name="chats_start_title">Написать другу</string>
+    <string name="chats_unread">непрочитанных: %1$d</string>
+    <string name="chats_you">Ты: %1$s</string>
+    <string name="chats_no_messages">Сообщений пока нет</string>
+    <string name="chats_placeholder">Сообщение</string>
+    <string name="chats_send">Отправить</string>
+    <string name="chats_sending">Отправляется</string>
+    <string name="chats_failed">Не отправилось. Нажми, чтобы повторить</string>
+    <string name="chats_delete">Удалить сообщение</string>
+    <string name="chats_delete_confirm">Удалить сообщение у всех?</string>
+    <string name="chats_delete_yes">Удалить</string>
+    <string name="chats_older">Показать раньше</string>
+    <string name="chats_closed">Вы больше не друзья: чат открыт только для чтения</string>
+    <string name="chats_too_many">Слишком много сообщений, подожди минуту</string>
+    <string name="chats_back">Назад</string>
 </resources>

@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +32,7 @@ enum class Tab(
 ) {
     Today(R.drawable.ic_today, R.string.nav_today),
     Feed(R.drawable.ic_feed, R.string.nav_feed),
+    Chats(R.drawable.ic_chat, R.string.nav_chats),
     Friends(R.drawable.ic_friends, R.string.nav_friends),
     Profile(R.drawable.ic_profile, R.string.nav_profile),
 }
@@ -37,6 +41,7 @@ enum class Tab(
 @Composable
 fun TabBar(
     current: Tab,
+    unreadChats: Int,
     onSelect: (Tab) -> Unit,
 ) {
     val colors = LocalAydaColors.current
@@ -54,7 +59,8 @@ fun TabBar(
     ) {
         Tab.entries.forEach { tab ->
             val active = tab == current
-            val label = stringResource(tab.label)
+            val badge = tab == Tab.Chats && unreadChats > 0
+            val label = if (badge) stringResource(R.string.nav_chats_unread, unreadChats) else stringResource(tab.label)
             Box(
                 Modifier
                     .height(48.dp)
@@ -73,7 +79,16 @@ fun TabBar(
                     )
                     if (active) {
                         Spacer(Modifier.width(6.dp))
-                        Text(label, style = MaterialTheme.typography.titleMedium, color = colors.onAccent)
+                        Text(
+                            stringResource(tab.label),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colors.onAccent,
+                        )
+                    }
+                    if (badge &&
+                        !active
+                    ) {
+                        Box(Modifier.offset((-4).dp, (-10).dp).size(8.dp).background(colors.accent, CircleShape))
                     }
                 }
             }

@@ -11,6 +11,7 @@ compose-bom = "2026.09.00"
 activity-compose = "1.13.0"
 exifinterface = "1.4.2"
 coil = "3.6.3"
+centrifuge = "0.7.0"
 core-ktx = "1.19.1"
 lifecycle = "2.11.0"
 junit = "4.13.2"
@@ -27,6 +28,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+centrifuge-java = { module = "io.github.centrifugal:centrifuge-java", version.ref = "centrifuge" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui = { module = "androidx.compose.ui:ui" }

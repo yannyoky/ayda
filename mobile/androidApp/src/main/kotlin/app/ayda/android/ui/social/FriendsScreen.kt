@@ -58,7 +58,10 @@ private val dayMonth = DateTimeFormatter.ofPattern("d MMMM", Russian)
 
 /** US-16 and US-12: the weekly ladder among friends, then the friends list with an invite. */
 @Composable
-fun FriendsScreen(model: FriendsViewModel) {
+fun FriendsScreen(
+    model: FriendsViewModel,
+    onWrite: (Friend) -> Unit,
+) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
     val context = LocalContext.current
@@ -117,6 +120,7 @@ fun FriendsScreen(model: FriendsViewModel) {
                 }
             },
             onRemove = model::askRemove,
+            onWrite = onWrite,
         )
     }
 
@@ -281,6 +285,7 @@ private fun FriendsList(
     inviteShared: Boolean,
     onInvite: () -> Unit,
     onRemove: (Friend) -> Unit,
+    onWrite: (Friend) -> Unit,
 ) {
     val colors = LocalAydaColors.current
     Card {
@@ -323,6 +328,14 @@ private fun FriendsList(
                         stringResource(R.string.friends_since, since),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.muted,
+                    )
+                }
+                IconButton(onClick = { onWrite(friend) }) {
+                    AydaIcon(
+                        R.drawable.ic_chat,
+                        colors.ink,
+                        size = 18,
+                        contentDescription = stringResource(R.string.chats_write_to, friend.firstName),
                     )
                 }
                 IconButton(onClick = { onRemove(friend) }) {
