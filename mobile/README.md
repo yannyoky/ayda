@@ -37,7 +37,7 @@ Sign-in needs email delivery configured in the backend (`SMTP_*` in `.env`); Tel
 The same as the `mobile` CI job:
 
 ```bash
-./gradlew ktlintCheck lint :shared:testAndroidHostTest :androidApp:testDebugUnitTest assembleDebug
+./gradlew ktlintCheck lint :shared:testAndroidHostTest :androidApp:testDebugUnitTest assembleDebug assembleRelease
 ```
 
 `./gradlew ktlintFormat` fixes formatting.
@@ -50,6 +50,33 @@ cd mobile/iosApp && xcodegen generate && open Ayda.xcodeproj
 ```
 
 The Xcode build runs `./gradlew :shared:embedAndSignAppleFrameworkForXcode` first and links the `Shared` framework. The iOS part has not been built yet: there is no Mac in CI or in the cloud sessions (#100).
+
+## Release
+
+A release APK is built and signed by the **Android release** workflow (Actions → Android release → Run workflow, with a version such as `0.1.0`; the `production` environment's reviewer approves it). It attaches `ayda-<version>.apk` to a GitHub pre-release `android-v<version>` and prints the signing certificate's SHA-256 in the run summary; that value goes into `ANDROID_CERT_SHA256` on the VPS so invite links open the app (`docs/deploy.md`).
+
+One-time setup, by the owner:
+
+1. Create the keystore and keep a copy somewhere safe and offline. Losing it means users must uninstall the app to update it:
+   ```bash
+   keytool -genkeypair -v -keystore ayda.jks -alias ayda -keyalg RSA -keysize 4096 -validity 10000
+   base64 -w0 ayda.jks    # the value for ANDROID_KEYSTORE_BASE64
+   ```
+2. In GitHub → Settings → Environments → `production` add the secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, `ANDROID_SENTRY_DSN` and, for push, `FIREBASE_API_KEY`; and the variables `FIREBASE_APP_ID`, `FIREBASE_PROJECT_ID`, `FIREBASE_SENDER_ID` (`AYDA_DOMAIN` is already there from the deploy). The keystore never leaves the secrets and is deleted from the runner at the end of the run.
+3. Create a project `ayda-android` in GlitchTip and use its DSN as `ANDROID_SENTRY_DSN`.
+
+To build a signed release locally set `AYDA_KEYSTORE_FILE`, `AYDA_KEYSTORE_PASSWORD`, `AYDA_KEY_ALIAS` and `AYDA_KEY_PASSWORD` and run `./gradlew assembleRelease`; without them the release build is unsigned.
+
+Error reports go to GlitchTip through the Sentry SDK when the build has a DSN (`-Payda.sentryDsn=...` or `AYDA_SENTRY_DSN`). `CrashReports` sends the exception type and stack trace only: no user, request, breadcrumbs, messages, extras or device details.
+
+### RuStore
+
+1. Register as a developer at https://dev.rustore.ru (an individual can publish free apps) and create the app `app.ayda`.
+2. Upload the signed APK from the GitHub Release. RuStore signs nothing for you here: it keeps our signature, so later releases must use the same keystore.
+3. Fill in the card: name "Ayda: квесты дня", the age rating, a link to a public privacy policy page (the store requires one; the app only shows the consent text, so the page still has to be published) and screenshots of Today, Feed and Friends.
+4. Send it for moderation; every update is a new upload with a higher version code (the workflow uses the run number).
+
+Google Play comes later: it needs an App Bundle (`bundleRelease`) and a Play Console account, and the same keystore can be the upload key.
 
 ## Tokens on the device
 

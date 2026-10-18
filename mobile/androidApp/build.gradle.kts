@@ -14,8 +14,9 @@ android {
         applicationId = "app.ayda"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        // The release workflow passes -Payda.versionCode=<run number> -Payda.versionName=<tag>.
+        versionCode = providers.gradleProperty("ayda.versionCode").map { it.toInt() }.getOrElse(1)
+        versionName = providers.gradleProperty("ayda.versionName").getOrElse("0.1.0")
         // Where the API lives; override with -Payda.apiBaseUrl=... (the emulator reaches the host at 10.0.2.2).
         val apiBaseUrl = providers.gradleProperty("ayda.apiBaseUrl").orElse("http://10.0.2.2:8000/api/v1")
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
@@ -23,6 +24,13 @@ android {
         val inviteHost = URI(apiBaseUrl.get()).host
         buildConfigField("String", "INVITE_HOST", "\"$inviteHost\"")
         manifestPlaceholders["inviteHost"] = inviteHost
+        // Crash reports go to the self-hosted GlitchTip (a Sentry DSN); empty: reporting is off.
+        val sentryDsn =
+            providers
+                .gradleProperty(
+                    "ayda.sentryDsn",
+                ).orElse(providers.environmentVariable("AYDA_SENTRY_DSN"))
+        buildConfigField("String", "SENTRY_DSN", "\"${sentryDsn.getOrElse("")}\"")
         // The Firebase project for push (ADR 0009), from -Payda.firebase.*=... or AYDA_FIREBASE_* variables.
         // Left empty, the app builds and runs without push.
         listOf("appId", "projectId", "apiKey", "senderId").forEach { name ->
@@ -41,8 +49,23 @@ android {
         buildConfig = true
     }
 
+    // The release keystore lives in GitHub secrets (.github/workflows/android-release.yml); without
+    // it the release build is left unsigned.
+    val keystore = providers.environmentVariable("AYDA_KEYSTORE_FILE")
+    signingConfigs {
+        if (keystore.isPresent) {
+            create("release") {
+                storeFile = file(keystore.get())
+                storePassword = providers.environmentVariable("AYDA_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("AYDA_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("AYDA_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystore.isPresent) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -73,6 +96,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.sentry.android)
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)
