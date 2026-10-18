@@ -205,3 +205,12 @@ Decided 2026-10-17 (ADR 0009, epic #89). Telegram does not work in Russia withou
 - **Sign-in:** email with a one-time code; Telegram as an extra option, and both can be linked to one account. No VK ID, Yandex ID or SMS for now (owner's choice 2026-10-17). The app must work with no Telegram at all.
 - **Notifications:** push (FCM); the bot stays for those who have Telegram.
 - **Order:** Android first (APK for friends, then RuStore, Google Play later); iOS when a Mac and an Apple Developer account are available.
+
+## After M4: shared plans (M5)
+
+Owner's scenarios, 2026-10-17 (epic #119). Both rest on one mechanism: a co-op quest split into parts, each part with its own assignee and details (place, time, checklist).
+
+- **Meetup from chat.** Friends discuss a bar, a restaurant or a Dota session in a DM or co-op chat. On an explicit "Айда, организуй" tap the assistant suggests the type, a time and 3-5 places (or an online session); once they pick, a co-op quest with place and time is created.
+- **Cooking with a shopping hand-off.** In the morning check-in a user says she wants to cook lunch. The assistant offers 2-3 recipes and asks what is at home. Missing ingredients become a "buy groceries" part with a checklist that she can hand to a friend or partner; the "cook" part opens after it. Each gets points for their own part and a bonus if both parts close the same day.
+- **Privacy:** the assistant reads a chat only after the tap and only the last few messages; message text is not logged. Our LLM providers are in the US, so background chat reading is out (152-FZ).
+- **Data:** venues and recipes come from free sources with clear terms, no scraping (#121, #122). Default for venues: OpenStreetMap plus a link to 2GIS or Yandex Maps for reviews. Recipes come from a curated catalog; the LLM only picks and adapts them, because invented ingredients can miss allergens.
