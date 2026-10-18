@@ -33,6 +33,7 @@ Pull requests touching `deploy/` or `infra/` validate the Compose file and build
 8. **@BotFather**: Bot Settings → Configure Mini App → Main Mini App URL `https://<AYDA_DOMAIN>/`; Menu Button → the same URL. The bot sets its webhook to `https://<AYDA_DOMAIN>/telegram/webhook` with `TELEGRAM_WEBHOOK_SECRET` on start.
 9. **LLM providers**: from the VPS, run the eval smoke check (`docs/llm-eval.md`, `--limit 3`) to confirm Groq and Cloudflare answer from a Russian IP. If Groq is blocked, put `cloudflare-llama70b` first in `LLM_PROVIDERS`.
 10. **Local events** (M3, ADR 0008): nothing to set up; Timepad and KudaGo need no keys (`TIMEPAD_TOKEN` is optional). The worker loads events once a day after 04:00 Moscow time, and right after the first deploy if that time has passed; `docker compose -f docker-compose.prod.yml logs worker | grep events:` shows the counts per source.
+11. **Invite links and the Android app** (optional until the app is released): put the SHA-256 fingerprint of the app's signing certificate into `ANDROID_CERT_SHA256` in `.env` (`AA:BB:...`; Caddy serves it at `/.well-known/assetlinks.json`) and run the Deploy workflow. Invites are then `https://<AYDA_DOMAIN>/i/<code>`: they open the app when it is installed and the verified link is trusted by Android, and send everyone else to the bot (`t.me/<bot>?startapp=<code>`). Old `t.me` links keep working.
 
 ## Backups
 

@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,6 +55,7 @@ import app.ayda.android.ui.profile.ProfileScreen
 import app.ayda.android.ui.signin.SignInScreen
 import app.ayda.android.ui.social.FeedScreen
 import app.ayda.android.ui.social.FriendsScreen
+import app.ayda.android.ui.social.InviteDialog
 import app.ayda.api.models.DayQuest
 import app.ayda.api.models.Me
 import app.ayda.api.models.Theme
@@ -78,6 +80,7 @@ import app.ayda.shared.session.SessionState
 import app.ayda.shared.session.SessionViewModel
 import app.ayda.shared.social.FeedViewModel
 import app.ayda.shared.social.FriendsViewModel
+import app.ayda.shared.social.InviteViewModel
 import kotlinx.coroutines.flow.StateFlow
 
 /** Picks the top-level screen from the session state. */
@@ -165,6 +168,9 @@ private fun SignedInHome(
     var chatFrom by rememberSaveable { mutableStateOf(Screen.Chats) }
     var coopId by rememberSaveable { mutableStateOf<String?>(null) }
     var inviting by rememberSaveable { mutableStateOf<String?>(null) }
+    var invitedBy by rememberSaveable { mutableStateOf<String?>(null) }
+    // A new friend through a link: the friends list is loaded again.
+    var friendsRev by rememberSaveable { mutableIntStateOf(0) }
     val today = viewModel(key = "today-${me.id}") { TodayViewModel(client) }
     val todayState by today.state.collectAsStateWithLifecycle()
     val realtime = viewModel(key = "realtime-${me.id}") { Realtime(client, CentrifugeTransport()) }
@@ -203,6 +209,7 @@ private fun SignedInHome(
             PushTarget.Friends -> screen = Screen.Friends
             is PushTarget.Chat -> openChat(to.conversationId)
             is PushTarget.Coop -> openCoop(to.coopId)
+            is PushTarget.Invite -> invitedBy = to.code
         }
         onOpened()
     }
@@ -269,7 +276,7 @@ private fun SignedInHome(
                     }
                 }
                 Screen.Friends -> {
-                    val model = viewModel(key = "friends-${me.id}") { FriendsViewModel(client) }
+                    val model = viewModel(key = "friends-${me.id}-$friendsRev") { FriendsViewModel(client) }
                     FriendsScreen(model, onWrite = { friend -> chats.openDirect(friend.id) { openChat(it.id) } })
                 }
                 Screen.Profile -> {
@@ -306,6 +313,14 @@ private fun SignedInHome(
                 coops.updated(coop)
                 today.refresh()
                 openCoop(coop.id)
+            }
+        }
+        invitedBy?.let { code ->
+            val model = viewModel(key = "invite-link-$code") { InviteViewModel(client, code) }
+            InviteDialog(model, onClose = { invitedBy = null }) {
+                invitedBy = null
+                friendsRev++
+                screen = Screen.Friends
             }
         }
         if (tab != null) TabBar(tab, unreadChats = chatsState.unread, onSelect = { screen = it.screen() })

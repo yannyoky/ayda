@@ -19,6 +19,15 @@
 	handle /telegram/webhook {
 		reverse_proxy bot:8081
 	}
+	# Invite links (US-12): with the Android app installed the system opens the app itself (App Links);
+	# everyone else lands in the bot, where the Mini App accepts the invite.
+	handle /i/* {
+		redir https://t.me/{$TELEGRAM_BOT_USERNAME}?startapp={http.request.uri.path.1} 302
+	}
+	handle /.well-known/assetlinks.json {
+		header Content-Type application/json
+		respond `[{"relation":["delegate_permission/common/handle_all_urls"],"target":{"namespace":"android_app","package_name":"app.ayda","sha256_cert_fingerprints":["{$ANDROID_CERT_SHA256}"]}}]` 200
+	}
 	handle /connection/* {
 		reverse_proxy centrifugo:8000
 	}

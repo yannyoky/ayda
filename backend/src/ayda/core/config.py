@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     telegram_bot_username: str = "ayda_quest_bot"
     # Mini App URL for the bot's buttons; without it the buttons use t.me/<bot>?startapp.
     miniapp_url: str | None = None
+    # Public origin of the app, e.g. https://ayda.example.ru. With it invite links are
+    # <origin>/i/<code> (they open the native app; Caddy sends the rest to the bot).
+    invite_base_url: str | None = None
     # Production: Telegram calls this URL (proxied to the bot process); empty: polling.
     telegram_webhook_url: str | None = None
     telegram_webhook_secret: SecretStr | None = None

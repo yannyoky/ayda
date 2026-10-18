@@ -5,7 +5,7 @@ import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
 import app.ayda.shared.apiCall
 
-/** The screen a push opens. A push carries only its `kind` and ids (ADR 0009). */
+/** Where the app is asked to go: by a push, which carries only its `kind` and ids (ADR 0009), or by an invite link. */
 sealed interface PushTarget {
     data object Today : PushTarget
 
@@ -19,6 +19,11 @@ sealed interface PushTarget {
 
     data class Coop(
         val coopId: String,
+    ) : PushTarget
+
+    /** A link `/i/<code>` was opened. */
+    data class Invite(
+        val code: String,
     ) : PushTarget
 
     companion object {

@@ -1229,7 +1229,9 @@ paths:
       tags: [social]
       operationId: acceptInvite
       summary: Become friends with the inviter (idempotent, US-12)
-      description: Called by the Mini App when it starts with a `startapp` invite code.
+      description: >-
+        Called by the Mini App when it starts with a `startapp` invite code, and by the native
+        apps when an `/i/<code>` link opens them.
       parameters:
         - name: code
           in: path
@@ -2282,7 +2284,10 @@ components:
         url:
           type: string
           format: uri
-          examples: ['https://t.me/ayda_quest_bot?startapp=k3J9xQ2mLp']
+          description: >-
+            `https://<domain>/i/<code>` in production (opens the native app when installed, else the
+            Telegram bot); `https://t.me/<bot>?startapp=<code>` where no public origin is configured.
+          examples: ['https://ayda.example.ru/i/k3J9xQ2mLp']
         expires_at:
           type: string
           format: date-time

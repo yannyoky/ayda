@@ -244,6 +244,11 @@
     <string name="friends_list_title">Друзья</string>
     <string name="friends_invite">Позвать друга</string>
     <string name="friends_invite_text">Пойдём со мной в Ayda: каждый день квесты, вечером показываем друг другу, что сделали</string>
+    <string name="invite_accepted">Теперь вы с %1$s друзья</string>
+    <string name="invite_friends">К друзьям</string>
+    <string name="invite_own">Это ваша собственная ссылка: отправьте её другу</string>
+    <string name="invite_expired">Ссылка устарела, попросите друга прислать новую</string>
+    <string name="invite_unknown">Такой ссылки нет, проверьте, что она скопирована целиком</string>
     <string name="friends_invite_shared">Ссылка действует 7 дней, по ней можно звать нескольких</string>
     <string name="friends_remove">Убрать %1$s из друзей</string>
     <string name="friends_remove_confirm">Убрать %1$s из друзей? Вы перестанете видеть посты друг друга.</string>
