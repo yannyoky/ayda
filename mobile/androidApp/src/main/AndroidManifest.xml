@@ -37,6 +37,8 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <!-- Sentry starts from CrashReports.init, only when the build has a DSN. -->
+        <meta-data android:name="io.sentry.auto-init" android:value="false" />
         <!-- How the system shows a push that arrives while the app is closed. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

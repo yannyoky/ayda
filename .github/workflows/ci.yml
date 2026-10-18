@@ -127,7 +127,7 @@ jobs:
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v6
       # The Android SDK is preinstalled on GitHub runners (ANDROID_HOME); AGP fetches missing platforms.
-      - run: ./gradlew ktlintCheck lint :shared:testAndroidHostTest :androidApp:testDebugUnitTest assembleDebug
+      - run: ./gradlew ktlintCheck lint :shared:testAndroidHostTest :androidApp:testDebugUnitTest assembleDebug assembleRelease
       - uses: actions/upload-artifact@v7
         with:
           name: ayda-debug-apk

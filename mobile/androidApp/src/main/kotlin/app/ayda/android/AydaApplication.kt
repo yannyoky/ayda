@@ -5,6 +5,7 @@ import app.ayda.android.auth.EncryptedTokenStore
 import app.ayda.android.auth.KeystoreCipher
 import app.ayda.android.push.PrefsDeviceStore
 import app.ayda.android.push.Push
+import app.ayda.android.reports.CrashReports
 import app.ayda.api.models.RegisterMyDeviceRequest
 import app.ayda.shared.AydaClient
 import app.ayda.shared.push.PushRegistration
@@ -26,6 +27,7 @@ class AydaApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashReports.init(this)
         Push.init(this)
     }
 }
