@@ -29,9 +29,13 @@ async def create_invite(user: CurrentUser, session: DbSession, settings: AppSett
     except social.InviteLimitError:
         raise Problem(429, "too-many-invites", detail="Слишком много приглашений") from None
     await session.commit()
+    if settings.invite_base_url:
+        url = f"{settings.invite_base_url.rstrip('/')}/i/{invite.code}"
+    else:
+        url = f"https://t.me/{settings.telegram_bot_username}?startapp={invite.code}"
     return Invite(
         code=invite.code,
-        url=f"https://t.me/{settings.telegram_bot_username}?startapp={invite.code}",
+        url=url,
         expires_at=invite.expires_at,
     )
 

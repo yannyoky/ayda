@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -17,6 +19,10 @@ android {
         // Where the API lives; override with -Payda.apiBaseUrl=... (the emulator reaches the host at 10.0.2.2).
         val apiBaseUrl = providers.gradleProperty("ayda.apiBaseUrl").orElse("http://10.0.2.2:8000/api/v1")
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
+        // Invite links https://<host>/i/<code> open the app (Android App Links); the host is the API's.
+        val inviteHost = URI(apiBaseUrl.get()).host
+        buildConfigField("String", "INVITE_HOST", "\"$inviteHost\"")
+        manifestPlaceholders["inviteHost"] = inviteHost
         // The Firebase project for push (ADR 0009), from -Payda.firebase.*=... or AYDA_FIREBASE_* variables.
         // Left empty, the app builds and runs without push.
         listOf("appId", "projectId", "apiKey", "senderId").forEach { name ->

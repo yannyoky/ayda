@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import app.ayda.android.push.Push
 import app.ayda.android.ui.AydaApp
 import app.ayda.shared.push.PushTarget
+import app.ayda.shared.social.InviteLink
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
@@ -17,13 +18,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) opened.value = Push.target(intent)
+        if (savedInstanceState == null) opened.value = target(intent)
         val app = application as AydaApplication
         setContent { AydaApp(app.client, app.push, opened, onOpened = { opened.value = null }) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        Push.target(intent)?.let { opened.value = it }
+        target(intent)?.let { opened.value = it }
+    }
+
+    /** An invite link of our own host, else the screen a push asks for. */
+    private fun target(intent: Intent): PushTarget? {
+        val link = intent.data?.takeIf { it.scheme == "https" && it.host == BuildConfig.INVITE_HOST }
+        return InviteLink.codeFrom(link?.path)?.let(PushTarget::Invite) ?: Push.target(intent)
     }
 }

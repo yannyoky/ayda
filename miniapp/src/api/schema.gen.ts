@@ -790,7 +790,7 @@ export interface paths {
         put?: never;
         /**
          * Become friends with the inviter (idempotent, US-12)
-         * @description Called by the Mini App when it starts with a `startapp` invite code.
+         * @description Called by the Mini App when it starts with a `startapp` invite code, and by the native apps when an `/i/<code>` link opens them.
          */
         post: operations["acceptInvite"];
         delete?: never;
@@ -1358,7 +1358,8 @@ export interface components {
             code: string;
             /**
              * Format: uri
-             * @example https://t.me/ayda_quest_bot?startapp=k3J9xQ2mLp
+             * @description `https://<domain>/i/<code>` in production (opens the native app when installed, else the Telegram bot); `https://t.me/<bot>?startapp=<code>` where no public origin is configured.
+             * @example https://ayda.example.ru/i/k3J9xQ2mLp
              */
             url: string;
             /** Format: date-time */

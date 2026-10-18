@@ -10,6 +10,7 @@ x-backend: &backend
     DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:?}@postgres:5432/ayda
     CENTRIFUGO_API_URL: http://centrifugo:8000/api
     CENTRIFUGO_PUBLIC_URL: wss://${AYDA_DOMAIN:?}/connection/websocket
+    INVITE_BASE_URL: https://${AYDA_DOMAIN:?}
   restart: unless-stopped
   logging: &logging
     driver: json-file
@@ -99,6 +100,8 @@ services:
       AYDA_DOMAIN: ${AYDA_DOMAIN:?}
       ERRORS_DOMAIN: ${ERRORS_DOMAIN:?}
       ACME_EMAIL: ${ACME_EMAIL:?}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:?}
+      ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
     ports:
       - "80:80"
       - "443:443"

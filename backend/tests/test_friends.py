@@ -3,7 +3,9 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from sqlalchemy import update
 
+from ayda.core.config import Settings
 from ayda.core.db import Database
+from ayda.main import create_app
 from ayda.modules import social
 from tests.contract import assert_matches
 from tests.helpers import sign_in
@@ -32,6 +34,18 @@ async def test_invite_link_makes_mutual_friends(client: httpx.AsyncClient) -> No
         listed = await client.get("/friends", headers=user.headers)
         assert_matches(listed, "listFriends")
         assert [f["first_name"] for f in listed.json()["items"]] == [name]
+
+
+async def test_invite_link_uses_the_public_origin_when_configured(settings: Settings) -> None:
+    app = create_app(settings.model_copy(update={"invite_base_url": "https://ayda.example.ru/"}))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1"
+    ) as client:
+        alice = await sign_in(client, 1001, "Алиса")
+        created = await client.post("/invites", headers=alice.headers)
+        assert_matches(created, "createInvite")
+        assert created.json()["url"] == f"https://ayda.example.ru/i/{created.json()['code']}"
+    await app.state.db.dispose()
 
 
 async def test_invite_errors(client: httpx.AsyncClient, database: Database) -> None:
