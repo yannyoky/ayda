@@ -73,7 +73,7 @@ Co-op quests made of parts with their own assignees: a meetup organized from a c
 
 - #120 Shared plans design: ADR 0010 for co-op quests with parts
 - #121 Research venue sources: bars, cafes, restaurants with reviews and average bill (ADR 0011)
-- #122 Research recipe sources and a curated recipe catalog
+- #122 Research recipe sources and a curated recipe catalog (ADR 0012)
 - #123 Backend: co-op quests with parts, assignees, checklists and hand-off
 - #124 Assistant: "Айда, организуй" meetup from a chat
 - #125 Cooking quests: recipes in the check-in, shopping list and hand-off
