@@ -415,6 +415,7 @@
         <item>Где поужинать рядом?</item>
         <item>Что приготовить из того, что есть дома?</item>
         <item>Придумай квест на вечер</item>
+        <item>Что будет в афише на выходных?</item>
     </string-array>
     <string-array name="assistant_hints_quest">
         <item>Найди место для этого квеста</item>
@@ -424,6 +425,9 @@
     <string name="assistant_limit">На сегодня сообщения помощнику закончились</string>
     <string name="assistant_failed">Помощник не ответил. Попробуй ещё раз.</string>
     <string name="assistant_open_now">открыто</string>
+    <string name="assistant_event_open">Подробнее</string>
+    <string name="assistant_event_here">в твоём городе</string>
+    <string name="assistant_event_far">%1$d км от центра</string>
     <string name="assistant_on_2gis">2ГИС</string>
     <string name="assistant_on_yandex">Яндекс Карты</string>
     <string name="assistant_distance_m">%1$d м</string>

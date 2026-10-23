@@ -44,6 +44,18 @@ describe('Assistant chat (ADR 0013)', () => {
     expect(screen.getByText('© OpenStreetMap contributors')).toBeInTheDocument()
   })
 
+  it('shows the listings found for a request', async () => {
+    const user = userEvent.setup()
+    renderApp('/assistant')
+    await ask(user, 'Что будет в афише на выходных?')
+    const jazz = (await screen.findByText('Джазовый вечер')).closest('li')!
+    expect(within(jazz).getByText(/Дом искусств · Калининград · в твоём городе · от 500 ₽/)).toBeInTheDocument()
+    expect(within(jazz).getByRole('link', { name: /Подробнее/ })).toHaveAttribute('href', 'https://example.com/jazz')
+    const fair = screen.getByText('Ярмарка мёда').closest('li')!
+    expect(within(fair).getByText(/Светлогорск · 35 км от центра · Бесплатно/)).toBeInTheDocument()
+    expect(screen.getByText('Афиша: Timepad и KudaGo')).toBeInTheDocument()
+  })
+
   it('suggests dishes and opens the cooking plan', async () => {
     const user = userEvent.setup()
     renderApp('/assistant')
