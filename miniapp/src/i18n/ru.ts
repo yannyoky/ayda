@@ -20,6 +20,7 @@ export const ru = {
     profile: 'Профиль',
   },
   today: {
+    topEvents: 'Топ рядом',
     greeting: (name: string) => `Привет, ${name}`,
     checkinTitle: 'Какой у тебя день?',
     checkinPlaceholder: 'Работа до 18, надо дописать отчёт, вечером свободен',

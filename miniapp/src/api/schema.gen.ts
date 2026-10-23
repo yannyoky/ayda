@@ -718,6 +718,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/top": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The most notable events of the user's region in the next two weeks (ADR 0016)
+         * @description Chosen by code without the user's tastes: public places, free entry, long or repeated
+         *     runs, mass-event words and the season (holidays). One event per title, best first, at
+         *     most 6. Empty when the profile has no city or the listings have nothing.
+         */
+        get: operations["listTopEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant/messages": {
         parameters: {
             query?: never;
@@ -1852,6 +1874,10 @@ export interface components {
             cards: components["schemas"]["AssistantCard"][];
             /** Format: date-time */
             created_at: string;
+        };
+        TopEvents: {
+            items: components["schemas"]["AssistantEvent"][];
+            attribution: string;
         };
         AssistantThread: {
             items: components["schemas"]["AssistantMessage"][];
@@ -3256,6 +3282,27 @@ export interface operations {
                 };
             };
             422: components["responses"]["Problem"];
+        };
+    };
+    listTopEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopEvents"];
+                };
+            };
+            401: components["responses"]["Problem"];
         };
     };
     listAssistantMessages: {

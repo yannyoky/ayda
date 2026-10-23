@@ -638,6 +638,11 @@ class AssistantEvent(BaseModel):
     source: str
 
 
+class TopEvents(BaseModel):
+    items: list[AssistantEvent]
+    attribution: str
+
+
 class AssistantCard(BaseModel):
     kind: Literal["places", "events", "dishes", "quest"]
     places: list[AssistantPlace] = Field(default_factory=lambda: [])

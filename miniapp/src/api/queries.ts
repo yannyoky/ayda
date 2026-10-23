@@ -590,6 +590,10 @@ export function usePlanRecipe() {
 
 // ---- assistant chat: the day topic and one topic per quest (ADR 0013) ----
 
+export function useTopEvents() {
+  return useQuery({ queryKey: ['events', 'top'], queryFn: () => unwrap(api.GET('/events/top')), staleTime: 10 * 60_000 })
+}
+
 export const assistantKey = (questId: string | null) => ['assistant', questId ?? 'day'] as const
 
 export function useAssistantThread(questId: string | null) {

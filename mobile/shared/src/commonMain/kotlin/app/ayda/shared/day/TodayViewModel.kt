@@ -2,6 +2,7 @@ package app.ayda.shared.day
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.ayda.api.models.AssistantEvent
 import app.ayda.api.models.Category
 import app.ayda.api.models.CheckinInput
 import app.ayda.api.models.Day
@@ -52,6 +53,8 @@ sealed interface Notice {
 
 data class TodayState(
     val day: Day? = null,
+    /** The region's most notable events (ADR 0016); empty when there are none or they did not load. */
+    val topEvents: List<AssistantEvent> = emptyList(),
     /** Set when today could not be loaded at all; the screen offers a retry. */
     val loadError: String? = null,
     val editingCheckin: Boolean = false,
@@ -105,6 +108,10 @@ class TodayViewModel(
             when (val loaded = apiCall { client.day.getToday() }) {
                 is ApiResult.Ok -> show(loaded.value)
                 else -> mutableState.update { it.copy(loadError = if (it.day == null) loaded.errorText() else null) }
+            }
+            // A failure only hides the block: it is never worth an error on Today.
+            (apiCall { client.events.listTopEvents() } as? ApiResult.Ok)?.let { top ->
+                mutableState.update { it.copy(topEvents = top.value.items) }
             }
         }
     }

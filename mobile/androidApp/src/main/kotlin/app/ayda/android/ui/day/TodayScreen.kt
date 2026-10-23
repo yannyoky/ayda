@@ -44,8 +44,10 @@ import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.QuietButton
+import app.ayda.android.ui.assistant.EventView
 import app.ayda.android.ui.coop.CoopButton
 import app.ayda.android.ui.coop.CoopInvites
+import app.ayda.api.models.AssistantEvent
 import app.ayda.api.models.Day
 import app.ayda.api.models.DayQuest
 import app.ayda.api.models.Me
@@ -120,8 +122,28 @@ fun TodayScreen(
             DiscussButton(it) { onAssistant(it) }
             CoopButton(it, onOpenCoop, onInviteCoop)
         }
+        TopEvents(state.topEvents)
     }
     if (state.ownQuest != null) OwnQuestSheet(state, model)
+}
+
+/** "Top nearby" (ADR 0016): the region's most notable events, whatever the user's tastes. */
+@Composable
+private fun TopEvents(items: List<AssistantEvent>) {
+    if (items.isEmpty()) return
+    val colors = LocalAydaColors.current
+    Column(
+        Modifier.fillMaxWidth().background(colors.surface, MaterialTheme.shapes.large).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.today_top_events), style = MaterialTheme.typography.titleMedium)
+        items.forEach { EventView(it) }
+        Text(
+            stringResource(R.string.today_top_events_source),
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.muted,
+        )
+    }
 }
 
 private val dayTitle = DateTimeFormatter.ofPattern("EEEE, d MMMM", Russian)

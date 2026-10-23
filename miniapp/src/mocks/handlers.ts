@@ -158,6 +158,7 @@ export const handlers = [
       return HttpResponse.json(db.day(), { status: 202 })
     }),
   ),
+  http.get(`${API}/events/top`, authed(() => HttpResponse.json(db.topEvents()))),
   // ---- assistant chat (ADR 0013) ----
   http.get(
     `${API}/assistant/messages`,

@@ -17,6 +17,15 @@ describe('Today: check-in and pool (US-05, US-06)', () => {
     expect(screen.getByRole('region', { name: 'За неделю' })).toHaveTextContent('185')
   })
 
+  it('shows the top events nearby', async () => {
+    renderApp()
+    const top = await screen.findByRole('region', { name: 'Топ рядом' })
+    const fort = within(top).getByText('Реконструкция боя за форт № 5').closest('li')!
+    expect(within(fort).getByText(/Форт № 5 · Калининград · в твоём городе · Бесплатно/)).toBeInTheDocument()
+    expect(within(fort).getByRole('link', { name: /Подробнее/ })).toHaveAttribute('href', 'https://example.com/fort')
+    expect(within(top).getByText(/35 км от центра · от 300 ₽/)).toBeInTheDocument()
+  })
+
   it('submits the check-in and goes straight to the picker', async () => {
     const user = userEvent.setup()
     renderApp()
