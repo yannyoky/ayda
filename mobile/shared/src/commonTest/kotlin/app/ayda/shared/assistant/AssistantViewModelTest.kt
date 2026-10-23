@@ -57,7 +57,7 @@ class AssistantViewModelTest {
         """"created_at":"2026-10-23T09:00:00Z"}"""
 
     private val questCard =
-        """{"kind":"quest","places":[],"recipes":[],"quest":$quest,"note":null,"attribution":null}"""
+        """{"kind":"quest","places":[],"events":[],"recipes":[],"quest":$quest,"note":null,"attribution":null}"""
 
     private fun MockRequestHandleScope.server(request: HttpRequestData): HttpResponseData {
         val path = request.url.encodedPath.removePrefix("/api/v1")

@@ -709,6 +709,7 @@ export class MockDb {
     const lowered = text.toLowerCase()
     const card = (fields: Partial<Schemas['AssistantCard']> & Pick<Schemas['AssistantCard'], 'kind'>): Schemas['AssistantCard'] => ({
       places: [],
+      events: [],
       recipes: [],
       quest: null,
       note: null,

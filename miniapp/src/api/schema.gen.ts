@@ -1800,8 +1800,10 @@ export interface components {
         /** @description Facts the assistant asked code for. Only the field of `kind` is filled. */
         AssistantCard: {
             /** @enum {string} */
-            kind: "places" | "dishes" | "quest";
+            kind: "places" | "events" | "dishes" | "quest";
             places: components["schemas"]["AssistantPlace"][];
+            /** @description Up to 5 listings of the user's region (or of a town in it the user named), the best fit for the request and the user's goals first (ADR 0015). */
+            events: components["schemas"]["AssistantEvent"][];
             /** @description Open one with `getRecipe`; the cooking plan of M5 takes it from there. */
             recipes: components["schemas"]["RecipeCard"][];
             /** @description The quest as it was offered; take it with `takeQuest`, its current state is in the day (`getToday`). */
@@ -1810,6 +1812,29 @@ export interface components {
             note: string | null;
             /** @description Data credit to show under the card, e.g. for OpenStreetMap. */
             attribution: string | null;
+        };
+        /** @description An event from the listings (Timepad, KudaGo); every field comes from code. */
+        AssistantEvent: {
+            id: number;
+            title: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string | null;
+            venue: string | null;
+            address: string | null;
+            /** @description Town of the event. */
+            city: string;
+            /** @description From the center of the searched town. */
+            distance_km: number;
+            category: components["schemas"]["Category"];
+            is_free: boolean;
+            /** @description Cheapest ticket in rubles, when known. */
+            price_min: number | null;
+            /** @description The event page at its source. */
+            url: string;
+            /** @enum {string} */
+            source: "timepad" | "kudago";
         };
         AssistantMessage: {
             /** Format: uuid */

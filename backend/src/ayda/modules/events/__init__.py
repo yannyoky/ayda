@@ -10,9 +10,11 @@ from ayda.modules.events.cities import (
 )
 from ayda.modules.events.ingest import ingest
 from ayda.modules.events.listings import (
+    RegionEvent,
     cities_to_load,
     get_listings,
     purge_listings,
+    region_events,
     save_listings,
     upcoming_near,
 )
@@ -59,6 +61,7 @@ __all__ = [
     "Listing",
     "ListingData",
     "OverpassSource",
+    "RegionEvent",
     "TimepadSource",
     "Venue",
     "VenueData",
@@ -79,6 +82,7 @@ __all__ = [
     "parse_venues",
     "place_snapshot",
     "purge_listings",
+    "region_events",
     "save_listings",
     "save_venues",
     "search_cities",

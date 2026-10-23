@@ -2,6 +2,8 @@
 home, a new quest. The LLM only asks; code builds every fact on a card."""
 
 import uuid
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -14,6 +16,7 @@ from ayda.core.jobs import Job
 from ayda.modules import events
 from ayda.modules.assistant import FakeProvider, recipes
 from ayda.modules.auth import User
+from tests import test_events
 from tests.contract import assert_matches
 from tests.test_assistant_chat import answer, checked_in, send, topic
 from tests.test_day import forecast, use_tools
@@ -218,3 +221,71 @@ async def test_a_quest_title_with_a_link_is_rejected(
     use_tools(app, [FakeProvider(answers=[answer("Вот.", bad)] * 2)], forecast())
     reply = (await send(client, user, "Придумай квест")).json()["reply"]
     assert reply["source"] == "code" and reply["cards"] == []
+
+
+def soon(source_id: str, hours: float, title: str, city_id: int = 435, region: str = "39") -> Any:
+    """A listing relative to the real clock: the chat itself uses the real time."""
+    start = datetime.now(UTC) + timedelta(hours=hours)
+    item = test_events.listing(source_id, timedelta(), city_id, region, title=title)
+    return replace(item, starts_at=start, ends_at=start + timedelta(hours=2))
+
+
+async def test_events_are_found_across_the_region_by_interest(
+    app: FastAPI, client: httpx.AsyncClient, database: Database
+) -> None:
+    await test_events.seed(
+        database,
+        [
+            soon("fair", 3, "Ярмарка мёда"),
+            soon("lecture", 5, "Лекция о море"),
+            soon("jazz", 30, "Джазовый вечер", test_events.SOVETSK),
+            soon("rock", 26, "Рок-концерт", test_events.SVETLOGORSK),
+            soon("moscow", 4, "Джаз в Москве", test_events.MOSCOW, "77"),
+        ],
+        datetime.now(UTC),
+    )
+    user = await checked_in(app, client)
+    find = {"type": "find_events", "query": "джаз"}
+    use_tools(app, [FakeProvider(answers=[answer("Вот что нашёл.", find)])], forecast())
+
+    response = await send(client, user, "Хочу на джаз")
+    assert response.status_code == 201, response.text
+    assert_matches(response, "sendAssistantMessage")
+    [card] = response.json()["reply"]["cards"]
+    assert card["kind"] == "events" and card["attribution"] == assistant_chat.EVENTS_ATTRIBUTION
+    titles = [e["title"] for e in card["events"]]
+    assert titles[0] == "Джазовый вечер" and "Джаз в Москве" not in titles
+    assert len(titles) == 4 and card["note"] is None
+    assert card["events"][0]["city"] == "Советск" and card["events"][0]["distance_km"] > 50
+
+    # A town of the region narrows the search to it.
+    there = {"type": "find_events", "place": "Светлогорск"}
+    use_tools(app, [FakeProvider(answers=[answer("Смотрю.", there)])], forecast())
+    [card] = (await send(client, user, "Что будет в Светлогорске?")).json()["reply"]["cards"]
+    assert card["events"][0]["title"] == "Рок-концерт"
+
+    # Nothing like it: the card says so and shows what else is on.
+    opera = {"type": "find_events", "query": "опера"}
+    use_tools(app, [FakeProvider(answers=[answer("Смотрю.", opera)])], forecast())
+    [card] = (await send(client, user, "Хочу в оперу")).json()["reply"]["cards"]
+    assert card["note"] == assistant_chat.NOTE_NOT_EXACT and card["events"]
+
+    # Another region is not loaded.
+    far = {"type": "find_events", "place": "Москва"}
+    use_tools(app, [FakeProvider(answers=[answer("Смотрю.", far)])], forecast())
+    [card] = (await send(client, user, "Что в Москве?")).json()["reply"]["cards"]
+    assert card["note"] == assistant_chat.NOTE_OTHER_REGION and card["events"] == []
+
+    # Without the LLM code reads the request.
+    use_tools(app, [FakeProvider()], forecast())
+    reply = (await send(client, user, "Какие концерты будут?")).json()["reply"]
+    assert reply["source"] == "code" and reply["cards"][0]["events"][0]["title"] == "Рок-концерт"
+
+
+async def test_no_events_is_said_on_the_card(app: FastAPI, client: httpx.AsyncClient) -> None:
+    user = await checked_in(app, client)
+    use_tools(app, [FakeProvider()], forecast())
+    [card] = (await send(client, user, "Куда сходить вечером? Есть афиша?")).json()["reply"][
+        "cards"
+    ]
+    assert card["kind"] == "events" and card["note"] == assistant_chat.NOTE_NO_EVENTS

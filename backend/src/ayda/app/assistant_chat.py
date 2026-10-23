@@ -7,14 +7,16 @@ code for one action; facts on cards come only from code. Text is never logged, a
 is deleted once the day is over.
 """
 
+import re
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.api.schemas import (
     AssistantCard,
+    AssistantEvent,
     AssistantExchange,
     AssistantMessage,
     AssistantMessageInput,
@@ -36,6 +38,8 @@ HISTORY_CHARS = 300
 LLM_DEADLINE_S = 12.0
 
 PLACES_SHOWN = 5
+EVENTS_SHOWN = 5
+EVENT_WEEK = timedelta(days=7)
 DISHES_SHOWN = 3
 MAX_OFFERED = 5
 PLACE_KINDS: dict[str, tuple[str, ...]] = {
@@ -55,6 +59,11 @@ REPLY_UNAVAILABLE = "Сейчас не получается ответить, п
 NOTE_NO_CITY = "Укажи город в профиле, и я найду места рядом."
 NOTE_NO_PLACES = "Рядом с центром города в карте пока мало таких мест."
 NOTE_LOADING = "Загружаю места твоего города из карты. Спроси ещё раз через пару минут."
+NOTE_NO_EVENTS = "В афише на эти дни ничего не нашёл."
+NOTE_NOT_EXACT = "Точно такого в афише нет, вот что ещё будет."
+NOTE_OTHER_REGION = "Афишу я собираю только по твоей области."
+NOTE_UNKNOWN_TOWN = "Не знаю такого города, ищу в твоём."
+EVENTS_ATTRIBUTION = "Афиша: Timepad и KudaGo"
 NOTE_UNKNOWN_FOOD = "Таких продуктов нет в моих рецептах, вот что готовится быстро."
 NOTE_ALLERGENS = "Аллергены указаны по рецепту. Состав покупных продуктов проверяй сам."
 NOTE_TOO_MANY = "Сегодня уже ждут несколько моих квестов. Возьми или замени один из них."
@@ -66,6 +75,23 @@ _INTENTS: tuple[tuple[tuple[str, ...], assistant.ChatAction, str], ...] = (
         ("приготов", "рецепт", "меню", "из продукт", "что есть дома", "холодильник"),
         assistant.ChatAction(type="suggest_dishes"),
         "Вот что можно приготовить.",
+    ),
+    (
+        (
+            "афиш",
+            "событи",
+            "мероприят",
+            "концерт",
+            "выставк",
+            "спектакл",
+            "театр",
+            "стендап",
+            "фестивал",
+            "лекци",
+            "куда сходить",
+        ),
+        assistant.ChatAction(type="find_events"),
+        "Вот что есть в афише.",
     ),
     (
         ("бар", "паб", "выпить"),
@@ -139,6 +165,131 @@ async def _places(
     return AssistantCard(kind="places", places=places, attribution=events.ATTRIBUTION)
 
 
+_TOWN = re.compile(r"\bв(?:о)?\s+([А-ЯЁ][а-яё]+(?:-[А-ЯЁа-яё]+)?)")
+_WHEN: tuple[tuple[tuple[str, ...], assistant.EventWhen], ...] = (
+    (("сегодня", "вечером"), "today"),
+    (("завтра",), "tomorrow"),
+    (("выходн", "суббот", "воскресен"), "weekend"),
+)
+
+
+def when_in(text: str) -> assistant.EventWhen | None:
+    lowered = text.lower()
+    return next((when for words, when in _WHEN if any(w in lowered for w in words)), None)
+
+
+def town_in(text: str) -> str | None:
+    """A town after "в"/"во" in the user's words, cut to a stem for the city search."""
+    match = _TOWN.search(text)
+    if match is None:
+        return None
+    name = match.group(1)
+    return name[:-1] if len(name) > 5 and name[-1] in "еиуюоаы" else name
+
+
+def event_window(
+    when: assistant.EventWhen | None, now: datetime, tz: str
+) -> tuple[datetime, datetime]:
+    """[since, until] in UTC; days end at 04:00 local time like the quest day."""
+    today = day_clock.local_day(now, tz)
+    if when == "today":
+        return now, day_clock.day_expires_at(today, tz)
+    if when == "tomorrow":
+        return day_clock.day_expires_at(today, tz), day_clock.day_expires_at(
+            today + timedelta(days=1), tz
+        )
+    if when == "weekend":
+        saturday = today + timedelta(days=(5 - today.weekday()) % 7)
+        if today.weekday() == 6:
+            saturday = today - timedelta(days=1)
+        since = max(now, day_clock.day_expires_at(saturday - timedelta(days=1), tz))
+        return since, day_clock.day_expires_at(saturday + timedelta(days=1), tz)
+    return now, now + EVENT_WEEK
+
+
+def _event_rank(
+    hit: events.RegionEvent, interest: events_app.Interest, home: int, now: datetime
+) -> tuple[float, datetime, int]:
+    """Interest first; a far town and a far date each cost up to about one point."""
+    hours = max((hit.listing.starts_at - now).total_seconds() / 3600, 0)
+    score = events_app.interest_score(hit.listing, interest)
+    score += 0.5 if hit.listing.city_id == home else -min(hit.distance_m / 100_000, 1.5)
+    score -= min(hours / 72, 1)
+    return (-score, hit.listing.starts_at, hit.listing.id)
+
+
+def event_card(hit: events.RegionEvent) -> AssistantEvent:
+    x = hit.listing
+    return AssistantEvent(
+        id=x.id,
+        title=x.title,
+        starts_at=x.starts_at,
+        ends_at=x.ends_at,
+        venue=x.venue,
+        address=x.address,
+        city=hit.city_name,
+        distance_km=round(hit.distance_m / 1000, 1),
+        category=x.category,  # pyright: ignore[reportArgumentType]
+        is_free=x.is_free,
+        price_min=x.price_min,
+        url=x.url,
+        source=x.source,
+    )
+
+
+async def _events(
+    session: AsyncSession,
+    user: auth.User,
+    action: assistant.ChatAction,
+    text: str,
+    now: datetime,
+) -> AssistantCard:
+    """Listings of the user's region (or of the town they named in it), ranked by interest
+    (ADR 0015)."""
+    if user.city_id is None:
+        return AssistantCard(kind="events", note=NOTE_NO_CITY)
+    home = await events.get_city(session, user.city_id)
+    if home is None:
+        return AssistantCard(kind="events", note=NOTE_NO_CITY)
+    target, note = home, None
+    named = action.place or town_in(text)
+    if named:
+        found = await events.search_cities(session, named, 1)
+        if not found:
+            note = NOTE_UNKNOWN_TOWN if action.place else None
+        elif found[0].region_code != home.region_code:
+            return AssistantCard(kind="events", note=NOTE_OTHER_REGION)
+        else:
+            target = found[0]
+    since, until = event_window(action.when or when_in(text), now, user.timezone)
+    hits = await events.region_events(session, target.id, since, until)
+    # Without a query from the LLM, words of the message itself; the town is not a topic.
+    words = events_app.stems(action.query or text)
+    if named:
+        words = tuple(w for w in words if not named.lower().replace("ё", "е").startswith(w[:4]))
+    interest = events_app.Interest(
+        asked=words,
+        category=action.category,
+        goals=tuple(await habits.list_goals(session, user.id)),
+    )
+    hits.sort(key=lambda h: _event_rank(h, interest, target.id, now))
+    if action.query and hits and events_app.interest_score(hits[0].listing, interest) < 3:
+        note = note or NOTE_NOT_EXACT
+    seen: set[str] = set()
+    shown: list[AssistantEvent] = []
+    for hit in hits:
+        key = hit.listing.title.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        shown.append(event_card(hit))
+        if len(shown) == EVENTS_SHOWN:
+            break
+    if not shown:
+        return AssistantCard(kind="events", note=note or NOTE_NO_EVENTS)
+    return AssistantCard(kind="events", events=shown, note=note, attribution=EVENTS_ATTRIBUTION)
+
+
 def dishes_card(named: list[str], meal: recipes.Meal | None, listed: bool) -> AssistantCard:
     """Recipes from the catalog for what the user has at home (ADR 0012 + 0013). `listed`:
     `named` are products the LLM picked out, not the whole message."""
@@ -198,6 +349,8 @@ async def run_action(
         return []
     if action.type == "find_places" and action.kind is not None:
         return [await _places(session, user, action.kind, now)]
+    if action.type == "find_events":
+        return [await _events(session, user, action, text, now)]
     if action.type == "suggest_dishes":
         meal = action.meal or meal_in(text)
         if action.ingredients:
@@ -209,7 +362,7 @@ async def run_action(
 
 
 def _items(card: AssistantCard) -> int:
-    return len(card.places) + len(card.recipes) + (1 if card.quest else 0)
+    return len(card.places) + len(card.events) + len(card.recipes) + (1 if card.quest else 0)
 
 
 def message_schema(message: assistant.chat.ChatMessage) -> AssistantMessage:
