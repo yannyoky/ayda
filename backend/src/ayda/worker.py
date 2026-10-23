@@ -55,7 +55,7 @@ def build_worker(
     if event_sources is None:
         event_sources = local_events.default_sources(settings, local_events.source_http())
     if venues is None:
-        venues = local_events.venue_source(settings, local_events.source_http())
+        venues = local_events.venue_source(settings, local_events.venue_http())
     reminders.register(settings)
     chat.register(settings)
     coop.register(settings)

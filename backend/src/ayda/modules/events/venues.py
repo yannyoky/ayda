@@ -201,6 +201,11 @@ async def save_venues(
     return len(unique)
 
 
+async def is_loaded(session: AsyncSession, city_id: int) -> bool:
+    """Whether the city's venues were ever loaded (a load of an empty map still counts)."""
+    return await session.get(VenueLoad, city_id) is not None
+
+
 async def cities_due(
     session: AsyncSession, city_ids: Sequence[int], now: datetime, limit: int
 ) -> list[int]:

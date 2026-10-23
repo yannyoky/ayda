@@ -46,6 +46,24 @@ def source_http() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=15.0, headers={"User-Agent": USER_AGENT})
 
 
+def venue_http() -> httpx.AsyncClient:
+    """A city query to Overpass can take well over the 15 s of the listings' client."""
+    return httpx.AsyncClient(timeout=120.0, headers={"User-Agent": USER_AGENT})
+
+
+async def request_venue_load(session: AsyncSession, city_id: int, now: datetime) -> bool:
+    """Queue a load now for a city that has none yet, instead of waiting for the night; once
+    a day per city, and the job loads every city that is due."""
+    day = now.date().isoformat()
+    return await enqueue(
+        session,
+        VENUES_JOB,
+        {"day": day, "city_id": city_id},
+        dedupe_key=f"{VENUES_JOB}:asked:{city_id}:{day}",
+        max_attempts=3,
+    )
+
+
 def venue_source(settings: Settings, http: httpx.AsyncClient) -> events.OverpassSource | None:
     urls = [u.strip() for u in settings.venues_overpass_urls.split(",") if u.strip()]
     return events.OverpassSource(http, urls) if urls else None
