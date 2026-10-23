@@ -2,10 +2,13 @@ package app.ayda.shared.coop
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.ayda.api.infrastructure.HttpResponse
 import app.ayda.api.models.Coop
 import app.ayda.api.models.CoopStatus
 import app.ayda.api.models.CreateCoopRequest
 import app.ayda.api.models.Friend
+import app.ayda.api.models.OfferHandoffRequest
+import app.ayda.api.models.SetCoopItemRequest
 import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
 import app.ayda.shared.apiCall
@@ -34,6 +37,41 @@ sealed interface AnswerError {
         val text: String,
     ) : AnswerError
 }
+
+/** Why ticking a list item or handing a part over failed (ADR 0010). */
+sealed interface PartError {
+    /** The part belongs to someone else now. */
+    data object NotAssignee : PartError
+
+    /** The part waits for an earlier one. */
+    data object Locked : PartError
+
+    data object Done : PartError
+
+    /** An offer for this part is already waiting for an answer. */
+    data object Pending : PartError
+
+    /** The plan already has four people. */
+    data object Full : PartError
+
+    data object NotFound : PartError
+
+    data class Other(
+        val text: String,
+    ) : PartError
+}
+
+internal fun ApiResult<*>.partError(): PartError =
+    when {
+        this !is ApiResult.Failed -> PartError.Other(errorText())
+        problem.code == "not-part-assignee" -> PartError.NotAssignee
+        problem.code == "part-locked" -> PartError.Locked
+        problem.code == "part-done" -> PartError.Done
+        problem.code == "handoff-pending" -> PartError.Pending
+        problem.code == "coop-full" -> PartError.Full
+        problem.status == 404 -> PartError.NotFound
+        else -> PartError.Other(errorText())
+    }
 
 internal fun ApiResult<*>.answerError(): AnswerError =
     when {
@@ -153,6 +191,7 @@ data class CoopState(
     val answering: Boolean = false,
     val error: AnswerError? = null,
     val loadError: String? = null,
+    val partError: PartError? = null,
 )
 
 /** US-18: one co-op with its participants, the answer buttons and the way to the shared chat. */
@@ -191,6 +230,44 @@ class CoopViewModel(
                 }
             }
             if (answered is ApiResult.Ok) onChanged(answered.value) else load()
+        }
+    }
+
+    /** Ticks or unticks an item of a part the user does. */
+    fun tick(
+        partId: String,
+        itemId: String,
+        done: Boolean,
+    ) = changePart { client.coop.setCoopItem(coopId, partId, itemId, SetCoopItemRequest(done)) }
+
+    /** Offers a part to a friend who is in the plan. */
+    fun offerHandoff(
+        partId: String,
+        friendId: String,
+    ) = changePart { client.coop.offerHandoff(coopId, partId, OfferHandoffRequest(friendId)) }
+
+    fun withdrawHandoff(partId: String) = changePart { client.coop.withdrawHandoff(coopId, partId) }
+
+    /** Takes over a part offered to the user, or declines it. */
+    fun answerHandoff(
+        partId: String,
+        accept: Boolean,
+    ) = changePart {
+        if (accept) client.coop.acceptHandoff(coopId, partId) else client.coop.declineHandoff(coopId, partId)
+    }
+
+    private fun changePart(call: suspend () -> HttpResponse<Coop>) {
+        mutableState.update { it.copy(partError = null) }
+        viewModelScope.launch {
+            val changed = apiCall { call() }
+            mutableState.update {
+                if (changed is ApiResult.Ok) {
+                    it.copy(coop = changed.value, partError = null)
+                } else {
+                    it.copy(partError = changed.partError())
+                }
+            }
+            if (changed is ApiResult.Ok) onChanged(changed.value) else load()
         }
     }
 
