@@ -49,6 +49,10 @@ tags:
     description: |
       Cooking quests (M5, ADR 0012): recipes from our own catalog, scaled amounts and a
       shopping list; a recipe becomes a shared plan of a shopper and a cook.
+  - name: assistant
+    description: |
+      The day chat with the assistant (M6, ADR 0013): it starts with the check-in, has a topic
+      per quest, and every place, recipe or quest on its cards comes from code.
   - name: system
     description: Service health.
 
@@ -715,7 +719,8 @@ paths:
       summary: Submit or replace today's morning check-in (US-05, US-06)
       description: |
         Starts building the quest pool. A repeated check-in replaces the previous one and
-        rebuilds quests that were not taken yet; taken and completed quests stay.
+        rebuilds quests that were not taken yet; taken and completed quests stay. The text and
+        the assistant's answer also open today's chat with the assistant (ADR 0013).
         The check-in text is visible only to its author and never logged.
       requestBody:
         required: true
@@ -1054,6 +1059,63 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
         '422':
+          $ref: '#/components/responses/Problem'
+
+  /assistant/messages:
+    get:
+      tags: [assistant]
+      operationId: listAssistantMessages
+      summary: Today's chat with the assistant, oldest first (M6, ADR 0013)
+      description: |
+        Without `quest_id` this is the day topic, which starts with the check-in; with it, the
+        topic of that quest of today. The chat ends with the day and is deleted after it.
+      parameters:
+        - name: quest_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The topic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantThread'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [assistant]
+      operationId: sendAssistantMessage
+      summary: Write to the assistant and get its answer
+      description: |
+        The request waits for the answer (up to about 12 s). The assistant gets only the last
+        messages of the topic, mood, goals, weather and the quest, never the name or city; the
+        text is not logged. Without a working assistant, code answers obvious requests itself
+        (`source` is `code`). At most 40 messages a day (`assistant-limit`, 429).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantMessageInput'
+      responses:
+        '201':
+          description: The sent message and the answer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantExchange'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
           $ref: '#/components/responses/Problem'
 
   /day-quests/{quest_id}/coop:
@@ -2894,6 +2956,125 @@ components:
         vegetarian:
           type: boolean
           default: false
+
+    AssistantMessageInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        quest_id:
+          type: [string, 'null']
+          format: uuid
+          description: A quest of today; its topic instead of the day topic.
+
+    AssistantPlace:
+      type: object
+      required: [id, name, kind, address, distance_m, open_now, osm_url, gis_url, yandex_url]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [restaurant, cafe, bar, pub, fast_food, park, garden, embankment, viewpoint, square]
+        address:
+          type: [string, 'null']
+        distance_m:
+          type: integer
+          description: From the city center.
+        open_now:
+          type: [boolean, 'null']
+          description: Null when the hours are unknown or the place has none.
+        osm_url:
+          type: string
+          format: uri
+        gis_url:
+          type: string
+          format: uri
+        yandex_url:
+          type: string
+          format: uri
+
+    AssistantCard:
+      type: object
+      description: Facts the assistant asked code for. Only the field of `kind` is filled.
+      required: [kind, places, recipes, quest, attribution]
+      properties:
+        kind:
+          type: string
+          enum: [places, dishes, quest]
+        places:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantPlace'
+        recipes:
+          type: array
+          description: Open one with `getRecipe`; the cooking plan of M5 takes it from there.
+          items:
+            $ref: '#/components/schemas/RecipeCard'
+        quest:
+          description: An offered quest of today the user can take.
+          oneOf:
+            - $ref: '#/components/schemas/DayQuest'
+            - type: 'null'
+        attribution:
+          type: [string, 'null']
+          description: Data credit to show under the card, e.g. for OpenStreetMap.
+
+    AssistantMessage:
+      type: object
+      required: [id, role, text, quest_id, source, cards, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant]
+        text:
+          type: string
+        quest_id:
+          type: [string, 'null']
+          format: uuid
+        source:
+          type: [string, 'null']
+          enum: [llm, code, null]
+          description: Who wrote an assistant message; null for the user's own.
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantCard'
+        created_at:
+          type: string
+          format: date-time
+
+    AssistantThread:
+      type: object
+      required: [items, messages_left]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantMessage'
+        messages_left:
+          type: integer
+          description: How many more messages the user can send today.
+
+    AssistantExchange:
+      type: object
+      required: [sent, reply, messages_left]
+      properties:
+        sent:
+          $ref: '#/components/schemas/AssistantMessage'
+        reply:
+          $ref: '#/components/schemas/AssistantMessage'
+        messages_left:
+          type: integer
 
     RecipeCard:
       type: object

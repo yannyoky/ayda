@@ -380,6 +380,7 @@ async def submit_checkin(
         },
         occurred_at=now,
     )
+    await assistant.chat.add_checkin(session, user.id, day, text, now)
     return await build_day(session, user, now)
 
 

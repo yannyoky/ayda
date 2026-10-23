@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
+from ayda.api import assistant as assistant_api
 from ayda.api import (
     auth,
     chat,
@@ -82,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         chat.router,
         coop.router,
         recipes.router,
+        assistant_api.router,
     ):
         app.include_router(router, prefix=API_PREFIX)
     return app
