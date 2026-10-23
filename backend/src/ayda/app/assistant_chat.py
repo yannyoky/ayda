@@ -21,6 +21,7 @@ from ayda.api.schemas import (
     AssistantPlace,
     AssistantThread,
 )
+from ayda.app import events as events_app
 from ayda.app.cooking import recipe_card
 from ayda.app.day import DayTools, quest_schema
 from ayda.core.problems import Problem
@@ -53,6 +54,7 @@ MEALS: tuple[tuple[tuple[str, ...], recipes.Meal], ...] = (
 REPLY_UNAVAILABLE = "Сейчас не получается ответить, попробуй чуть позже."
 NOTE_NO_CITY = "Укажи город в профиле, и я найду места рядом."
 NOTE_NO_PLACES = "Рядом с центром города в карте пока мало таких мест."
+NOTE_LOADING = "Загружаю места твоего города из карты. Спроси ещё раз через пару минут."
 NOTE_UNKNOWN_FOOD = "Таких продуктов нет в моих рецептах, вот что готовится быстро."
 NOTE_ALLERGENS = "Аллергены указаны по рецепту. Состав покупных продуктов проверяй сам."
 NOTE_TOO_MANY = "Сегодня уже ждут несколько моих квестов. Возьми или замени один из них."
@@ -112,6 +114,9 @@ async def _places(
         session, user.city_id, local, PLACE_KINDS[kind], PLACES_SHOWN
     )
     if not found:
+        if not await events.venues_loaded(session, user.city_id):
+            await events_app.request_venue_load(session, user.city_id, now)
+            return AssistantCard(kind="places", note=NOTE_LOADING)
         return AssistantCard(kind="places", note=NOTE_NO_PLACES)
     city = await events.get_city(session, user.city_id)
     city_name = city.name if city else ""

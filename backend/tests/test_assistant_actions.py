@@ -6,10 +6,11 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from ayda.app import assistant_chat
 from ayda.core.db import Database
+from ayda.core.jobs import Job
 from ayda.modules import events
 from ayda.modules.assistant import FakeProvider, recipes
 from ayda.modules.auth import User
@@ -123,7 +124,22 @@ async def test_no_city_or_no_places_is_said_on_the_card(
     user = await checked_in(app, client)
     use_tools(app, [FakeProvider()], forecast())
     [card] = (await send(client, user, "Где погулять?")).json()["reply"]["cards"]
-    assert card["places"] == [] and card["note"] == assistant_chat.NOTE_NO_PLACES
+    assert card["places"] == [] and card["note"] == assistant_chat.NOTE_LOADING
+    async with database.sessionmaker() as session:
+        [job] = list(await session.scalars(select(Job).where(Job.kind == "events.venues")))
+        assert job.payload["city_id"] == KALININGRAD and job.status == "queued"
+    # Asking again the same day does not queue a second load.
+    await send(client, user, "Где погулять?")
+    async with database.sessionmaker() as session:
+        assert len(list(await session.scalars(select(Job).where(Job.kind == "events.venues")))) == 1
+
+    # A load of an empty map counts as loaded: then the card says there is little there.
+    source = Overpass(httpx.Response(200, json={"elements": []})).source()
+    async with database.sessionmaker() as session:
+        await events.load_venues(session, source, [KALININGRAD], 7000, NOW)
+        await session.commit()
+    [card] = (await send(client, user, "Где погулять?")).json()["reply"]["cards"]
+    assert card["note"] == assistant_chat.NOTE_NO_PLACES
 
     async with database.sessionmaker() as session:
         await session.execute(
