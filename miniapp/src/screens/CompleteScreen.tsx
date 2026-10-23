@@ -32,6 +32,7 @@ export function CompleteScreen() {
   const [caption, setCaption] = useState('')
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null)
+  const [uploadFailed, setUploadFailed] = useState(false)
   const [result, setResult] = useState<Schemas['Completion'] | null>(null)
   const back = useCallback(() => navigate('/'), [navigate])
   useBackButton(back)
@@ -77,8 +78,9 @@ export function CompleteScreen() {
   }
 
   async function submit() {
+    setUploadFailed(false)
+    const mediaIds: string[] = []
     try {
-      const mediaIds: string[] = []
       if (inFeed && photos.length > 0) {
         setUploading({ done: 0, total: photos.length })
         for (const [i, p] of photos.entries()) {
@@ -86,6 +88,13 @@ export function CompleteScreen() {
           setUploading({ done: i + 1, total: photos.length })
         }
       }
+    } catch {
+      setUploading(null)
+      setUploadFailed(true)
+      haptic('error')
+      return
+    }
+    try {
       setUploading(null)
       const body: Schemas['CompleteQuestInput'] = inFeed
         ? { visibility, media_ids: mediaIds, ...(caption.trim() ? { caption: caption.trim() } : {}) }
@@ -143,6 +152,7 @@ export function CompleteScreen() {
         />
       )}
 
+      {uploadFailed && <InlineError text={t.complete.uploadFailed} />}
       {complete.isError && <InlineError text={complete.error.message} />}
       <PrimaryButton disabled={busy} onClick={() => void submit()} className="mt-auto">
         {uploading ? t.complete.uploading(uploading.done, uploading.total) : t.complete.submit}

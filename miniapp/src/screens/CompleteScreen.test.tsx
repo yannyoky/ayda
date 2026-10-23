@@ -1,6 +1,8 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { db } from '../mocks/db'
+import { server } from '../test/server'
 import { renderApp } from '../test/render'
 
 function takenWalk(): string {
@@ -39,6 +41,19 @@ describe('Complete a quest (US-09, US-10)', () => {
     await user.click(screen.getByRole('button', { name: 'Отметить' }))
     expect(await screen.findByRole('status')).toHaveTextContent('+39')
     expect(db.posts[0]).toMatchObject({ kind: 'proof', caption: 'Прошёл 5 км', photos: [] })
+  })
+
+  it('says when a photo could not be uploaded', async () => {
+    server.use(http.put('*/mock-s3/:media_id', () => new HttpResponse(null, { status: 403 })))
+    const user = userEvent.setup()
+    const id = takenWalk()
+    const posts = db.posts.length
+    renderApp(`/quest/${id}/done`)
+    const photo = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'walk.jpg', { type: 'image/jpeg' })
+    await user.upload(await screen.findByLabelText('Добавить фото'), photo)
+    await user.click(screen.getByRole('button', { name: 'Отметить' }))
+    expect(await screen.findByText(/Не получилось загрузить фото/)).toBeInTheDocument()
+    expect(db.posts).toHaveLength(posts)
   })
 
   it('completes a personal quest without photos and without a post', async () => {

@@ -119,6 +119,7 @@ export const ru = {
     captionPlaceholder: 'Как всё прошло?',
     submit: 'Отметить',
     uploading: (done: number, total: number) => `Загружаем фото ${done} из ${total}…`,
+    uploadFailed: 'Не получилось загрузить фото. Попробуй ещё раз или убери фото и отправь только текст.',
     expired: 'Время на этот квест вышло',
     notTaken: 'Этот квест уже закрыт',
     successTitle: 'Засчитано!',
