@@ -20,6 +20,7 @@ from ayda.modules.chat.service import (
     membership,
     messages_page,
     open_dm,
+    recent_messages,
     unread_counts,
     user_conversations,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "membership",
     "messages_page",
     "open_dm",
+    "recent_messages",
     "unread_counts",
     "user_conversations",
 ]

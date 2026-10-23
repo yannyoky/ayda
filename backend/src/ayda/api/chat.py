@@ -2,20 +2,25 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from ayda.api.deps import CurrentUser, DbSession
 from ayda.api.realtime import RealtimeDep
 from ayda.api.schemas import (
     Conversation,
+    Coop,
     DirectConversationInput,
     Items,
+    MeetupOffer,
+    MeetupPick,
     Message,
     MessageInput,
     MessagePage,
     ReadInput,
 )
 from ayda.app import chat as chat_app
+from ayda.app import meetup
+from ayda.app.day import DayTools
 from ayda.app.feed import user_summary
 from ayda.core.problems import Problem
 from ayda.modules import auth, chat
@@ -116,3 +121,35 @@ async def mark_read(
 ) -> Response:
     await chat_app.mark_read(session, realtime, user, conversation_id, body.last_read_message_id)
     return Response(status_code=204)
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _tools(request: Request) -> DayTools:
+    tools: DayTools = request.app.state.day_tools
+    return tools
+
+
+@router.post("/conversations/{conversation_id}/meetup", operation_id="suggestMeetup")
+async def suggest_meetup(
+    conversation_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    tools: Annotated[DayTools, Depends(_tools)],
+) -> MeetupOffer:
+    return await meetup.suggest(session, tools, user, conversation_id, _now())
+
+
+@router.post(
+    "/conversations/{conversation_id}/meetup/pick", operation_id="pickMeetup", status_code=201
+)
+async def pick_meetup(
+    conversation_id: uuid.UUID,
+    body: MeetupPick,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
+) -> Coop:
+    return await meetup.pick(session, realtime, user, conversation_id, body, _now())

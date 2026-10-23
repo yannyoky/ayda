@@ -559,6 +559,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{conversation_id}/meetup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest a meetup from the last messages of a chat ("Айда, организуй", M5)
+         * @description Called only on an explicit tap. The last few messages of the chat go to the assistant,
+         *     which only says what kind of meetup it is, which venue kinds fit and at what time;
+         *     nothing is stored or logged from them. Code picks up to 5 venues near the center of
+         *     the caller's city from OpenStreetMap, open at the planned time first. Cards for
+         *     venues carry links to 2GIS and Yandex Maps search, where reviews and the average
+         *     bill are, and must show `attribution`. Plans last one day, so the time is today.
+         *     Without a working assistant, code suggests cafes at 19:00 (`source` is `code`).
+         */
+        post: operations["suggestMeetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{conversation_id}/meetup/pick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make the chosen venue (or online activity) a co-op with everyone in the chat
+         * @description Creates a `same` co-op like `createPlan`, with the venue as its place, `starts_at`
+         *     as its time and the other members of the chat invited (up to 3).
+         */
+        post: operations["pickMeetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/day-quests/{quest_id}/coop": {
         parameters: {
             query?: never;
@@ -1501,6 +1548,64 @@ export interface components {
             user: components["schemas"]["UserSummary"];
             status: components["schemas"]["CoopStatus"];
             completed: boolean;
+        };
+        MeetupVenue: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            kind: "restaurant" | "cafe" | "bar" | "pub" | "fast_food";
+            address: string | null;
+            /** @description From the city center. */
+            distance_m: number;
+            /** @description OpenStreetMap `opening_hours` as written there. */
+            opening_hours: string | null;
+            /** @description Open at the planned time; null when the hours are unknown. */
+            open_now: boolean | null;
+            /** Format: uri */
+            osm_url: string;
+            /**
+             * Format: uri
+             * @description 2GIS search for the venue; reviews and the average bill are there.
+             */
+            gis_url: string;
+            /**
+             * Format: uri
+             * @description Yandex Maps search for the venue.
+             */
+            yandex_url: string;
+        };
+        MeetupOffer: {
+            /** @enum {string} */
+            kind: "venue" | "online" | "unclear";
+            /**
+             * @description Who read the chat; `code` when the assistant was unavailable.
+             * @enum {string}
+             */
+            source: "llm" | "code";
+            /**
+             * Format: date-time
+             * @description Today, at least 30 minutes ahead; null when `kind` is `unclear` or it is too late.
+             */
+            starts_at: string | null;
+            /** @description For `online`, such as a game. */
+            activity: string | null;
+            venues: components["schemas"]["MeetupVenue"][];
+            /** @description Why the card is empty, in Russian. */
+            note: string | null;
+            /** @description Must be shown with the venues (ODbL). */
+            attribution: string | null;
+        };
+        /** @description Exactly one of `venue_id` and `activity`. */
+        MeetupPick: {
+            /** Format: int64 */
+            venue_id?: number | null;
+            activity?: string | null;
+            /**
+             * Format: date-time
+             * @description Before the end of the day.
+             */
+            starts_at: string;
         };
         /**
          * @description `same`: everyone does the same quest. `parts`: the plan is split into parts that differ
@@ -2589,6 +2694,77 @@ export interface operations {
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             /** @description Not taken, already completed or expired */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
+        };
+    };
+    suggestMeetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The card; `note` explains an empty one */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetupOffer"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    pickMeetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetupPick"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description Someone in the chat is not a friend */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            /** @description The daily limit of taken quests is reached */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -487,3 +487,36 @@ class Coop(BaseModel):
     place: Place | None = None
     starts_at: datetime | None = None
     parts: list[CoopPart] | None = None
+
+
+class MeetupVenue(BaseModel):
+    id: int
+    name: str
+    kind: Literal["restaurant", "cafe", "bar", "pub", "fast_food"]
+    address: str | None
+    distance_m: int
+    opening_hours: str | None
+    open_now: bool | None
+    osm_url: str
+    gis_url: str
+    yandex_url: str
+
+
+class MeetupOffer(BaseModel):
+    kind: Literal["venue", "online", "unclear"]
+    source: Literal["llm", "code"]
+    starts_at: datetime | None
+    activity: str | None
+    venues: list[MeetupVenue]
+    note: str | None
+    attribution: str | None
+
+
+class MeetupPick(BaseModel):
+    """Either a venue from the offer, or an online activity."""
+
+    venue_id: int | None = None
+    activity: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)] | None
+    ) = None
+    starts_at: datetime
