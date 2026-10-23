@@ -17,17 +17,21 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Invite links; the system checks /.well-known/assetlinks.json of the host (deploy/Caddyfile). -->
+            <!-- Invite links and the return from a sign-in confirmed in the Mini App (/app/);
+                 the system checks /.well-known/assetlinks.json of the host (deploy/Caddyfile). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="${inviteHost}" android:pathPrefix="/i/" />
+                <data android:scheme="https" />
+                <data android:host="${inviteHost}" />
+                <data android:pathPrefix="/i/" />
+                <data android:pathPrefix="/app/" />
             </intent-filter>
         </activity>
         <service

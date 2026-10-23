@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { api, ApiError, unwrap } from '../api/client'
 import { t } from '../i18n'
-import { closeApp, haptic, initDataRaw } from '../telegram/webapp'
+import { haptic, initDataRaw, returnToNativeApp } from '../telegram/webapp'
 import { FullScreen, PrimaryButton } from '../ui/states'
 
 /** Confirms a sign-in started in the native app (ADR 0009). The Mini App's initData proves the
@@ -15,7 +15,7 @@ export function ConfirmLogin({ code }: { code: string }) {
   })
 
   if (approve.isSuccess) {
-    return <FullScreen title={t.nativeLogin.done} text={t.nativeLogin.doneText} action={<PrimaryButton onClick={closeApp}>{t.nativeLogin.close}</PrimaryButton>} />
+    return <FullScreen title={t.nativeLogin.done} text={t.nativeLogin.doneText} action={<PrimaryButton onClick={returnToNativeApp}>{t.nativeLogin.close}</PrimaryButton>} />
   }
   const expired = approve.error instanceof ApiError && approve.error.status === 404
   if (expired) return <FullScreen title={t.nativeLogin.expired} text={t.nativeLogin.expiredText} />
