@@ -554,3 +554,26 @@ export function usePickMeetup(conversationId: string) {
     onSuccess: (coop) => storeCoop(client, coop),
   })
 }
+
+// ---- cooking quests (M5, ADR 0012) ----
+
+export function useSuggestRecipes() {
+  return useMutation({ mutationFn: (body: Schemas['RecipeSuggestInput']) => unwrap(api.POST('/recipes/suggest', { body })) })
+}
+
+export function useRecipe(id: string | null, servings: number) {
+  return useQuery({
+    queryKey: ['recipe', id, servings],
+    enabled: id !== null,
+    queryFn: () => unwrap(api.GET('/recipes/{recipe_id}', { params: { path: { recipe_id: id ?? '' }, query: { servings } } })),
+  })
+}
+
+export function usePlanRecipe() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ recipeId, ...body }: Schemas['RecipePlanInput'] & { recipeId: string }) =>
+      unwrap(api.POST('/recipes/{recipe_id}/plan', { params: { path: { recipe_id: recipeId } }, body })),
+    onSuccess: (coop) => storeCoop(client, coop),
+  })
+}
