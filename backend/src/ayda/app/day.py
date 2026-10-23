@@ -327,6 +327,7 @@ async def submit_checkin(
                 limit=12,
             ),
             goals=tuple(goals),
+            taste=await local_events.load_taste(session, user.id, day),
         ),
     )
     event_picks = local_events.pick_for_pool(event_options, seed=f"{user.id}:{day}:events")
