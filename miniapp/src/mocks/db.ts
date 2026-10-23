@@ -117,6 +117,8 @@ export interface MockOptions {
   poolDelayMs?: number
   /** Seed friends with posts and ladder points. */
   withFriends?: boolean
+  /** How long the check-in request itself takes (the server parses the text first). */
+  checkinDelayMs?: number
 }
 
 export class MockDb {
@@ -139,14 +141,16 @@ export class MockDb {
   coops: StoredCoop[] = []
   private nextMessageId = 1
   poolDelayMs = 1200
+  checkinDelayMs = 0
   deletionRequested = false
 
   constructor(options: MockOptions = {}) {
     this.reset(options)
   }
 
-  reset({ onboarded = false, poolDelayMs = 1200, withFriends = true }: MockOptions = {}): void {
+  reset({ onboarded = false, poolDelayMs = 1200, withFriends = true, checkinDelayMs = 0 }: MockOptions = {}): void {
     this.poolDelayMs = poolDelayMs
+    this.checkinDelayMs = checkinDelayMs
     this.me = {
       id: uuid(),
       first_name: 'Саша',

@@ -83,7 +83,7 @@ fun PickScreen(
             if (state.offered.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        stringResource(R.string.pick_empty),
+                        stringResource(if (state.generating) R.string.today_generating else R.string.pick_empty),
                         style = MaterialTheme.typography.bodyLarge,
                         color = colors.muted,
                         modifier =

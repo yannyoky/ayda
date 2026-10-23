@@ -17,22 +17,42 @@ describe('Today: check-in and pool (US-05, US-06)', () => {
     expect(screen.getByRole('region', { name: 'За неделю' })).toHaveTextContent('185')
   })
 
-  it('submits the check-in and offers the picker', async () => {
+  it('submits the check-in and goes straight to the picker', async () => {
     const user = userEvent.setup()
     renderApp()
     await checkIn(user, 'дописать отчёт', 'Устал')
-    expect(await screen.findByText(/Чек-ин готов · устал/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Квесты на сегодня' })).toBeInTheDocument()
     expect(db.checkin).toMatchObject({ text: 'дописать отчёт', mood: 'tired' })
-    expect(screen.getByRole('link', { name: /Выбрать квесты/ })).toBeInTheDocument()
   })
 
-  it('polls while the pool is generating', async () => {
+  it('shows that it is working while the check-in is sent', async () => {
+    db.reset({ onboarded: true, poolDelayMs: 0, checkinDelayMs: 300 })
+    const user = userEvent.setup()
+    renderApp()
+    await checkIn(user, 'дописать отчёт')
+    expect(await screen.findByRole('status')).toHaveTextContent('Читаю план')
+    expect(screen.getByRole('button', { name: 'Собрать квесты' })).toBeDisabled()
+    expect(await screen.findByRole('heading', { name: 'Квесты на сегодня' })).toBeInTheDocument()
+  })
+
+  it('waits for the pool on the picker', async () => {
     db.reset({ onboarded: true, poolDelayMs: 300 })
     const user = userEvent.setup()
     renderApp()
     await checkIn(user, '')
     expect(await screen.findByRole('status')).toHaveTextContent('Собираем квесты')
-    expect(await screen.findByRole('link', { name: /Выбрать квесты/ }, { timeout: 3000 })).toBeInTheDocument()
+    expect((await screen.findAllByRole('button', { pressed: false }, { timeout: 3000 })).length).toBeGreaterThan(0)
+  })
+
+  it('stays on Today when quests are already taken', async () => {
+    const user = userEvent.setup()
+    db.submitCheckin({ text: '', mood: 'normal' })
+    db.quests.slice(0, 1).forEach((q) => db.take(q))
+    renderApp()
+    await user.click(await screen.findByRole('button', { name: 'Изменить' }))
+    await checkIn(user, 'вечером свободен')
+    expect(await screen.findByText(/Чек-ин готов/)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Квесты на сегодня' })).not.toBeInTheDocument()
   })
 })
 

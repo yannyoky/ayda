@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router'
 import type { Schemas } from '../../api/client'
 import { useSubmitCheckin } from '../../api/queries'
 import { t } from '../../i18n'
@@ -37,15 +38,27 @@ function CheckinForm({ initial, onDone }: { initial: Schemas['Checkin'] | null; 
   const [text, setText] = useState(initial?.text ?? '')
   const [mood, setMood] = useState<Mood>(initial?.mood ?? 'normal')
   const submit = useSubmitCheckin()
+  const navigate = useNavigate()
+  const busy = submit.isPending
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (busy) return
     haptic('tap')
-    submit.mutate({ text: text.trim(), mood }, { onSuccess: onDone })
+    submit.mutate(
+      { text: text.trim(), mood },
+      {
+        onSuccess: (day) => {
+          onDone()
+          // Nothing taken yet: the next step is picking quests, so go there right away
+          if (day.limits.taken === 0) navigate('/pick')
+        },
+      },
+    )
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3 rounded-card bg-plate p-4 text-on-plate">
+    <form onSubmit={onSubmit} aria-busy={busy} className="flex flex-col gap-3 rounded-card bg-plate p-4 text-on-plate">
       <label htmlFor={textId} className="font-display text-[17px] font-bold">
         {t.today.checkinTitle}
       </label>
@@ -53,6 +66,7 @@ function CheckinForm({ initial, onDone }: { initial: Schemas['Checkin'] | null; 
         id={textId}
         aria-describedby={hintId}
         value={text}
+        readOnly={busy}
         maxLength={CHECKIN_MAX}
         rows={3}
         placeholder={t.today.checkinPlaceholder}
@@ -65,19 +79,26 @@ function CheckinForm({ initial, onDone }: { initial: Schemas['Checkin'] | null; 
             key={m}
             className="flex h-10 items-center justify-center rounded-xl text-sm font-bold text-on-plate/70 has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2"
           >
-            <input type="radio" name="mood" value={m} checked={mood === m} onChange={() => setMood(m)} className="sr-only" />
+            <input type="radio" name="mood" value={m} checked={mood === m} disabled={busy} onChange={() => setMood(m)} className="sr-only" />
             {t.today.moods[m]}
           </label>
         ))}
       </div>
       <div className="flex items-center justify-between gap-3">
-        <span id={hintId} className="text-xs font-semibold opacity-60">
-          {text.length > CHECKIN_MAX - 100 ? `${text.length}/${CHECKIN_MAX}` : `${t.today.checkinPrivate}. ${t.today.checkinHint}`}
-        </span>
+        {busy ? (
+          <span role="status" className="flex items-center gap-2.5 text-sm font-bold">
+            <span aria-hidden="true" className="size-4 shrink-0 animate-spin rounded-full border-2 border-on-plate/30 border-t-accent" />
+            {t.today.checkinBusy}
+          </span>
+        ) : (
+          <span id={hintId} className="text-xs font-semibold opacity-60">
+            {text.length > CHECKIN_MAX - 100 ? `${text.length}/${CHECKIN_MAX}` : `${t.today.checkinPrivate}. ${t.today.checkinHint}`}
+          </span>
+        )}
         <button
           type="submit"
           aria-label={t.today.checkinSubmit}
-          disabled={submit.isPending}
+          disabled={busy}
           className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-60"
         >
           <Icon name="arrow" size={22} strokeWidth={2.4} />

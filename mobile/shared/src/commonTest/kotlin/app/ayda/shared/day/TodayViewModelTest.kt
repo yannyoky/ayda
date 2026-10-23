@@ -135,6 +135,10 @@ class TodayViewModelTest {
             model.submitCheckin()
             advanceTimeBy(100)
             assertTrue(model.state.value.generating)
+            // Nothing is taken yet, so the screen goes on to the picker once.
+            assertTrue(model.state.value.openPicker)
+            model.pickerOpened()
+            assertFalse(model.state.value.openPicker)
             assertTrue(calls.last().contains(""""mood":"tired""""))
 
             // The pool is ready on the next poll.

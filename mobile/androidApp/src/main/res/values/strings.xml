@@ -90,6 +90,7 @@
     <string name="today_checkin_placeholder">Работа до 18, надо дописать отчёт, вечером свободен</string>
     <string name="today_checkin_hint">Текст видишь только ты. Можно оставить пустым: соберём квесты по профилю.</string>
     <string name="today_checkin_submit">Собрать квесты</string>
+    <string name="today_checkin_busy">Читаю план, смотрю погоду и события…</string>
     <string name="today_checkin_done">Чек-ин готов · %1$s</string>
     <string name="today_checkin_redo">Изменить</string>
     <string name="today_mood_energetic">Бодро</string>
