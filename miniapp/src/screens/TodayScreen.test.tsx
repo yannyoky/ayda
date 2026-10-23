@@ -59,21 +59,21 @@ describe('Today: check-in and pool (US-05, US-06)', () => {
 describe('Quest picker (US-07, US-08)', () => {
   beforeEach(() => db.submitCheckin({ text: 'дописать отчёт', mood: 'normal' }))
 
-  it('takes up to three quests and shows them on Today', async () => {
+  it('takes more than three quests and shows them on Today', async () => {
     const user = userEvent.setup()
     renderApp('/pick')
+    expect(await screen.findByText(/бери сколько хочешь, очки за первые 5/)).toBeInTheDocument()
     const cards = await screen.findAllByRole('button', { pressed: false })
     expect(cards).toHaveLength(6)
-    for (const card of cards.slice(0, 4)) await user.click(card)
-    // The fourth tap is ignored: the limit is three
-    expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(3)
-    await user.click(screen.getByRole('button', { name: /Взять 3 квеста/ }))
+    for (const card of cards.slice(0, 5)) await user.click(card)
+    expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(5)
+    await user.click(screen.getByRole('button', { name: /Взять 5 квестов/ }))
 
     const list = await screen.findByRole('region', { name: 'Квесты дня' })
     expect(within(list).getByText('Дописать отчёт')).toBeInTheDocument()
-    expect(within(list).getAllByRole('button', { name: /Готово/ })).toHaveLength(3)
-    expect(within(list).getByText('3 из 3')).toBeInTheDocument()
-    expect(db.takenCount()).toBe(3)
+    expect(within(list).getAllByRole('button', { name: /Готово/ })).toHaveLength(5)
+    expect(within(list).getByText('очки за 0 из 5')).toBeInTheDocument()
+    expect(db.takenCount()).toBe(5)
   })
 
   it('replaces a quest with a reason and counts replacements', async () => {

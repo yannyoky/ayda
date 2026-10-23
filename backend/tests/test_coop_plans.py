@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+import pytest
 from sqlalchemy import select
 
 from ayda.app import coop as coop_app
@@ -313,6 +314,7 @@ async def test_handing_a_locked_part_and_the_size_of_a_plan(
     assert ok.status_code == 200
 
 
+@pytest.mark.usefixtures("take_guard_of_3")
 async def test_same_plan_with_a_place_and_time(
     client: httpx.AsyncClient, realtime: FakeRealtime, database: Database
 ) -> None:

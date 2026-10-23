@@ -190,3 +190,15 @@ def mailer(app: FastAPI, settings: Settings) -> FakeMailer:
     fake = FakeMailer(settings)
     app.state.mailer = fake
     return fake
+
+
+@pytest.fixture
+def take_guard_of_3(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """The abuse guard on taken quests set to 3, so limit rules are cheap to reach."""
+    from ayda.modules.quests.scoring import scoring_config
+
+    monkeypatch.setenv("SCORING_CONFIG", '{"max_taken_per_day": 3}')
+    scoring_config.cache_clear()
+    yield
+    monkeypatch.delenv("SCORING_CONFIG")
+    scoring_config.cache_clear()

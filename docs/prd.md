@@ -28,7 +28,7 @@ First users are the owner and friends: 20-35 years old, living in different Russ
 1. **08:30.** The bot says "Good morning, what's today?" and opens the Mini App.
 2. **Check-in.** The user writes in free text: "work until 18, need to finish a report, free in the evening, tired".
 3. **Pool.** The assistant turns their tasks into quests and fills free time with quests that fit the weather and goals: "a 40-minute walk along the embankment", "no screens after 22:00".
-4. **Pick.** The user takes up to 3 quests and replaces the ones that don't fit.
+4. **Pick.** The user takes as many quests as they like (points for the first 5 completed, since M6) and replaces the ones that don't fit.
 5. **Day.** They mark quests done and attach a photo to the ones they share.
 6. **20:30.** The bot reminds about open quests and suggests showing the day to friends.
 7. **Evening.** Friends like and comment on proofs, the ladder changes, the streak goes on.
@@ -40,7 +40,7 @@ First users are the owner and friends: 20-35 years old, living in different Russ
 | Telegram sign-in (initData), profile, Graphite/Plum theme | M1 | no product without it |
 | Onboarding: region, goals, own good and bad habits, reminder times | M1 | quests are built from it |
 | Morning check-in in free text | M1 | main difference from competitors |
-| Daily quest pool, take up to 3, replace with an alternative | M1 | core of the loop |
+| Daily quest pool, take quests (up to 3 in M1, any number since M6), replace with an alternative | M1 | core of the loop |
 | Own quest added by hand | M1 | when the assistant misses |
 | Completion with a photo proof, visibility personal / routine / friends | M1 | evening half of the loop |
 | Friends via a Telegram invite link | M1 | nobody to show without friends |
@@ -87,12 +87,12 @@ A story is done when all its criteria hold, it has tests, and its events are wri
     - In rain there are no long outdoor quests unless the user said the weather will not stop them; frost below -15 °C, a thunderstorm and feeling unwell rule them out anyway (a storm rules out every outdoor quest).
     - With the "tired" mood the pool has at least one rest quest.
     - The pool appears in 10 seconds or less; without an LLM a code-only pool is shown (see the assistant section).
-- **US-07. Take and replace.** As a user, I take up to 3 quests and replace the ones that don't fit.
+- **US-07. Take and replace.** As a user, I take the quests I want and replace the ones that don't fit (up to 3 in M1; any number since M6, #165).
     - "Not today" swaps a quest for an alternative from another category or duration; an optional reason (no time / don't want / can't).
     - Up to 5 replacements a day; a replaced quest does not come back the same day.
     - Taken quests show on the Today screen; rejection and its reason go to `events`.
 - **US-08. Own quest.** As a user, I add my own quest with a title and category.
-    - It counts toward the 3 taken quests and gives base points by duration.
+    - It counts as a taken quest and gives base points by duration.
 
 ### Day and evening: completion and proofs (M1)
 
@@ -150,7 +150,7 @@ Points for a quest = base by duration × visibility multiplier × streak bonus, 
 | Visibility: friends with photo / routine / personal | ×1.0 / ×0.75 / ×0.5 |
 | Streak bonus | +10% for each full 7 days, at most +30% |
 | Co-op, if everyone closes it the same day (M2) | +50% each |
-| Daily limit | 3 taken quests (own included), points only for them |
+| Daily limit | none for taking quests since M6 (owner, 2026-10-23, #165; a guard of 30 against abuse); points only for the first 5 completed quests of a day, the rest count for the streak only |
 | Streak | a day counts if at least 1 quest of any visibility is completed |
 | Streak freeze | 1 missed day a week is frozen automatically |
 | Ladder | sum of weekly points among friends, reset on Monday; ties go to the longer streak |

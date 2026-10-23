@@ -155,7 +155,7 @@ export const handlers = [
     `${API}/day-quests`,
     authed(async ({ request }) => {
       const body = await request.json()
-      if (db.takenCount() >= MAX_TAKEN) return problem(409, 'Уже взято 3 квеста', 'https://ayda.app/errors/daily-limit-reached')
+      if (db.takenCount() >= MAX_TAKEN) return problem(409, 'Сегодня взято слишком много квестов', 'https://ayda.app/errors/daily-limit-reached')
       if (!body.title.trim()) return problem(422, 'Нужно название')
       return HttpResponse.json(db.addOwn(body), { status: 201 })
     }),
@@ -166,7 +166,7 @@ export const handlers = [
       const q = db.quest(params.quest_id)
       if (!q) return problem(404, 'Квест не найден')
       if (q.state !== 'offered') return problem(409, 'Квест уже не предлагается')
-      if (db.takenCount() >= MAX_TAKEN) return problem(409, 'Уже взято 3 квеста', 'https://ayda.app/errors/daily-limit-reached')
+      if (db.takenCount() >= MAX_TAKEN) return problem(409, 'Сегодня взято слишком много квестов', 'https://ayda.app/errors/daily-limit-reached')
       return HttpResponse.json(db.take(q))
     }),
   ),
@@ -536,7 +536,7 @@ export const handlers = [
         if (!c) return problem(404, 'Совместный квест не найден')
         const result = db.answerCoop(c, action === 'accept')
         if (result === 'answered') return problem(409, 'Ты уже ответил на это приглашение', 'https://ayda.app/errors/coop-already-answered')
-        if (result === 'limit') return problem(409, `Сегодня уже взято ${MAX_TAKEN} квеста`, 'https://ayda.app/errors/daily-limit-reached')
+        if (result === 'limit') return problem(409, 'Сегодня взято слишком много квестов', 'https://ayda.app/errors/daily-limit-reached')
         if (result === 'over') return problem(410, 'Этот совместный квест уже закончился', 'https://ayda.app/errors/coop-over')
         return HttpResponse.json(result)
       }),

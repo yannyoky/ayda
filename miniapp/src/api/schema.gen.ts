@@ -1478,8 +1478,18 @@ export interface components {
             quests: components["schemas"]["DayQuest"][];
             limits: {
                 taken: number;
-                /** @example 3 */
+                /**
+                 * @description A guard against abuse, not a rule users meet (there is no real limit).
+                 * @example 30
+                 */
                 max_taken: number;
+                /** @description Completed quests of the day that brought points. */
+                scored: number;
+                /**
+                 * @description Only the first this many completed quests of a day bring points.
+                 * @example 5
+                 */
+                max_scored: number;
                 replacements_left: number;
             };
             points_today: number;

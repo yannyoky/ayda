@@ -200,6 +200,8 @@ class Streak(BaseModel):
 class DayLimits(BaseModel):
     taken: int
     max_taken: int
+    scored: int
+    max_scored: int
     replacements_left: int
 
 

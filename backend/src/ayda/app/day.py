@@ -187,6 +187,8 @@ async def build_day(session: AsyncSession, user: auth.User, now: datetime) -> Da
         limits=DayLimits(
             taken=sum(q.state in quests.ACTIVE_STATES for q in rows),
             max_taken=scoring_config().max_taken_per_day,
+            scored=await quests.scored_today(session, user.id, day),
+            max_scored=scoring_config().max_scored_per_day,
             replacements_left=quests.replacements_left(pool),
         ),
         points_today=points_today,

@@ -367,7 +367,7 @@ private fun QuestsCard(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                stringResource(R.string.today_taken_of, day.limits.taken, day.limits.maxTaken),
+                stringResource(R.string.today_scored_of, day.limits.scored, day.limits.maxScored),
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.muted,
             )
@@ -406,7 +406,7 @@ private fun QuestsCard(
                             if (state.mine.isEmpty()) {
                                 stringResource(R.string.today_pick)
                             } else {
-                                stringResource(R.string.today_pick_more, state.left)
+                                stringResource(R.string.today_pick_more)
                             },
                             style = MaterialTheme.typography.titleMedium,
                         )

@@ -107,6 +107,12 @@ async def award(session: AsyncSession, quest: DayQuest, visibility: str, now: da
     points, base, vis, streak = quest_points(
         quest.duration_min, visibility, state.current_days, config
     )
+    # Quests beyond the daily cap still count for the streak but bring no points, so the
+    # ladder can't be pumped with many short quests.
+    scored = await scored_today(session, quest.user_id, quest.local_date)
+    over_cap = scored >= config.max_scored_per_day
+    if over_cap:
+        points = 0
     session.add(
         PointsEntry(
             user_id=quest.user_id,
@@ -121,12 +127,28 @@ async def award(session: AsyncSession, quest: DayQuest, visibility: str, now: da
                 "streak_multiplier": streak,
                 "streak_days": state.current_days,
                 "config_version": config.version,
+                "over_daily_cap": over_cap,
             },
             created_at=now,
         )
     )
     await session.flush()
     return Award(points, base, vis, streak, view(state, quest.local_date))
+
+
+async def scored_today(session: AsyncSession, user_id: uuid.UUID, day: date) -> int:
+    """Completed quests of the day that brought points (the cap of `max_scored_per_day`)."""
+    count = await session.scalar(
+        select(func.count())
+        .select_from(PointsEntry)
+        .where(
+            PointsEntry.user_id == user_id,
+            PointsEntry.local_date == day,
+            PointsEntry.kind == "quest",
+            PointsEntry.points > 0,
+        )
+    )
+    return count or 0
 
 
 async def points_summary(session: AsyncSession, user_id: uuid.UUID, today: date) -> tuple[int, int]:

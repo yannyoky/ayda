@@ -48,7 +48,7 @@ import app.ayda.shared.day.Notice
 import app.ayda.shared.day.TodayState
 import app.ayda.shared.day.TodayViewModel
 
-/** Quest picker (US-07): take up to the daily limit, swap what does not fit. */
+/** Quest picker (US-07): take any number (points for the first few completed), swap what does not fit. */
 @Composable
 fun PickScreen(
     model: TodayViewModel,
@@ -64,7 +64,9 @@ fun PickScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) { PickHeader(state.left, onClose) }
+            item(
+                span = { GridItemSpan(maxLineSpan) },
+            ) { PickHeader(state.left, state.day?.limits?.maxScored ?: 0, onClose) }
             state.notice?.let { notice ->
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
@@ -116,6 +118,7 @@ fun PickScreen(
 @Composable
 private fun PickHeader(
     left: Int,
+    maxScored: Int,
     onClose: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
@@ -126,7 +129,7 @@ private fun PickHeader(
                 if (left >
                     0
                 ) {
-                    stringResource(R.string.pick_subtitle, left)
+                    stringResource(R.string.pick_subtitle, maxScored)
                 } else {
                     stringResource(R.string.pick_limit_reached)
                 },

@@ -61,7 +61,8 @@ class TodayViewModelTest {
         val taken = quests.values.count { it != "offered" }
         val items = quests.entries.joinToString(",") { (id, state) -> quest(id, state) }
         return """{"local_date":"2026-10-17","checkin":$checkin,"pool_status":"$pool","quests":[$items],""" +
-            """"limits":{"taken":$taken,"max_taken":3,"replacements_left":$replacementsLeft},""" +
+            """"limits":{"taken":$taken,"max_taken":30,"scored":0,"max_scored":5,""" +
+            """"replacements_left":$replacementsLeft},""" +
             """"points_today":0,"points_week":120,""" +
             """"streak":{"current_days":4,"best_days":9,"freeze_available":true}}"""
     }
@@ -82,7 +83,7 @@ class TodayViewModelTest {
                 json(dayJson(), HttpStatusCode.Accepted)
             }
             call.endsWith("/take") ->
-                if (taken >= 3) {
+                if (taken >= 30) {
                     problem(HttpStatusCode.Conflict, "limit", "Лимит на сегодня набран")
                 } else {
                     quests[id] = "taken"
@@ -102,7 +103,7 @@ class TodayViewModelTest {
                     )
                 }
             call == "POST /day-quests" ->
-                if (taken >= 3) {
+                if (taken >= 30) {
                     problem(HttpStatusCode.Conflict, "limit", "")
                 } else {
                     quests["own"] = "taken"
@@ -153,18 +154,18 @@ class TodayViewModelTest {
         }
 
     @Test
-    fun theUserTakesUpToTheLimit() =
+    fun theUserTakesMoreThanThree() =
         runTest(dispatcher) {
             pool = "ready"
-            offer("q1", "q2", "q3", "q4")
+            offer("q1", "q2", "q3", "q4", "q5")
             val model = model()
             advanceUntilIdle()
 
-            listOf("q1", "q2", "q3", "q4").forEach(model::toggle)
-            assertEquals(listOf("q1", "q2", "q3"), model.state.value.chosen)
-            assertEquals(60, model.state.value.chosenPoints)
+            listOf("q1", "q2", "q3", "q4", "q5").forEach(model::toggle)
+            assertEquals(listOf("q1", "q2", "q3", "q4", "q5"), model.state.value.chosen)
+            assertEquals(100, model.state.value.chosenPoints)
             model.toggle("q2")
-            assertEquals(listOf("q1", "q3"), model.state.value.chosen)
+            assertEquals(listOf("q1", "q3", "q4", "q5"), model.state.value.chosen)
 
             var closed = false
             model.takeSelected { closed = true }
@@ -172,9 +173,9 @@ class TodayViewModelTest {
 
             assertTrue(closed)
             val state = model.state.value
-            assertEquals(listOf("q1", "q3"), state.mine.map { it.id })
+            assertEquals(listOf("q1", "q3", "q4", "q5"), state.mine.map { it.id })
             assertTrue(state.mine.all { it.state == QuestState.taken })
-            assertEquals(1, state.left)
+            assertEquals(26, state.left)
             assertTrue(state.selected.isEmpty())
         }
 
@@ -240,14 +241,14 @@ class TodayViewModelTest {
                     .map { it.id },
             )
 
-            quests["a"] = "taken"
-            quests["b"] = "taken"
+            // The guard against abuse: 30 taken quests.
+            repeat(29) { quests["t$it"] = "taken" }
             model.openOwnQuest()
             model.editOwnQuest { it.copy(title = "Ещё один") }
             model.addOwnQuest { added++ }
             advanceUntilIdle()
 
             assertEquals(1, added)
-            assertEquals("Уже взято три квеста на сегодня", model.state.value.error)
+            assertEquals("На сегодня взято слишком много квестов", model.state.value.error)
         }
 }

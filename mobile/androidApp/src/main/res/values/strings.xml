@@ -106,11 +106,11 @@
     <string name="today_week">За неделю</string>
     <string name="today_points_today">сегодня +%1$d</string>
     <string name="today_quests_title">Квесты дня</string>
-    <string name="today_taken_of">%1$d из %2$d</string>
+    <string name="today_scored_of">очки за %1$d из %2$d</string>
     <string name="today_generating">Собираем квесты под твой день…</string>
     <string name="today_pool_failed">Помощник не ответил, показали квесты попроще</string>
     <string name="today_pick">Выбрать квесты</string>
-    <string name="today_pick_more">Можно взять ещё %1$d</string>
+    <string name="today_pick_more">Взять ещё</string>
     <string name="today_none_taken">Пока ничего не взято</string>
     <string name="today_own">Свой квест</string>
     <string name="today_completed">Сделано</string>
@@ -141,8 +141,8 @@
     <string name="event_at">в %1$s</string>
     <string name="event_open">Подробнее на %1$s</string>
     <string name="pick_title">Квесты на сегодня</string>
-    <string name="pick_subtitle">Собраны под твой день · выбери до %1$d</string>
-    <string name="pick_limit_reached">Лимит на сегодня набран</string>
+    <string name="pick_subtitle">Собраны под твой день · бери сколько хочешь, очки за первые %1$d</string>
+    <string name="pick_limit_reached">На сегодня квестов уже много</string>
     <string name="pick_choose">Выбери квесты</string>
     <plurals name="pick_take">
         <item quantity="one">Взять %1$d квест</item>
@@ -303,7 +303,7 @@
     <string name="coop_complete">Отметить выполнение</string>
     <string name="coop_declined">Ты отказался от этого квеста</string>
     <string name="coop_over">Этот совместный квест уже закончился</string>
-    <string name="coop_limit">Сегодня уже взято 3 квеста</string>
+    <string name="coop_limit">На сегодня взято слишком много квестов</string>
     <string name="coop_answered">Ты уже ответил на это приглашение</string>
     <string name="coop_not_found">Совместный квест не найден</string>
     <string name="plan_title">План</string>
