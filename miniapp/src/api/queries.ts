@@ -491,3 +491,49 @@ export function useAnswerCoop() {
     onError: () => client.invalidateQueries({ queryKey: coopsKey }),
   })
 }
+
+// ---- parts of a shared plan (M5, ADR 0010) ----
+
+type PartPath = { coopId: string; partId: string }
+const partPath = ({ coopId, partId }: PartPath) => ({ coop_id: coopId, part_id: partId })
+
+export function useSetCoopItem() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ itemId, done, ...path }: PartPath & { itemId: string; done: boolean }) =>
+      unwrap(api.PATCH('/coops/{coop_id}/parts/{part_id}/items/{item_id}', { params: { path: { ...partPath(path), item_id: itemId } }, body: { done } })),
+    onSuccess: (coop) => storeCoop(client, coop),
+    onError: (_error, { coopId }) => client.invalidateQueries({ queryKey: coopKey(coopId) }),
+  })
+}
+
+export function useOfferHandoff() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ friendId, ...path }: PartPath & { friendId: string }) =>
+      unwrap(api.POST('/coops/{coop_id}/parts/{part_id}/handoff', { params: { path: partPath(path) }, body: { friend_id: friendId } })),
+    onSuccess: (coop) => storeCoop(client, coop),
+    onError: (_error, { coopId }) => client.invalidateQueries({ queryKey: coopKey(coopId) }),
+  })
+}
+
+export function useWithdrawHandoff() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (path: PartPath) => unwrap(api.DELETE('/coops/{coop_id}/parts/{part_id}/handoff', { params: { path: partPath(path) } })),
+    onSuccess: (coop) => storeCoop(client, coop),
+    onError: (_error, { coopId }) => client.invalidateQueries({ queryKey: coopKey(coopId) }),
+  })
+}
+
+export function useAnswerHandoff() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ accept, ...path }: PartPath & { accept: boolean }) =>
+      accept
+        ? unwrap(api.POST('/coops/{coop_id}/parts/{part_id}/handoff/accept', { params: { path: partPath(path) } }))
+        : unwrap(api.POST('/coops/{coop_id}/parts/{part_id}/handoff/decline', { params: { path: partPath(path) } })),
+    onSuccess: (coop) => storeCoop(client, coop),
+    onError: (_error, { coopId }) => client.invalidateQueries({ queryKey: coopKey(coopId) }),
+  })
+}

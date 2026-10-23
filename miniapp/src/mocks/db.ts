@@ -80,6 +80,30 @@ interface StoredCoop {
   expiresAt: string
   participants: { userId: string; status: Schemas['CoopStatus']; questId: string | null; completed: boolean }[]
   conversationId: string
+  parts?: StoredPart[]
+}
+
+interface StoredPart {
+  id: string
+  title: string
+  category: Schemas['Category']
+  duration_min: number
+  place: Schemas['Place'] | null
+  assigneeId: string
+  opensAfter: string | null
+  state: 'locked' | 'open' | 'done'
+  items: Schemas['CoopItem'][]
+  questId: string | null
+  handoffToId: string | null
+}
+
+export interface PlanPartSpec {
+  title: string
+  assigneeId: string
+  items?: string[]
+  place?: Schemas['Place']
+  /** Index of an earlier part. */
+  opensAfter?: number
 }
 
 export const COOP_BONUS_SHARE = 0.5
@@ -254,7 +278,127 @@ export class MockDb {
       conversation_id: joined ? c.conversationId : null,
       expires_at: c.expiresAt,
       bonus_awarded: people.length >= 2 && people.every((p) => p.completed),
+      kind: c.parts ? 'parts' : 'same',
+      ...(c.parts ? { parts: c.parts.map((part, i) => this.publicPart(part, i)) } : {}),
     }
+  }
+
+  private publicPart(part: StoredPart, position: number): Schemas['CoopPart'] {
+    return {
+      id: part.id,
+      position,
+      title: part.title,
+      category: part.category,
+      duration_min: part.duration_min,
+      place: part.place,
+      starts_at: null,
+      assignee: this.summary(part.assigneeId),
+      state: part.state,
+      opens_after: part.opensAfter,
+      items: part.items,
+      my_quest_id: part.assigneeId === this.me.id && part.state === 'open' ? part.questId : null,
+      handoff: part.handoffToId ? { to: this.summary(part.handoffToId), for_me: part.handoffToId === this.me.id } : null,
+    }
+  }
+
+  /** A plan of parts owned by the user, with the friends already in (the dev counterpart of createPlan). */
+  addPlan(title: string, friendIds: string[], specs: PlanPartSpec[]): StoredCoop {
+    const conversation: StoredConversation = { id: uuid(), peerId: friendIds[0]!, coopId: null, createdAt: new Date().toISOString(), messages: [], lastRead: null }
+    const parts: StoredPart[] = []
+    for (const spec of specs) {
+      parts.push({
+        id: uuid(),
+        title: spec.title,
+        category: 'home',
+        duration_min: 30,
+        place: spec.place ?? null,
+        assigneeId: spec.assigneeId,
+        opensAfter: spec.opensAfter === undefined ? null : parts[spec.opensAfter]!.id,
+        state: 'locked',
+        items: (spec.items ?? []).map((text) => ({ id: uuid(), text, done: false })),
+        questId: null,
+        handoffToId: null,
+      })
+    }
+    const coop: StoredCoop = {
+      id: uuid(),
+      title,
+      category: 'home',
+      duration_min: 60,
+      ownerId: this.me.id,
+      expiresAt: tomorrowAt4(),
+      participants: [
+        { userId: this.me.id, status: 'owner', questId: null, completed: false },
+        ...friendIds.map((userId) => ({ userId, status: 'accepted' as const, questId: null, completed: false })),
+      ],
+      conversationId: conversation.id,
+      parts,
+    }
+    conversation.coopId = coop.id
+    this.coops.push(coop)
+    this.conversations.push(conversation)
+    for (const part of parts) if (!part.opensAfter) this.openPart(coop, part)
+    return coop
+  }
+
+  private openPart(coop: StoredCoop, part: StoredPart) {
+    part.state = 'open'
+    if (part.assigneeId !== this.me.id) return
+    part.questId = uuid()
+    this.quests.push({
+      ...newQuest({ title: part.title, category: part.category, duration_min: part.duration_min, outdoor: false, why: null }),
+      id: part.questId,
+      source: 'coop',
+      state: 'taken',
+      coop_id: coop.id,
+      catalogIndex: null,
+    })
+  }
+
+  private partOf(c: StoredCoop, partId: string): StoredPart | undefined {
+    return c.parts?.find((x) => x.id === partId)
+  }
+
+  setItem(c: StoredCoop, partId: string, itemId: string, done: boolean): Schemas['Coop'] | 'not_found' | 'forbidden' | 'locked' | 'done' {
+    const part = this.partOf(c, partId)
+    const item = part?.items.find((x) => x.id === itemId)
+    if (!part || !item) return 'not_found'
+    if (part.assigneeId !== this.me.id) return 'forbidden'
+    if (part.state === 'locked') return 'locked'
+    if (part.state === 'done') return 'done'
+    item.done = done
+    return this.publicCoop(c)
+  }
+
+  offerHandoff(c: StoredCoop, partId: string, friendId: string): Schemas['Coop'] | 'not_found' | 'forbidden' | 'pending' | 'self' | 'not_joined' | 'done' {
+    const part = this.partOf(c, partId)
+    if (!part) return 'not_found'
+    if (part.assigneeId !== this.me.id) return 'forbidden'
+    if (friendId === this.me.id) return 'self'
+    if (part.state === 'done') return 'done'
+    if (part.handoffToId) return 'pending'
+    if (!c.participants.some((p) => p.userId === friendId && (p.status === 'owner' || p.status === 'accepted'))) return 'not_joined'
+    part.handoffToId = friendId
+    return this.publicCoop(c)
+  }
+
+  withdrawHandoff(c: StoredCoop, partId: string): Schemas['Coop'] | 'not_found' | 'forbidden' {
+    const part = this.partOf(c, partId)
+    if (!part?.handoffToId) return 'not_found'
+    if (part.assigneeId !== this.me.id) return 'forbidden'
+    part.handoffToId = null
+    return this.publicCoop(c)
+  }
+
+  answerHandoff(c: StoredCoop, partId: string, accept: boolean): Schemas['Coop'] | 'not_found' {
+    const part = this.partOf(c, partId)
+    if (!part || part.handoffToId !== this.me.id) return 'not_found'
+    part.handoffToId = null
+    if (accept) {
+      part.assigneeId = this.me.id
+      if (part.state === 'open') this.openPart(c, part)
+    }
+    return this.publicCoop(c)
   }
 
   listCoops(): Schemas['Coop'][] {
@@ -515,7 +659,16 @@ export class MockDb {
     // The last one of a co-op brings everyone +50%
     let coopBonus = 0
     const coop = q.coop_id ? this.coops.find((c) => c.id === q.coop_id) : undefined
-    if (coop) {
+    if (coop?.parts) {
+      // The next parts open once the part they wait for is done
+      const part = coop.parts.find((x) => x.questId === q.id)
+      if (part) {
+        part.state = 'done'
+        for (const next of coop.parts) if (next.opensAfter === part.id && next.state === 'locked') this.openPart(coop, next)
+      }
+      const mine = coop.parts.filter((x) => x.assigneeId === this.me.id)
+      coop.participants.find((p) => p.userId === this.me.id)!.completed = mine.every((x) => x.state === 'done')
+    } else if (coop) {
       const joined = coop.participants.filter((p) => p.status === 'owner' || p.status === 'accepted')
       joined.find((p) => p.userId === this.me.id)!.completed = true
       if (joined.length >= 2 && joined.every((p) => p.completed)) coopBonus = Math.round(points * COOP_BONUS_SHARE)

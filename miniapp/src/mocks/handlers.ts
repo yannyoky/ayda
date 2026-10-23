@@ -8,8 +8,16 @@ const API = '*/api/v1'
 const TOKEN = 'mock-access-token'
 
 function problem(status: number, title: string, type = 'about:blank', detail?: string) {
-  const body: Schemas['Problem'] = { type, title, status, ...(detail ? { detail } : {}) }
-  return HttpResponse.json(body, { status, headers: { 'Content-Type': 'application/problem+json' } })
+  const body: Schemas['Problem'] = {
+    type,
+    title,
+    status,
+    ...(detail ? { detail } : {}),
+  }
+  return HttpResponse.json(body, {
+    status,
+    headers: { 'Content-Type': 'application/problem+json' },
+  })
 }
 
 /** Wraps a resolver with the bearer check every protected endpoint has. */
@@ -98,7 +106,11 @@ export const handlers = [
       const body = await request.json()
       const text = body.text.trim()
       if (!text || text.length > 100) return problem(422, 'Привычка: от 1 до 100 символов')
-      const habit: Schemas['Habit'] = { id: uuid(), direction: body.direction, text }
+      const habit: Schemas['Habit'] = {
+        id: uuid(),
+        direction: body.direction,
+        text,
+      }
       db.habits.push(habit)
       return HttpResponse.json(habit, { status: 201 })
     }),
@@ -165,7 +177,11 @@ export const handlers = [
       if (q.state !== 'offered') return problem(409, 'Квест уже не предлагается')
       if (db.replacementsLeft <= 0) return problem(409, 'Замены на сегодня закончились', 'https://ayda.app/errors/no-replacements-left')
       const replacement = db.replace(q)
-      return HttpResponse.json({ replaced: { ...q }, replacement, replacements_left: db.replacementsLeft })
+      return HttpResponse.json({
+        replaced: { ...q },
+        replacement,
+        replacements_left: db.replacementsLeft,
+      })
     }),
   ),
   http.post<{ quest_id: string }, Schemas['CompleteQuestInput'], DefaultBodyType>(
@@ -234,7 +250,10 @@ export const handlers = [
         post.liked_by_me = true
         post.like_count += 1
       }
-      return HttpResponse.json({ like_count: post.like_count, liked_by_me: true })
+      return HttpResponse.json({
+        like_count: post.like_count,
+        liked_by_me: true,
+      })
     }),
   ),
   http.delete<{ post_id: string }, DefaultBodyType, DefaultBodyType>(
@@ -246,7 +265,10 @@ export const handlers = [
         post.liked_by_me = false
         post.like_count -= 1
       }
-      return HttpResponse.json({ like_count: post.like_count, liked_by_me: false })
+      return HttpResponse.json({
+        like_count: post.like_count,
+        liked_by_me: false,
+      })
     }),
   ),
   http.get<{ post_id: string }, DefaultBodyType, DefaultBodyType>(
@@ -254,7 +276,10 @@ export const handlers = [
     authed(({ params }) => {
       const post = db.post(params.post_id)
       if (!post) return problem(404, 'Пост не найден')
-      return HttpResponse.json({ items: db.commentsOf(post), next_cursor: null })
+      return HttpResponse.json({
+        items: db.commentsOf(post),
+        next_cursor: null,
+      })
     }),
   ),
   http.post<{ post_id: string }, { text: string }, DefaultBodyType>(
@@ -298,7 +323,12 @@ export const handlers = [
       HttpResponse.json({
         items: [...db.friends]
           .sort((a, b) => a.first_name.localeCompare(b.first_name, 'ru'))
-          .map(({ id, first_name, avatar_url, since }) => ({ id, first_name, avatar_url, since })),
+          .map(({ id, first_name, avatar_url, since }) => ({
+            id,
+            first_name,
+            avatar_url,
+            since,
+          })),
       }),
     ),
   ),
@@ -358,7 +388,9 @@ export const handlers = [
       const result = db.sendMessage(c, body)
       if (result === 'closed') return problem(403, 'Этот чат закрыт для новых сообщений', 'https://ayda.app/errors/chat-closed')
       if (result.created && import.meta.env.MODE !== 'test') setTimeout(() => db.replyFrom(c, '👍'), 2500)
-      return HttpResponse.json(result.message, { status: result.created ? 201 : 200 })
+      return HttpResponse.json(result.message, {
+        status: result.created ? 201 : 200,
+      })
     }),
   ),
   http.delete<{ id: string; messageId: string }, DefaultBodyType, DefaultBodyType>(
@@ -404,6 +436,57 @@ export const handlers = [
       const c = db.findCoop(params.coop_id)
       return c ? HttpResponse.json(db.publicCoop(c)) : problem(404, 'Совместный квест не найден')
     }),
+  ),
+  http.patch<{ coop_id: string; part_id: string; item_id: string }, { done: boolean }, DefaultBodyType>(
+    `${API}/coops/:coop_id/parts/:part_id/items/:item_id`,
+    authed(async ({ params, request }) => {
+      const c = db.findCoop(params.coop_id)
+      if (!c) return problem(404, 'Совместный квест не найден')
+      const result = db.setItem(c, params.part_id, params.item_id, (await request.json()).done)
+      if (result === 'not_found') return problem(404, 'Такого пункта нет')
+      if (result === 'forbidden') return problem(403, 'Эта часть у другого', 'https://ayda.app/errors/not-part-assignee')
+      if (result === 'locked') return problem(409, 'Часть ещё не открылась', 'https://ayda.app/errors/part-locked')
+      if (result === 'done') return problem(409, 'Часть уже сделана', 'https://ayda.app/errors/part-done')
+      return HttpResponse.json(result)
+    }),
+  ),
+  http.post<{ coop_id: string; part_id: string }, { friend_id: string }, DefaultBodyType>(
+    `${API}/coops/:coop_id/parts/:part_id/handoff`,
+    authed(async ({ params, request }) => {
+      const c = db.findCoop(params.coop_id)
+      if (!c) return problem(404, 'Совместный квест не найден')
+      const result = db.offerHandoff(c, params.part_id, (await request.json()).friend_id)
+      if (result === 'not_found') return problem(404, 'Такой части нет')
+      if (result === 'forbidden') return problem(403, 'Эта часть у другого', 'https://ayda.app/errors/not-part-assignee')
+      if (result === 'self') return problem(422, 'Нельзя передать самому себе', 'https://ayda.app/errors/handoff-to-self')
+      if (result === 'pending') return problem(409, 'Предложение уже отправлено', 'https://ayda.app/errors/handoff-pending')
+      if (result === 'done') return problem(409, 'Часть уже сделана', 'https://ayda.app/errors/part-done')
+      if (result === 'not_joined') return problem(422, 'Друг ещё не в этом плане', 'https://ayda.app/errors/validation-failed')
+      return HttpResponse.json(result)
+    }),
+  ),
+  http.delete<{ coop_id: string; part_id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/coops/:coop_id/parts/:part_id/handoff`,
+    authed(({ params }) => {
+      const c = db.findCoop(params.coop_id)
+      if (!c) return problem(404, 'Совместный квест не найден')
+      const result = db.withdrawHandoff(c, params.part_id)
+      if (result === 'not_found') return problem(404, 'Предложения нет', 'https://ayda.app/errors/handoff-not-found')
+      if (result === 'forbidden') return problem(403, 'Эта часть у другого', 'https://ayda.app/errors/not-part-assignee')
+      return HttpResponse.json(result)
+    }),
+  ),
+  ...(['accept', 'decline'] as const).map((action) =>
+    http.post<{ coop_id: string; part_id: string }, DefaultBodyType, DefaultBodyType>(
+      `${API}/coops/:coop_id/parts/:part_id/handoff/${action}`,
+      authed(({ params }) => {
+        const c = db.findCoop(params.coop_id)
+        if (!c) return problem(404, 'Совместный квест не найден')
+        const result = db.answerHandoff(c, params.part_id, action === 'accept')
+        if (result === 'not_found') return problem(404, 'Предложения нет', 'https://ayda.app/errors/handoff-not-found')
+        return HttpResponse.json(result)
+      }),
+    ),
   ),
   ...(['accept', 'decline'] as const).map((action) =>
     http.post<{ coop_id: string }, DefaultBodyType, DefaultBodyType>(
