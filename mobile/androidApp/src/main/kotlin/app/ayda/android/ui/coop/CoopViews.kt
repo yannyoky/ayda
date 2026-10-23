@@ -49,6 +49,7 @@ import app.ayda.android.ui.day.AydaIcon
 import app.ayda.android.ui.day.CategoryTile
 import app.ayda.android.ui.social.Avatar
 import app.ayda.api.models.Coop
+import app.ayda.api.models.CoopKind
 import app.ayda.api.models.CoopStatus
 import app.ayda.api.models.DayQuest
 import app.ayda.api.models.QuestState
@@ -261,6 +262,7 @@ fun CoopScreen(
     model: CoopViewModel,
     meId: String,
     myQuest: DayQuest?,
+    quests: List<DayQuest>,
     onBack: () -> Unit,
     onComplete: (DayQuest) -> Unit,
     onChat: (String) -> Unit,
@@ -342,6 +344,16 @@ fun CoopScreen(
                             MaterialTheme.shapes.small,
                         ).padding(12.dp, 8.dp),
             )
+        }
+        if (coop.kind == CoopKind.parts) {
+            PartsPlan(coop, model, meId, state.partError, quests, onComplete)
+        } else {
+            coop.place?.let { place ->
+                Card {
+                    Text(place.name, style = MaterialTheme.typography.titleMedium)
+                    place.address?.let { Muted(it) }
+                }
+            }
         }
         Card {
             Text(stringResource(R.string.coop_participants), style = MaterialTheme.typography.titleMedium)
