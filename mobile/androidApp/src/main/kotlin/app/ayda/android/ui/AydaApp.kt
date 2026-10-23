@@ -53,6 +53,7 @@ import app.ayda.android.ui.day.TodayScreen
 import app.ayda.android.ui.onboarding.ConsentScreen
 import app.ayda.android.ui.onboarding.OnboardingScreen
 import app.ayda.android.ui.profile.ProfileScreen
+import app.ayda.android.ui.recipes.RecipeSheet
 import app.ayda.android.ui.signin.SignInScreen
 import app.ayda.android.ui.social.FeedScreen
 import app.ayda.android.ui.social.FriendsScreen
@@ -78,6 +79,7 @@ import app.ayda.shared.push.PushRegistration
 import app.ayda.shared.push.PushTarget
 import app.ayda.shared.realtime.CentrifugeTransport
 import app.ayda.shared.realtime.Realtime
+import app.ayda.shared.recipes.RecipesViewModel
 import app.ayda.shared.session.SessionState
 import app.ayda.shared.session.SessionViewModel
 import app.ayda.shared.social.FeedViewModel
@@ -170,6 +172,7 @@ private fun SignedInHome(
     var chatFrom by rememberSaveable { mutableStateOf(Screen.Chats) }
     var coopId by rememberSaveable { mutableStateOf<String?>(null) }
     var inviting by rememberSaveable { mutableStateOf<String?>(null) }
+    var cooking by rememberSaveable { mutableStateOf(false) }
     var meetupChat by rememberSaveable { mutableStateOf<String?>(null) }
     var invitedBy by rememberSaveable { mutableStateOf<String?>(null) }
     // A new friend through a link: the friends list is loaded again.
@@ -235,6 +238,7 @@ private fun SignedInHome(
                         onComplete = complete,
                         onOpenCoop = openCoop,
                         onInviteCoop = { inviting = it.id },
+                        onCook = { cooking = true },
                     )
                 Screen.Feed -> {
                     val model = viewModel(key = "feed-${me.id}") { FeedViewModel(client) }
@@ -314,6 +318,15 @@ private fun SignedInHome(
                 }
             CoopSheet(model, invitingQuest, onClose = { inviting = null }) { coop ->
                 inviting = null
+                coops.updated(coop)
+                today.refresh()
+                openCoop(coop.id)
+            }
+        }
+        if (cooking) {
+            val model = viewModel(viewModelStoreOwner = rememberScreenStore("recipes")) { RecipesViewModel(client) }
+            RecipeSheet(model, onClose = { cooking = false }) { coop ->
+                cooking = false
                 coops.updated(coop)
                 today.refresh()
                 openCoop(coop.id)
