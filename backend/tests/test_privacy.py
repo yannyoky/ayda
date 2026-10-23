@@ -102,7 +102,7 @@ async def test_account_deletion_erases_and_anonymizes(
         "/days/today/checkin", json={"text": SECRET, "mood": "normal"}, headers=alice.headers
     )
     alice_post = await post(client, database, alice, "friends")
-    bob_post = await post(client, database, bob, "routine")
+    bob_post = await post(client, database, bob, "friends", photo=False)
     await client.put(f"/posts/{alice_post}/like", headers=bob.headers)
     await client.post(f"/posts/{alice_post}/comments", json={"text": "ок"}, headers=bob.headers)
     await client.put(f"/posts/{bob_post}/like", headers=alice.headers)

@@ -138,7 +138,7 @@ API выдаёт короткоживущие подписанные access-то
 | state | enum | `offered`, `taken`, `replaced`, `completed`, `expired` |
 | replaced_by_id | uuid FK null | альтернатива |
 | reject_reason | enum null | `no_time`, `dont_want`, `cant` |
-| visibility | enum null | `personal`, `routine`, `friends`; задаётся при выполнении |
+| visibility | enum null | `personal`, `friends` (`routine` только в старых строках); задаётся при выполнении |
 | taken_at, completed_at | timestamptz null | |
 | expires_at | timestamptz | 04:00 по местному времени следующего дня |
 

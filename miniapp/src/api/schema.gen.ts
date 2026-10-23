@@ -572,9 +572,9 @@ export interface paths {
         put?: never;
         /**
          * Mark a taken quest done with a visibility level (US-09, US-15)
-         * @description `friends` visibility needs 1-3 uploaded photos in `ready` or `processing` state and
-         *     creates a proof in the feed; `routine` creates a feed entry without details;
-         *     `personal` creates nothing in the feed. Allowed until the quest's `expires_at`.
+         * @description `friends` visibility creates a proof in the feed, with 0-3 uploaded photos in `ready`
+         *     or `processing` state (a text-only proof is fine); `personal` creates nothing in the
+         *     feed. `routine` is no longer accepted (422). Allowed until the quest's `expires_at`.
          */
         post: operations["completeQuest"];
         delete?: never;
@@ -1428,7 +1428,10 @@ export interface components {
         };
         /** @enum {string} */
         Category: "sport" | "walk" | "city" | "rest" | "project" | "social" | "home" | "learning";
-        /** @enum {string} */
+        /**
+         * @description `routine` is kept only for quests completed before it was retired; new completions use `friends` (in the feed) or `personal` (only me).
+         * @enum {string}
+         */
         Visibility: "personal" | "routine" | "friends";
         /** @enum {string} */
         RejectReason: "no_time" | "dont_want" | "cant";
@@ -1551,7 +1554,7 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
             /** @description Only for `friends` visibility. */
             caption?: string;
-            /** @description Required (1-3) for `friends` visibility, must be empty otherwise. */
+            /** @description Optional (0-3) for `friends` visibility, must be empty otherwise. */
             media_ids?: string[];
         };
         Completion: {
@@ -1609,7 +1612,7 @@ export interface components {
             id: string;
             author: components["schemas"]["UserSummary"];
             /**
-             * @description `routine` shows only the category, without title, caption or photos.
+             * @description `routine` (older entries only) shows only the category, without title, caption or photos.
              * @enum {string}
              */
             kind: "proof" | "routine";

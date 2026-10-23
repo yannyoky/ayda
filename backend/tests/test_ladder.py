@@ -30,7 +30,8 @@ async def test_ladder_ranks_friends_by_weekly_points(
     await befriend(client, alice, carol)
     await post(client, database, alice, "personal")  # 10 points, details hidden
     await post(client, database, bob, "friends")  # 20
-    await post(client, database, carol, "routine")  # 15
+    await post(client, database, bob, "friends", photo=False)  # 20, text only
+    await post(client, database, carol, "friends")  # 20
     await post(client, database, stranger, "friends")
 
     response = await client.get("/ladder", headers=alice.headers)
@@ -41,7 +42,7 @@ async def test_ladder_ranks_friends_by_weekly_points(
     rows = [
         (e["rank"], e["user"]["first_name"], e["points"], e["is_me"]) for e in ladder["entries"]
     ]
-    assert rows == [(1, "Боря", 20, False), (2, "Катя", 15, False), (3, "Алиса", 10, True)]
+    assert rows == [(1, "Боря", 40, False), (2, "Катя", 20, False), (3, "Алиса", 10, True)]
     assert date.fromisoformat(ladder["week_start"]).weekday() == 0
     assert all(e["streak_days"] == 1 for e in ladder["entries"])
 
@@ -56,8 +57,8 @@ async def test_ties_go_to_longer_streak(client: httpx.AsyncClient, database: Dat
     alice = await sign_in(client, 1001, "Алиса")
     bob = await sign_in(client, 2002, "Боря")
     await befriend(client, alice, bob)
-    await post(client, database, alice, "routine")
-    await post(client, database, bob, "routine")
+    await post(client, database, alice, "personal")
+    await post(client, database, bob, "personal")
     await set_streak(database, bob, 5)
 
     entries = (await client.get("/ladder", headers=alice.headers)).json()["entries"]

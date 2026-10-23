@@ -519,16 +519,14 @@ async def complete_quest(
     body: CompleteQuestInput,
     now: datetime,
 ) -> Completion:
-    """Visibility `friends` needs 1-3 photos and posts a proof; `routine` posts the fact
-    without details; `personal` posts nothing. Points stay even if the post is deleted.
-    In a co-op, the last one to complete brings everyone the bonus (committed here, then
-    published)."""
-    if body.visibility == "friends" and not body.media_ids:
-        raise Problem(422, "photo-required", detail="Для друзей нужно хотя бы одно фото")
+    """Visibility `friends` posts a proof to the feed, with up to 3 photos or just text;
+    `personal` posts nothing. `routine` is no longer offered. Points stay even
+    if the post is deleted. In a co-op, the last one to complete brings everyone the bonus
+    (committed here, then published)."""
+    if body.visibility == "routine":
+        raise Problem(422, "validation-failed", detail="Выбери «В ленте» или «Только я»")
     if body.visibility != "friends" and (body.media_ids or body.caption):
-        raise Problem(
-            422, "validation-failed", detail="Фото и подпись только для видимости «друзья»"
-        )
+        raise Problem(422, "validation-failed", detail="Фото и подпись только для поста в ленте")
     if len(set(body.media_ids)) != len(body.media_ids):
         raise Problem(422, "validation-failed", detail="Фото повторяются")
     try:
@@ -537,8 +535,8 @@ async def complete_quest(
         raise day_problem(exc) from None
 
     post_id: uuid.UUID | None = None
-    if body.visibility != "personal":
-        kind = "proof" if body.visibility == "friends" else "routine"
+    if body.visibility == "friends":
+        kind = "proof"
         try:
             post, to_process = await social.create_post(
                 session,
