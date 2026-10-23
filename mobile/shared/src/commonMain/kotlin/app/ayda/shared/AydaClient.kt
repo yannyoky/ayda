@@ -6,6 +6,7 @@ import app.ayda.api.apis.CoopApi
 import app.ayda.api.apis.DayApi
 import app.ayda.api.apis.MediaApi
 import app.ayda.api.apis.ProfileApi
+import app.ayda.api.apis.RecipesApi
 import app.ayda.api.apis.ReferenceApi
 import app.ayda.api.apis.SocialApi
 import app.ayda.api.models.RefreshTokenInput
@@ -73,6 +74,7 @@ class AydaClient(
     val chat = ChatApi(this.baseUrl, http)
     val coop = CoopApi(this.baseUrl, http)
     val media = MediaApi(this.baseUrl, http)
+    val recipes = RecipesApi(this.baseUrl, http)
     val reference = ReferenceApi(this.baseUrl, http)
 
     suspend fun isSignedIn(): Boolean = tokens.load() != null
