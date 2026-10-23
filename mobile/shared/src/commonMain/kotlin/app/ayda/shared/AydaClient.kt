@@ -1,5 +1,6 @@
 package app.ayda.shared
 
+import app.ayda.api.apis.AssistantApi
 import app.ayda.api.apis.AuthApi
 import app.ayda.api.apis.ChatApi
 import app.ayda.api.apis.CoopApi
@@ -68,6 +69,7 @@ class AydaClient(
         }
 
     val auth = AuthApi(this.baseUrl, http)
+    val assistant = AssistantApi(this.baseUrl, http)
     val profile = ProfileApi(this.baseUrl, http)
     val day = DayApi(this.baseUrl, http)
     val social = SocialApi(this.baseUrl, http)

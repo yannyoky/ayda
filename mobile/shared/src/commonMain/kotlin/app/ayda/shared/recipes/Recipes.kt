@@ -102,6 +102,8 @@ class RecipesViewModel(
     fun back() =
         mutableState.update {
             when (it.step) {
+                // A recipe opened straight from the assistant chat has no offer to go back to
+                RecipeStep.Plan if it.offer == null -> it.copy(step = RecipeStep.Filters, detail = null, error = null)
                 RecipeStep.Plan -> it.copy(step = RecipeStep.Offer, detail = null, error = null)
                 else -> it.copy(step = RecipeStep.Filters, offer = null, error = null)
             }

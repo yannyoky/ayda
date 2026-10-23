@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
@@ -53,6 +55,7 @@ import app.ayda.shared.day.TodayViewModel
 fun PickScreen(
     model: TodayViewModel,
     onClose: () -> Unit,
+    onDiscuss: (DayQuest) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
@@ -106,6 +109,7 @@ fun PickScreen(
                     canReplace = state.canReplace,
                     onToggle = { model.toggle(quest.id) },
                     onReplace = { model.askReplace(quest) },
+                    onDiscuss = { onDiscuss(quest) },
                 )
             }
         }
@@ -160,6 +164,7 @@ private fun QuestCard(
     canReplace: Boolean,
     onToggle: () -> Unit,
     onReplace: () -> Unit,
+    onDiscuss: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
     val background = if (selected) colors.accent else colors.surface
@@ -207,6 +212,25 @@ private fun QuestCard(
             )
         }
         quest.event?.let { EventLink(it, color = ink) }
+        val discuss = stringResource(R.string.assistant_discuss_quest, quest.title)
+        Button(
+            onClick = onDiscuss,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .padding(top = 8.dp)
+                    .height(36.dp)
+                    .semantics { contentDescription = discuss },
+            shape = MaterialTheme.shapes.small,
+            contentPadding = PaddingValues(0.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.06f), contentColor = ink),
+        ) {
+            AydaIcon(R.drawable.ic_chat, ink, size = 14)
+            Spacer(Modifier.size(6.dp))
+            Text(stringResource(R.string.assistant_discuss), style = MaterialTheme.typography.labelLarge)
+        }
+        if (!canReplace) Spacer(Modifier.size(8.dp))
         if (canReplace) {
             Button(
                 onClick = onReplace,

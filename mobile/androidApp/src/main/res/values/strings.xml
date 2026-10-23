@@ -402,4 +402,45 @@
     <string name="profile_channel_push_hint">Только пуши на телефон</string>
     <string name="profile_channel_telegram">Telegram</string>
     <string name="profile_channel_telegram_hint">Только сообщения от бота</string>
+    <string name="assistant_title">Помощник</string>
+    <string name="assistant_about">Обсуждаем: %1$s</string>
+    <string name="assistant_open">Чат с помощником</string>
+    <string name="assistant_discuss">Обсудить</string>
+    <string name="assistant_discuss_quest">Обсудить с помощником: %1$s</string>
+    <string name="assistant_placeholder">Спроси помощника</string>
+    <string name="assistant_typing">Помощник печатает…</string>
+    <string name="assistant_empty">Спроси что угодно про квесты дня: где погулять, где поесть, что приготовить из того, что есть дома.</string>
+    <string name="assistant_empty_quest">Спроси, как разнообразить этот квест: место, блюдо, компанию.</string>
+    <string-array name="assistant_hints">
+        <item>Где погулять сегодня?</item>
+        <item>Где поужинать рядом?</item>
+        <item>Что приготовить из того, что есть дома?</item>
+        <item>Придумай квест на вечер</item>
+    </string-array>
+    <string-array name="assistant_hints_quest">
+        <item>Найди место для этого квеста</item>
+        <item>Как сделать его интереснее?</item>
+    </string-array>
+    <string name="assistant_left">Сообщений на сегодня: %1$d</string>
+    <string name="assistant_limit">На сегодня сообщения помощнику закончились</string>
+    <string name="assistant_failed">Помощник не ответил. Попробуй ещё раз.</string>
+    <string name="assistant_open_now">открыто</string>
+    <string name="assistant_on_2gis">2ГИС</string>
+    <string name="assistant_on_yandex">Яндекс Карты</string>
+    <string name="assistant_distance_m">%1$d м</string>
+    <string name="assistant_distance_km">%1$s км</string>
+    <string name="assistant_kind_restaurant">Ресторан</string>
+    <string name="assistant_kind_cafe">Кафе</string>
+    <string name="assistant_kind_bar">Бар</string>
+    <string name="assistant_kind_pub">Паб</string>
+    <string name="assistant_kind_fast_food">Фастфуд</string>
+    <string name="assistant_kind_park">Парк</string>
+    <string name="assistant_kind_garden">Сад</string>
+    <string name="assistant_kind_embankment">Набережная</string>
+    <string name="assistant_kind_viewpoint">Смотровая</string>
+    <string name="assistant_kind_square">Площадь</string>
+    <string name="assistant_cook">Готовить: %1$s</string>
+    <string name="assistant_take">Взять квест</string>
+    <string name="assistant_take_quest">Взять квест: %1$s</string>
+    <string name="assistant_taken">Квест взят</string>
 </resources>

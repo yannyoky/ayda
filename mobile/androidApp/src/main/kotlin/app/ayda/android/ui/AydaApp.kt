@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.ayda.android.R
 import app.ayda.android.push.Push
+import app.ayda.android.ui.assistant.AssistantScreen
 import app.ayda.android.ui.chat.ChatScreen
 import app.ayda.android.ui.chat.ChatsScreen
 import app.ayda.android.ui.chat.MeetupSheet
@@ -62,6 +63,7 @@ import app.ayda.api.models.DayQuest
 import app.ayda.api.models.Me
 import app.ayda.api.models.Theme
 import app.ayda.shared.AydaClient
+import app.ayda.shared.assistant.AssistantViewModel
 import app.ayda.shared.auth.SignIn
 import app.ayda.shared.auth.SignInViewModel
 import app.ayda.shared.chat.ChatViewModel
@@ -136,7 +138,7 @@ fun AydaApp(
     }
 }
 
-private enum class Screen { Today, Feed, Chats, Friends, Profile, Pick, Complete, Chat, Coop }
+private enum class Screen { Today, Feed, Chats, Friends, Profile, Pick, Complete, Chat, Coop, Assistant }
 
 private fun Screen.tab(): Tab? =
     when (this) {
@@ -173,6 +175,9 @@ private fun SignedInHome(
     var coopId by rememberSaveable { mutableStateOf<String?>(null) }
     var inviting by rememberSaveable { mutableStateOf<String?>(null) }
     var cooking by rememberSaveable { mutableStateOf(false) }
+    var assistantQuest by rememberSaveable { mutableStateOf<String?>(null) }
+    var assistantFrom by rememberSaveable { mutableStateOf(Screen.Today) }
+    var assistantRecipe by rememberSaveable { mutableStateOf<String?>(null) }
     var meetupChat by rememberSaveable { mutableStateOf<String?>(null) }
     var invitedBy by rememberSaveable { mutableStateOf<String?>(null) }
     // A new friend through a link: the friends list is loaded again.
@@ -201,9 +206,19 @@ private fun SignedInHome(
         chatId = id
         screen = Screen.Chat
     }
+    val openAssistant = { quest: DayQuest? ->
+        assistantFrom = if (screen == Screen.Assistant) assistantFrom else screen
+        assistantQuest = quest?.id
+        screen = Screen.Assistant
+    }
     val back = {
         today.dismissNotice()
-        screen = if (screen == Screen.Chat) chatFrom else Screen.Today
+        screen =
+            when (screen) {
+                Screen.Chat -> chatFrom
+                Screen.Assistant -> assistantFrom
+                else -> Screen.Today
+            }
     }
     if (screen != Screen.Today) BackHandler(onBack = back)
     PushSetup(me, push)
@@ -239,6 +254,7 @@ private fun SignedInHome(
                         onOpenCoop = openCoop,
                         onInviteCoop = { inviting = it.id },
                         onCook = { cooking = true },
+                        onAssistant = openAssistant,
                     )
                 Screen.Feed -> {
                     val model = viewModel(key = "feed-${me.id}") { FeedViewModel(client) }
@@ -294,7 +310,23 @@ private fun SignedInHome(
                         }
                     ProfileScreen(model)
                 }
-                Screen.Pick -> PickScreen(today, onClose = back)
+                Screen.Pick -> PickScreen(today, onClose = back, onDiscuss = openAssistant)
+                Screen.Assistant -> {
+                    val questId = assistantQuest
+                    val quests = todayState.day?.quests.orEmpty()
+                    // Each topic keeps its own history while the app is open
+                    val model =
+                        viewModel(viewModelStoreOwner = rememberScreenStore("assistant-${questId ?: "day"}")) {
+                            AssistantViewModel(client, questId, today::refresh)
+                        }
+                    AssistantScreen(
+                        model,
+                        quest = quests.firstOrNull { it.id == questId },
+                        questStates = quests.associate { it.id to it.state },
+                        onBack = back,
+                        onCook = { assistantRecipe = it },
+                    )
+                }
                 Screen.Complete -> {
                     val day = todayState.day
                     val quest = day?.quests?.firstOrNull { it.id == completing }
@@ -327,6 +359,18 @@ private fun SignedInHome(
             val model = viewModel(viewModelStoreOwner = rememberScreenStore("recipes")) { RecipesViewModel(client) }
             RecipeSheet(model, onClose = { cooking = false }) { coop ->
                 cooking = false
+                coops.updated(coop)
+                today.refresh()
+                openCoop(coop.id)
+            }
+        }
+        assistantRecipe?.let { id ->
+            val model =
+                viewModel(viewModelStoreOwner = rememberScreenStore("recipe-$id")) {
+                    RecipesViewModel(client).also { it.choose(id) }
+                }
+            RecipeSheet(model, onClose = { assistantRecipe = null }) { coop ->
+                assistantRecipe = null
                 coops.updated(coop)
                 today.refresh()
                 openCoop(coop.id)
