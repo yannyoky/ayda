@@ -587,6 +587,13 @@ class RecipePlanInput(BaseModel):
     starts_at: datetime | None = None
 
 
+class RecipeQuestInput(BaseModel):
+    servings: int = Field(default=2, ge=1, le=8)
+    at_home: list[Annotated[str, StringConstraints(max_length=40)]] = Field(
+        default_factory=lambda: [], max_length=60
+    )
+
+
 class AssistantMessageInput(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
     quest_id: uuid.UUID | None = None

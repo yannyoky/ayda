@@ -5,7 +5,15 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from ayda.api.deps import CurrentUser, DbSession
 from ayda.api.realtime import RealtimeDep
-from ayda.api.schemas import Coop, RecipeDetail, RecipeOffer, RecipePlanInput, RecipeSuggestInput
+from ayda.api.schemas import (
+    Coop,
+    DayQuest,
+    RecipeDetail,
+    RecipeOffer,
+    RecipePlanInput,
+    RecipeQuestInput,
+    RecipeSuggestInput,
+)
 from ayda.app import cooking
 from ayda.app.day import DayTools
 
@@ -47,3 +55,10 @@ async def plan_recipe(
     realtime: RealtimeDep,
 ) -> Coop:
     return await cooking.plan(session, realtime, user, recipe_id, body, _now())
+
+
+@router.post("/recipes/{recipe_id}/quest", operation_id="cookRecipeQuest", status_code=201)
+async def cook_recipe_quest(
+    recipe_id: str, body: RecipeQuestInput, user: CurrentUser, session: DbSession
+) -> DayQuest:
+    return await cooking.solo(session, user, recipe_id, body, _now())

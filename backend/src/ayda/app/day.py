@@ -441,11 +441,19 @@ async def take_quest(
 
 
 async def add_own_quest(
-    session: AsyncSession, user: auth.User, body: OwnQuestInput, now: datetime
+    session: AsyncSession,
+    user: auth.User,
+    body: OwnQuestInput,
+    now: datetime,
+    description: str | None = None,
 ) -> DayQuest:
     day = day_clock.local_day(now, user.timezone)
     new = NewQuest(
-        source="custom", title=body.title, category=body.category, duration_min=body.duration_min
+        source="custom",
+        title=body.title,
+        category=body.category,
+        duration_min=body.duration_min,
+        description=description,
     )
     try:
         quest = await quests.add_own_quest(

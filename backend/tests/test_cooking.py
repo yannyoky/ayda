@@ -182,3 +182,32 @@ async def test_plan_rejects_bad_input(client: httpx.AsyncClient) -> None:
     assert (await plan("nope")).status_code == 404
     assert (await plan("pancakes", at_home=["gold"])).status_code == 422
     assert (await plan("pancakes", friend_id=stranger.user_id)).status_code == 403
+
+
+async def test_a_recipe_can_be_cooked_alone(client: httpx.AsyncClient, database: Database) -> None:
+    alice = await onboarded(client, 1001)
+    response = await client.post(
+        "/recipes/pancakes/quest",
+        json={"servings": 2, "at_home": ["eggs", "milk"]},
+        headers=alice.headers,
+    )
+    assert response.status_code == 201, response.text
+    assert_matches(response, "cookRecipeQuest")
+    quest = response.json()
+    assert quest["title"] == "Готовим: Блины на молоке" and quest["state"] == "taken"
+    assert quest["coop_id"] is None
+    assert "Купить: Мука пшеничная: 150 г" in quest["description"]
+    async with database.sessionmaker() as session:
+        [logged] = list(await session.scalars(select(Event).where(Event.type == "recipe_planned")))
+        assert logged.payload["solo"] is True and logged.payload["to_buy"] == 1
+
+
+async def test_cooking_alone_rejects_bad_input(client: httpx.AsyncClient) -> None:
+    alice = await onboarded(client, 1001)
+
+    def cook(recipe: str, **body: Any) -> Any:
+        return client.post(f"/recipes/{recipe}/quest", json=body, headers=alice.headers)
+
+    assert (await cook("nope")).status_code == 404
+    assert (await cook("pancakes", at_home=["gold"])).status_code == 422
+    assert (await cook("pancakes", servings=9)).status_code == 422
