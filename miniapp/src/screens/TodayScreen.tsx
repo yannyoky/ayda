@@ -6,7 +6,6 @@ import { CoopInvites } from '../features/coop/CoopInvites'
 import { CoopSheet } from '../features/coop/CoopSheet'
 import { CheckinCard } from '../features/day/CheckinCard'
 import { OwnQuestSheet } from '../features/day/OwnQuestSheet'
-import { RecipeSheet } from '../features/recipes/RecipeSheet'
 import { QuestRow } from '../features/day/QuestRow'
 import { StatsRow } from '../features/day/StatsRow'
 import { formatDayTitle, t } from '../i18n'
@@ -27,22 +26,9 @@ export function TodayScreen() {
           <CheckinCard key={day.checkin?.submitted_at ?? 'none'} checkin={day.checkin} />
           <StatsRow day={day} />
           <CoopInvites />
-          <CookTogether />
           <QuestsCard day={day} />
         </>
       )}
-    </>
-  )
-}
-
-function CookTogether() {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className="flex h-12 items-center justify-center rounded-card bg-surface text-[15px] font-extrabold">
-        {t.recipes.button}
-      </button>
-      {open && <RecipeSheet onClose={() => setOpen(false)} />}
     </>
   )
 }

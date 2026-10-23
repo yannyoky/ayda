@@ -34,6 +34,7 @@ import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.api.models.Allergen
 import app.ayda.api.models.Coop
+import app.ayda.api.models.DayQuest
 import app.ayda.api.models.Meal
 import app.ayda.api.models.RecipeCard
 import app.ayda.api.models.RecipeLine
@@ -95,12 +96,13 @@ private fun RecipeCard.allergenLine(): String =
 
 private fun Double.pretty(): String = if (this % 1.0 == 0.0) toLong().toString() else "%.1f".format(this)
 
-/** Cooking quest: filters, then 2-3 recipes picked by the assistant, then a plan with a friend. */
+/** Cooking quest: a recipe, then an own quest for today or a plan with a friend (ADR 0014). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeSheet(
     model: RecipesViewModel,
     onClose: () -> Unit,
+    onCooking: (DayQuest) -> Unit,
     onCreated: (Coop) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -117,7 +119,7 @@ fun RecipeSheet(
             when (state.step) {
                 RecipeStep.Filters -> Filters(model)
                 RecipeStep.Offer -> Offer(model)
-                RecipeStep.Plan -> PlanStep(model, onCreated)
+                RecipeStep.Plan -> PlanStep(model, onCooking, onCreated)
             }
         }
     }
@@ -207,6 +209,7 @@ private fun Offer(model: RecipesViewModel) {
 @Composable
 private fun PlanStep(
     model: RecipesViewModel,
+    onCooking: (DayQuest) -> Unit,
     onCreated: (Coop) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -264,39 +267,43 @@ private fun PlanStep(
         )
     }
     Text(stringResource(R.string.recipes_with_whom), style = MaterialTheme.typography.labelLarge)
-    if (state.friends.isEmpty()) {
-        Text(
-            stringResource(R.string.recipes_no_friends),
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.muted,
-        )
-    }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.recipes_alone), state.friendId == null, radio = true) { model.pickFriend(null) }
         state.friends.forEach { f ->
             Chip(f.firstName, state.friendId == f.id, radio = true) { model.pickFriend(f.id) }
         }
     }
-    Text(stringResource(R.string.recipes_who_shops), style = MaterialTheme.typography.labelLarge)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Chip(stringResource(R.string.recipes_i_shop), state.shopper == RecipePlanInput.Shopper.me, radio = true) {
-            model.setShopper(RecipePlanInput.Shopper.me)
-        }
-        Chip(
-            stringResource(R.string.recipes_friend_shops),
-            state.shopper == RecipePlanInput.Shopper.friend,
-            radio = true,
-        ) {
-            model.setShopper(RecipePlanInput.Shopper.friend)
-        }
+    if (state.friendId != null) {
+        WhoShops(state.shopper, model::setShopper)
     }
     state.error?.let { Text(stringResource(R.string.recipes_failed), style = MaterialTheme.typography.labelLarge) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = model::back) { Text(stringResource(R.string.recipes_back)) }
         PrimaryButton(
-            stringResource(R.string.recipes_create),
-            onClick = { model.create(onCreated) },
+            stringResource(if (state.friendId == null) R.string.recipes_add_quest else R.string.recipes_create),
+            onClick = { model.create(onCooking, onCreated) },
             enabled = state.canCreate,
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+@Composable
+private fun WhoShops(
+    shopper: RecipePlanInput.Shopper,
+    onShopper: (RecipePlanInput.Shopper) -> Unit,
+) {
+    Text(stringResource(R.string.recipes_who_shops), style = MaterialTheme.typography.labelLarge)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.recipes_i_shop), shopper == RecipePlanInput.Shopper.me, radio = true) {
+            onShopper(RecipePlanInput.Shopper.me)
+        }
+        Chip(
+            stringResource(R.string.recipes_friend_shops),
+            shopper == RecipePlanInput.Shopper.friend,
+            radio = true,
+        ) {
+            onShopper(RecipePlanInput.Shopper.friend)
+        }
     }
 }

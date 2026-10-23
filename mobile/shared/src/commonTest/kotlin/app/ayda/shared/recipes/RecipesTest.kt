@@ -50,6 +50,10 @@ class RecipesTest {
             """"my_status":"owner","participants":[],"my_quest_id":null,"conversation_id":null,""" +
             """"expires_at":"2026-10-24T01:00:00Z","bonus_awarded":false}"""
 
+    private val cookingQuest =
+        """{"id":"q7","source":"custom","title":"Готовим: Блины на молоке","category":"home",""" +
+            """"duration_min":75,"base_points":50,"state":"taken","expires_at":"2026-10-24T01:00:00Z"}"""
+
     private fun client(): AydaClient {
         val engine =
             MockEngine(
@@ -65,6 +69,7 @@ class RecipesTest {
                             "GET /friends" ->
                                 json("""{"items":[{"id":"lena","first_name":"Лена","since":"2026-10-01T00:00:00Z"}]}""")
                             "POST /recipes/pancakes/plan" -> json(coop(), HttpStatusCode.Created)
+                            "POST /recipes/pancakes/quest" -> json(cookingQuest, HttpStatusCode.Created)
                             else -> error("unexpected $call")
                         }
                     }
@@ -134,15 +139,12 @@ class RecipesTest {
             assertEquals(RecipesViewModel.MAX_SERVINGS, model.state.value.servings)
 
             var created: String? = null
-            model.create { created = it.id }
-            assertEquals(null, created)
-
             model.toggleAtHome("flour")
             model.pickFriend("lena")
             model.setShopper(RecipePlanInput.Shopper.friend)
             model.setServings(4)
             advanceUntilIdle()
-            model.create { created = it.id }
+            model.create({ error("not alone") }) { created = it.id }
             advanceUntilIdle()
 
             assertEquals("k1", created)
@@ -150,6 +152,26 @@ class RecipesTest {
                 """POST /recipes/pancakes/plan """ +
                     """ {"friend_id":"lena","shopper":"friend","servings":4,"at_home":["flour"]}""" in
                     calls,
+                calls.toString(),
+            )
+        }
+
+    @Test
+    fun aRecipeIsCookedAloneByDefault() =
+        runTest(dispatcher) {
+            val model = RecipesViewModel(client())
+            model.choose("pancakes")
+            advanceUntilIdle()
+            assertTrue(model.state.value.canCreate)
+
+            var cooking: String? = null
+            model.toggleAtHome("flour")
+            model.create({ cooking = it.title }) { error("not a plan") }
+            advanceUntilIdle()
+
+            assertEquals("Готовим: Блины на молоке", cooking)
+            assertTrue(
+                """POST /recipes/pancakes/quest  {"at_home":["flour"]}""" in calls,
                 calls.toString(),
             )
         }

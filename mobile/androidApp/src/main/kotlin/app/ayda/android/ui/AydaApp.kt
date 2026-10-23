@@ -176,7 +176,6 @@ private fun SignedInHome(
     var chatFrom by rememberSaveable { mutableStateOf(Screen.Chats) }
     var coopId by rememberSaveable { mutableStateOf<String?>(null) }
     var inviting by rememberSaveable { mutableStateOf<String?>(null) }
-    var cooking by rememberSaveable { mutableStateOf(false) }
     var assistantQuest by rememberSaveable { mutableStateOf<String?>(null) }
     var assistantFrom by rememberSaveable { mutableStateOf(Screen.Today) }
     var assistantRecipe by rememberSaveable { mutableStateOf<String?>(null) }
@@ -259,7 +258,6 @@ private fun SignedInHome(
                         onComplete = complete,
                         onOpenCoop = openCoop,
                         onInviteCoop = { inviting = it.id },
-                        onCook = { cooking = true },
                         onAssistant = openAssistant,
                     )
                 Screen.Feed -> {
@@ -361,21 +359,19 @@ private fun SignedInHome(
                 openCoop(coop.id)
             }
         }
-        if (cooking) {
-            val model = viewModel(viewModelStoreOwner = rememberScreenStore("recipes")) { RecipesViewModel(client) }
-            RecipeSheet(model, onClose = { cooking = false }) { coop ->
-                cooking = false
-                coops.updated(coop)
-                today.refresh()
-                openCoop(coop.id)
-            }
-        }
         assistantRecipe?.let { id ->
             val model =
                 viewModel(viewModelStoreOwner = rememberScreenStore("recipe-$id")) {
                     RecipesViewModel(client).also { it.choose(id) }
                 }
-            RecipeSheet(model, onClose = { assistantRecipe = null }) { coop ->
+            RecipeSheet(
+                model,
+                onClose = { assistantRecipe = null },
+                onCooking = {
+                    assistantRecipe = null
+                    today.refresh()
+                },
+            ) { coop ->
                 assistantRecipe = null
                 coops.updated(coop)
                 today.refresh()

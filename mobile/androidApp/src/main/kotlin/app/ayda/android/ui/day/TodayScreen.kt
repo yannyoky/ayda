@@ -71,7 +71,6 @@ fun TodayScreen(
     onComplete: (DayQuest) -> Unit,
     onOpenCoop: (String) -> Unit,
     onInviteCoop: (DayQuest) -> Unit,
-    onCook: () -> Unit,
     onAssistant: (DayQuest?) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -108,12 +107,6 @@ fun TodayScreen(
         }
         val day = state.day ?: return@Column
         CoopInvites(coops, onOpen = onOpenCoop)
-        Button(
-            onClick = onCook,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-            shape = MaterialTheme.shapes.medium,
-            colors = ButtonDefaults.buttonColors(containerColor = colors.surface, contentColor = colors.ink),
-        ) { Text(stringResource(R.string.recipes_button), style = MaterialTheme.typography.titleMedium) }
         if (state.showCheckinForm) {
             CheckinForm(
                 state,
