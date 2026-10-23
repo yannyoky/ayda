@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import type { Schemas } from '../../api/client'
 import { useSubmitCheckin } from '../../api/queries'
 import { t } from '../../i18n'
@@ -23,6 +23,13 @@ export function CheckinCard({ checkin }: { checkin: Schemas['Checkin'] | null })
           <span className="text-[15px] font-bold">{t.today.checkinDone(t.today.moods[checkin.mood].toLowerCase())}</span>
           {checkin.text && <span className="truncate text-xs font-semibold opacity-70">{checkin.text}</span>}
         </div>
+        <Link
+          to="/assistant"
+          aria-label={t.assistant.open}
+          className="flex size-11 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent no-underline"
+        >
+          <Icon name="chat" size={20} strokeWidth={2.4} />
+        </Link>
         <button type="button" onClick={() => setEditing(true)} className="h-11 shrink-0 rounded-field bg-plate-2 px-4 text-sm font-extrabold text-on-plate">
           {t.today.checkinRedo}
         </button>

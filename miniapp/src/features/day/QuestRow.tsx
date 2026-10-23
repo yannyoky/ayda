@@ -10,6 +10,7 @@ import { EventLink } from './EventLink'
  * friends (US-18), a co-op quest links to its co-op, and an event quest shows its time,
  * place and price with a link to the source (US-19). */
 export function QuestRow({ quest, onDone, onInvite }: { quest: Schemas['DayQuest']; onDone?: () => void; onInvite?: () => void }) {
+  const open = quest.state === 'taken'
   const completed = quest.state === 'completed'
   const expired = quest.state === 'expired'
   const meta = completed
@@ -33,6 +34,15 @@ export function QuestRow({ quest, onDone, onInvite }: { quest: Schemas['DayQuest
         <span className={`text-xs font-semibold text-muted ${quest.event ? '' : 'truncate'}`}>{meta}</span>
         {quest.event && !completed && !expired && <EventLink event={quest.event} title={quest.title} variant="inline" />}
       </div>
+      {open && (
+        <Link
+          to={`/assistant?quest=${quest.id}`}
+          aria-label={t.assistant.discussQuest(quest.title)}
+          className="flex size-10 shrink-0 items-center justify-center rounded-field bg-bg text-ink"
+        >
+          <Icon name="chat" size={18} strokeWidth={2.2} />
+        </Link>
+      )}
       {quest.coop_id ? (
         <Link
           to={`/coops/${quest.coop_id}`}

@@ -14,13 +14,13 @@ const meals: (Meal | 'any')[] = ['any', 'breakfast', 'lunch', 'dinner', 'snack',
 const allergens: Allergen[] = ['gluten', 'milk', 'egg', 'fish', 'shellfish', 'nuts', 'peanut', 'soy', 'sesame']
 
 /** Cooking quest: filters, then 2-3 recipes picked by the assistant, then a plan with a friend. */
-export function RecipeSheet({ onClose }: { onClose: () => void }) {
-  const [chosen, setChosen] = useState<string | null>(null)
+export function RecipeSheet({ onClose, recipeId }: { onClose: () => void; recipeId?: string }) {
+  const [chosen, setChosen] = useState<string | null>(recipeId ?? null)
   const suggest = useSuggestRecipes()
   return (
     <Sheet title={t.recipes.title} onClose={onClose}>
       {chosen ? (
-        <PlanStep recipeId={chosen} onBack={() => setChosen(null)} onDone={onClose} />
+        <PlanStep recipeId={chosen} onBack={recipeId ? onClose : () => setChosen(null)} onDone={onClose} />
       ) : suggest.data ? (
         <OfferStep offer={suggest.data} onPick={setChosen} onBack={() => suggest.reset()} />
       ) : (

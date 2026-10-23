@@ -1,6 +1,7 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { AssistantScreen } from '../screens/AssistantScreen'
 import { ChatScreen } from '../screens/ChatScreen'
 import { ChatsScreen } from '../screens/ChatsScreen'
 import { CompleteScreen } from '../screens/CompleteScreen'
@@ -30,6 +31,7 @@ function createRouter(initialPath: string) {
         ],
       },
       { path: 'pick', element: <PickScreen /> },
+      { path: 'assistant', element: <AssistantScreen /> },
       { path: 'quest/:id/done', element: <CompleteScreen /> },
       { path: 'chats/:id', element: <ChatScreen /> },
       { path: 'coops/:id', element: <CoopScreen /> },

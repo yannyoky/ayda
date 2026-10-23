@@ -151,6 +151,27 @@ export const handlers = [
       return HttpResponse.json(db.day(), { status: 202 })
     }),
   ),
+  // ---- assistant chat (ADR 0013) ----
+  http.get(
+    `${API}/assistant/messages`,
+    authed(({ request }) => {
+      const questId = new URL(request.url).searchParams.get('quest_id')
+      if (questId && !db.quest(questId)) return problem(404, 'Такого квеста сегодня нет', 'https://ayda.app/errors/quest-not-found')
+      return HttpResponse.json(db.assistantThread(questId))
+    }),
+  ),
+  http.post<never, Schemas['AssistantMessageInput'], DefaultBodyType>(
+    `${API}/assistant/messages`,
+    authed(async ({ request }) => {
+      const body = await request.json()
+      const questId = body.quest_id ?? null
+      if (questId && !db.quest(questId)) return problem(404, 'Такого квеста сегодня нет', 'https://ayda.app/errors/quest-not-found')
+      if (db.assistantLeft() === 0) return problem(429, 'На сегодня сообщения помощнику закончились', 'https://ayda.app/errors/assistant-limit')
+      if (!body.text.trim()) return problem(422, 'Напиши сообщение')
+      if (db.assistantDelayMs > 0) await delay(db.assistantDelayMs)
+      return HttpResponse.json(db.sendAssistant(body.text.trim(), questId), { status: 201 })
+    }),
+  ),
   http.post<never, Schemas['OwnQuestInput'], DefaultBodyType>(
     `${API}/day-quests`,
     authed(async ({ request }) => {
