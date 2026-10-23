@@ -3,33 +3,38 @@ import userEvent from '@testing-library/user-event'
 import { db } from '../mocks/db'
 import { renderApp } from '../test/render'
 
-describe('Cooking together (M5)', () => {
+describe('Cooking quest from a recipe (M5, ADR 0014)', () => {
+  beforeEach(() => db.submitCheckin({ text: 'Работа до шести', mood: 'normal' }))
+
   async function open(user: ReturnType<typeof userEvent.setup>) {
-    renderApp('/')
-    await user.click(await screen.findByRole('button', { name: 'Приготовить вместе' }))
-    return screen.findByRole('dialog', { name: 'Готовим вместе' })
+    renderApp('/assistant')
+    await user.type(await screen.findByRole('textbox', { name: 'Спроси помощника' }), 'Что приготовить на завтрак?')
+    await user.click(screen.getByRole('button', { name: 'Отправить' }))
+    await user.click(await screen.findByRole('button', { name: 'Готовить: Блины на молоке' }))
+    return screen.findByRole('dialog', { name: 'Готовим' })
   }
 
-  it('drops recipes with a named allergen and shows what is left', async () => {
-    const user = userEvent.setup()
-    const sheet = await open(user)
-    await user.click(within(sheet).getByLabelText('яйца'))
-    await user.click(within(sheet).getByRole('button', { name: 'Подобрать' }))
-    const list = await within(sheet).findByRole('list', { name: 'Готовим вместе' })
-    expect(within(list).getAllByRole('listitem').map((li) => within(li).getByText(/салат|Блины|карбонара/).textContent)).toEqual(['Греческий салат'])
-    expect(within(sheet).getByText(/Рецепты с названными аллергенами убраны/)).toBeInTheDocument()
+  it('is not offered on the main screen', async () => {
+    renderApp('/')
+    expect((await screen.findAllByText(/квест/i)).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Приготовить вместе' })).not.toBeInTheDocument()
   })
 
-  it('picks a recipe, marks what is at home and makes a shopping and a cooking part', async () => {
+  it('cooks alone by default and adds an own quest', async () => {
     const user = userEvent.setup()
     const sheet = await open(user)
-    await user.click(within(sheet).getByLabelText('Завтрак'))
-    await user.click(within(sheet).getByRole('button', { name: 'Подобрать' }))
-    const card = await within(sheet).findByRole('listitem')
-    expect(within(card).getByText('Блины на молоке')).toBeInTheDocument()
-    expect(within(card).getByText('Содержит: яйца, глютен, молоко')).toBeInTheDocument()
-    await user.click(within(card).getByRole('button', { name: 'Выбрать «Блины на молоке»' }))
+    expect(await within(sheet).findByText(/Порций: 2/)).toBeInTheDocument()
+    expect(within(sheet).getByLabelText('Одному')).toBeChecked()
+    expect(within(sheet).queryByRole('radiogroup', { name: 'Кто покупает продукты' })).not.toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Добавить в квесты' }))
 
+    expect(await screen.findByText('Готовим: Блины на молоке')).toBeInTheDocument()
+    expect(db.quests.find((q) => q.title === 'Готовим: Блины на молоке')?.state).toBe('taken')
+  })
+
+  it('marks what is at home and makes a shopping and a cooking part with a friend', async () => {
+    const user = userEvent.setup()
+    const sheet = await open(user)
     expect(await within(sheet).findByText(/Порций: 2/)).toBeInTheDocument()
     await user.click(within(sheet).getByRole('button', { name: 'Больше порций: Блины на молоке' }))
     expect(await within(sheet).findByText('Мука пшеничная: 225')).toBeInTheDocument()

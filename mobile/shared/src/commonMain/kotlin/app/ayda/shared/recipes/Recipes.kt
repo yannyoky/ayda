@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.ayda.api.models.Allergen
 import app.ayda.api.models.Coop
+import app.ayda.api.models.DayQuest
 import app.ayda.api.models.Friend
 import app.ayda.api.models.Meal
 import app.ayda.api.models.RecipeDetail
 import app.ayda.api.models.RecipeOffer
 import app.ayda.api.models.RecipePlanInput
+import app.ayda.api.models.RecipeQuestInput
 import app.ayda.api.models.RecipeSuggestInput
 import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
@@ -38,12 +40,13 @@ data class RecipesState(
     val creating: Boolean = false,
     val error: String? = null,
 ) {
-    val canCreate: Boolean get() = friendId != null && detail != null && !creating
+    /** Cooking alone needs no friend (ADR 0014); [friendId] makes it a plan with one. */
+    val canCreate: Boolean get() = detail != null && !creating
 }
 
 /**
- * Cooking together (M5, ADR 0012): filters, then 2-3 recipes picked by the assistant from candidates
- * chosen by code, then a plan where one friend shops and the other cooks.
+ * A cooking quest (M5, ADR 0012 and 0014): a recipe from the assistant, then either an own quest
+ * for today or a plan where one friend shops and the other cooks.
  */
 class RecipesViewModel(
     private val client: AydaClient,
@@ -133,17 +136,29 @@ class RecipesViewModel(
             )
         }
 
-    fun pickFriend(friendId: String) = mutableState.update { it.copy(friendId = friendId) }
+    fun pickFriend(friendId: String?) = mutableState.update { it.copy(friendId = friendId) }
 
     fun setShopper(shopper: RecipePlanInput.Shopper) = mutableState.update { it.copy(shopper = shopper) }
 
-    fun create(onCreated: (Coop) -> Unit) {
+    fun create(
+        onCooking: (DayQuest) -> Unit,
+        onCreated: (Coop) -> Unit,
+    ) {
         val current = state.value
         val detail = current.detail
+        if (!current.canCreate || detail == null) return
         val friendId = current.friendId
-        if (!current.canCreate || detail == null || friendId == null) return
         mutableState.update { it.copy(creating = true, error = null) }
         viewModelScope.launch {
+            if (friendId == null) {
+                val body = RecipeQuestInput(servings = current.servings, atHome = current.atHome.toList())
+                val cooking = apiCall { client.recipes.cookRecipeQuest(detail.recipe.id, body) }
+                mutableState.update {
+                    it.copy(creating = false, error = if (cooking is ApiResult.Ok) null else cooking.errorText())
+                }
+                if (cooking is ApiResult.Ok) onCooking(cooking.value)
+                return@launch
+            }
             val body =
                 RecipePlanInput(
                     friendId = friendId,

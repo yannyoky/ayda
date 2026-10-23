@@ -489,6 +489,14 @@ export const handlers = [
       return detail ? HttpResponse.json(detail) : problem(404, 'Такого рецепта нет', 'https://ayda.app/errors/recipe-not-found')
     }),
   ),
+  http.post<{ id: string }, Schemas['RecipeQuestInput'], DefaultBodyType>(
+    `${API}/recipes/:id/quest`,
+    authed(async ({ params, request }) => {
+      const quest = db.cookRecipe(params.id, await request.json())
+      if (!quest) return problem(404, 'Такого рецепта нет', 'https://ayda.app/errors/recipe-not-found')
+      return HttpResponse.json(quest, { status: 201 })
+    }),
+  ),
   http.post<{ id: string }, Schemas['RecipePlanInput'], DefaultBodyType>(
     `${API}/recipes/:id/plan`,
     authed(async ({ params, request }) => {

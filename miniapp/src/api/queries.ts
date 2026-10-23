@@ -561,8 +561,14 @@ export function usePickMeetup(conversationId: string) {
 
 // ---- cooking quests (M5, ADR 0012) ----
 
-export function useSuggestRecipes() {
-  return useMutation({ mutationFn: (body: Schemas['RecipeSuggestInput']) => unwrap(api.POST('/recipes/suggest', { body })) })
+/** A recipe cooked alone becomes an own quest for today (ADR 0014). */
+export function useCookRecipeQuest() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ recipeId, ...body }: Schemas['RecipeQuestInput'] & { recipeId: string }) =>
+      unwrap(api.POST('/recipes/{recipe_id}/quest', { params: { path: { recipe_id: recipeId } }, body })),
+    onSettled: () => client.invalidateQueries({ queryKey: dayKey }),
+  })
 }
 
 export function useRecipe(id: string | null, servings: number) {

@@ -347,9 +347,8 @@
     <string name="meetup_yandex">Яндекс Карты</string>
     <string name="meetup_failed">Не получилось, попробуй ещё раз</string>
     <string name="meetup_retry">Ещё раз</string>
-    <string name="recipes_button">Приготовить вместе</string>
-    <string name="recipes_title">Готовим вместе</string>
-    <string name="recipes_hint">Один покупает продукты, другой готовит. Список покупок можно передать другу.</string>
+    <string name="recipes_title">Готовим</string>
+    <string name="recipes_hint">Подберу рецепт. Готовить можно одному или с другом.</string>
     <string name="recipes_meal">Что готовим</string>
     <string name="recipes_meal_any">Любое</string>
     <string name="recipes_meal_breakfast">Завтрак</string>
@@ -379,11 +378,12 @@
     <string name="recipes_optional">по желанию</string>
     <string name="recipes_staples">Обычно есть дома: соль, масло, специи</string>
     <string name="recipes_with_whom">С кем готовим</string>
-    <string name="recipes_no_friends">Сначала добавь друзей</string>
+    <string name="recipes_alone">Одному</string>
     <string name="recipes_who_shops">Кто покупает продукты</string>
     <string name="recipes_i_shop">Я</string>
     <string name="recipes_friend_shops">Друг</string>
     <string name="recipes_create">Создать план</string>
+    <string name="recipes_add_quest">Добавить в квесты</string>
     <string name="recipes_failed">Не получилось, попробуй ещё раз</string>
     <string name="recipes_unit_g">г</string>
     <string name="recipes_unit_ml">мл</string>

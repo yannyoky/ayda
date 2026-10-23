@@ -508,6 +508,12 @@ export class MockDb {
     }
   }
 
+  cookRecipe(id: string, input: Schemas['RecipeQuestInput']): DayQuest | null {
+    const detail = this.recipeDetail(id, input.servings ?? 2)
+    if (!detail) return null
+    return this.addOwn({ title: `Готовим: ${detail.recipe.title}`, category: 'home', duration_min: detail.recipe.minutes })
+  }
+
   planRecipe(id: string, input: Schemas['RecipePlanInput']): Schemas['Coop'] | 'not_found' | 'not_friends' {
     const detail = this.recipeDetail(id, input.servings ?? 2)
     if (!detail) return 'not_found'
