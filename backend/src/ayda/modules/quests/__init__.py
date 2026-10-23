@@ -1,6 +1,6 @@
 """Quest catalog, check-ins, daily pools and quests, points ledger and streaks."""
 
-from ayda.modules.quests import coop
+from ayda.modules.quests import coop, plans
 from ayda.modules.quests.catalog import (
     CATEGORIES,
     Catalog,
@@ -35,7 +35,10 @@ from ayda.modules.quests.erase import erase_user, purge_checkin_texts
 from ayda.modules.quests.models import (
     Checkin,
     Coop,
+    CoopHandoff,
+    CoopPart,
     CoopParticipant,
+    CoopPartItem,
     DayPool,
     DayQuest,
     Template,
@@ -61,6 +64,9 @@ __all__ = [
     "Category",
     "Checkin",
     "Coop",
+    "CoopHandoff",
+    "CoopPart",
+    "CoopPartItem",
     "CoopParticipant",
     "DayError",
     "DayPool",
@@ -82,6 +88,7 @@ __all__ = [
     "get_checkin",
     "get_pool",
     "load_catalog",
+    "plans",
     "points_by_quest",
     "points_summary",
     "purge_checkin_texts",

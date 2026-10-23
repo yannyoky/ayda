@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ayda.modules.quests import plans
 from ayda.modules.quests.models import (
     Checkin,
     Coop,
@@ -23,6 +24,7 @@ async def erase_user(session: AsyncSession, user_id: uuid.UUID) -> None:
     await session.execute(delete(PointsEntry).where(PointsEntry.user_id == user_id))
     # Co-ops the user started go with their participants; in others the user's place goes.
     await session.execute(delete(Coop).where(Coop.owner_id == user_id))
+    await plans.erase_user(session, user_id)
     await session.execute(delete(CoopParticipant).where(CoopParticipant.user_id == user_id))
     await session.execute(delete(Streak).where(Streak.user_id == user_id))
     await session.execute(delete(DayQuest).where(DayQuest.user_id == user_id))

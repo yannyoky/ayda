@@ -5,7 +5,7 @@ from fastapi import APIRouter
 
 from ayda.api.deps import CurrentUser, DbSession
 from ayda.api.realtime import RealtimeDep
-from ayda.api.schemas import Coop, CoopInput, Items
+from ayda.api.schemas import Coop, CoopCreateInput, CoopInput, CoopItemInput, HandoffInput, Items
 from ayda.app import coop as coop_app
 
 router = APIRouter(tags=["coop"])
@@ -48,3 +48,72 @@ async def decline_coop(
     coop_id: uuid.UUID, user: CurrentUser, session: DbSession, realtime: RealtimeDep
 ) -> Coop:
     return await coop_app.decline_coop(session, realtime, user, coop_id, _now())
+
+
+@router.post("/coops", operation_id="createPlan", status_code=201)
+async def create_plan(
+    body: CoopCreateInput, user: CurrentUser, session: DbSession, realtime: RealtimeDep
+) -> Coop:
+    return await coop_app.create_plan(session, realtime, user, body, _now())
+
+
+@router.patch("/coops/{coop_id}/parts/{part_id}/items/{item_id}", operation_id="setCoopItem")
+async def set_coop_item(
+    coop_id: uuid.UUID,
+    part_id: uuid.UUID,
+    item_id: uuid.UUID,
+    body: CoopItemInput,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
+) -> Coop:
+    return await coop_app.set_item(
+        session, realtime, user, coop_id, part_id, item_id, body.done, _now()
+    )
+
+
+@router.post("/coops/{coop_id}/parts/{part_id}/handoff", operation_id="offerHandoff")
+async def offer_handoff(
+    coop_id: uuid.UUID,
+    part_id: uuid.UUID,
+    body: HandoffInput,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
+) -> Coop:
+    return await coop_app.offer_handoff(
+        session, realtime, user, coop_id, part_id, body.friend_id, _now()
+    )
+
+
+@router.delete("/coops/{coop_id}/parts/{part_id}/handoff", operation_id="withdrawHandoff")
+async def withdraw_handoff(
+    coop_id: uuid.UUID,
+    part_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
+) -> Coop:
+    return await coop_app.withdraw_handoff(session, realtime, user, coop_id, part_id, _now())
+
+
+@router.post("/coops/{coop_id}/parts/{part_id}/handoff/accept", operation_id="acceptHandoff")
+async def accept_handoff(
+    coop_id: uuid.UUID,
+    part_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
+) -> Coop:
+    return await coop_app.accept_handoff(session, realtime, user, coop_id, part_id, _now())
+
+
+@router.post("/coops/{coop_id}/parts/{part_id}/handoff/decline", operation_id="declineHandoff")
+async def decline_handoff(
+    coop_id: uuid.UUID,
+    part_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
+) -> Coop:
+    return await coop_app.decline_handoff(session, realtime, user, coop_id, part_id, _now())

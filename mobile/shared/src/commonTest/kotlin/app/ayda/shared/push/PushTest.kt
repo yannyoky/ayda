@@ -37,6 +37,10 @@ class PushTest {
                 ),
             ),
         )
+        assertEquals(
+            PushTarget.Coop("k2"),
+            PushTarget.from(mapOf("kind" to "coop.handoff", "coop_id" to "k2", "part_id" to "p1")),
+        )
         assertEquals(PushTarget.Today, PushTarget.from(mapOf("kind" to "something.later")))
         assertNull(PushTarget.from(mapOf("kind" to "chat.message")))
         assertNull(PushTarget.from(mapOf("google.message_id" to "x")))

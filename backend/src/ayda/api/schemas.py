@@ -391,10 +391,84 @@ class CoopInput(BaseModel):
     friend_ids: list[uuid.UUID] = Field(min_length=1, max_length=3)
 
 
+class Place(BaseModel):
+    """A snapshot of a venue, so a plan stays stable if its source changes (ADR 0010)."""
+
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    address: Annotated[str, StringConstraints(max_length=200)] | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+    link: Annotated[str, StringConstraints(pattern=r"^https://", max_length=500)] | None = None
+    source: Annotated[str, StringConstraints(max_length=32)] | None = None
+    source_id: Annotated[str, StringConstraints(max_length=64)] | None = None
+    price_hint: Annotated[str, StringConstraints(max_length=40)] | None = None
+
+
+ItemText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+
+class CoopPartInput(BaseModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    category: Category | None = None
+    duration_min: int | None = Field(default=None, ge=5, le=480)
+    assignee_id: uuid.UUID
+    place: Place | None = None
+    starts_at: datetime | None = None
+    opens_after: int | None = Field(default=None, ge=0)
+    items: list[ItemText] = Field(default_factory=lambda: [], max_length=20)
+
+
+class CoopCreateInput(BaseModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    description: Annotated[str, StringConstraints(max_length=500)] | None = None
+    category: Category
+    duration_min: int = Field(ge=5, le=480)
+    outdoor: bool = False
+    place: Place | None = None
+    starts_at: datetime | None = None
+    friend_ids: list[uuid.UUID] = Field(min_length=1, max_length=3)
+    parts: list[CoopPartInput] | None = Field(default=None, min_length=2, max_length=5)
+
+
+class CoopItemInput(BaseModel):
+    done: bool
+
+
+class HandoffInput(BaseModel):
+    friend_id: uuid.UUID
+
+
 class CoopParticipant(BaseModel):
     user: UserSummary
     status: CoopStatus
     completed: bool
+
+
+class CoopItem(BaseModel):
+    id: uuid.UUID
+    text: str
+    done: bool
+
+
+class CoopHandoffOffer(BaseModel):
+    to: UserSummary
+    for_me: bool
+
+
+class CoopPart(BaseModel):
+    id: uuid.UUID
+    position: int
+    title: str
+    category: Category
+    duration_min: int
+    place: Place | None
+    starts_at: datetime | None
+    assignee: UserSummary
+    state: Literal["locked", "open", "done"]
+    opens_after: uuid.UUID | None
+    items: list[CoopItem]
+    my_quest_id: uuid.UUID | None
+    handoff: CoopHandoffOffer | None
 
 
 class Coop(BaseModel):
@@ -409,3 +483,7 @@ class Coop(BaseModel):
     conversation_id: uuid.UUID | None
     expires_at: datetime
     bonus_awarded: bool
+    kind: Literal["same", "parts"] = "same"
+    place: Place | None = None
+    starts_at: datetime | None = None
+    parts: list[CoopPart] | None = None

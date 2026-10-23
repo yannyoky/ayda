@@ -29,7 +29,7 @@ from ayda.api.schemas import (
     Weather,
 )
 from ayda.app import events as local_events
-from ayda.app.coop import COOP_UPDATED, record_bonuses
+from ayda.app.coop import COOP_UPDATED, completion_slots, record_progress
 from ayda.app.day_problems import day_problem
 from ayda.app.realtime import publish
 from ayda.core import jobs
@@ -550,18 +550,18 @@ async def complete_quest(
         },
         occurred_at=now,
     )
-    in_coop = await quests.coop.after_completion(session, quest, now)
+    in_coop = await quests.coop.after_completion(
+        session, quest, now, completion_slots(session, now)
+    )
     bonus = 0
     if in_coop is not None:
-        coop, bonuses = in_coop
-        bonus = bonuses.get(quest.id, 0)
-        await record_bonuses(session, coop, bonuses, user.id, now)
+        bonus = await record_progress(session, user.id, in_coop, now)
     await session.commit()
     if in_coop is not None:
-        await publish(session, realtime, COOP_UPDATED, {"coop_id": str(in_coop[0].id)})
+        await publish(session, realtime, COOP_UPDATED, {"coop_id": str(in_coop.coop.id)})
     return Completion(
         quest=quest_schema(
-            quest, award.points + bonus, in_coop[0].id if in_coop is not None else None
+            quest, award.points + bonus, in_coop.coop.id if in_coop is not None else None
         ),
         points_awarded=award.points,
         points_breakdown=PointsBreakdown(

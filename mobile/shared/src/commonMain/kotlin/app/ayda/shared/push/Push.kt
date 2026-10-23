@@ -34,7 +34,7 @@ sealed interface PushTarget {
                 "social.digest" -> Feed
                 "ladder.weekly" -> Friends
                 "chat.message" -> data["conversation_id"]?.let(::Chat)
-                "coop.invite", "coop.bonus" -> data["coop_id"]?.let(::Coop)
+                "coop.invite", "coop.bonus", "coop.handoff" -> data["coop_id"]?.let(::Coop)
                 null -> null
                 // A kind this version does not know yet: at least open the app.
                 else -> Today

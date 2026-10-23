@@ -593,7 +593,17 @@ export interface paths {
          */
         get: operations["listCoops"];
         put?: never;
-        post?: never;
+        /**
+         * Create a shared plan directly (M5, ADR 0010)
+         * @description Without `parts`, a `same` co-op: everyone does the same quest, with an optional place
+         *     and time; the owner gets it as taken (it counts toward the daily limit). With 2-5
+         *     `parts`, a `parts` co-op: each part has an assignee (the owner or an invited friend),
+         *     a place, a time, a checklist and optionally `opens_after`, the index of an earlier
+         *     part that must be done first. Parts that wait for nobody open at once. Part quests
+         *     do not count toward the daily limit. Friends get a bot message and `coop.updated`;
+         *     the plan gets a shared chat and ends with the owner's day.
+         */
+        post: operations["createPlan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -648,6 +658,91 @@ export interface paths {
         put?: never;
         /** Decline an invitation to a co-op quest */
         post: operations["declineCoop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coops/{coop_id}/parts/{part_id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Tick or untick a checklist item of a part (ADR 0010)
+         * @description Only the part's assignee, while the part is open. Unticked items never block completing a part.
+         */
+        patch: operations["setCoopItem"];
+        trace?: never;
+    };
+    "/coops/{coop_id}/parts/{part_id}/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Offer a part to a friend (ADR 0010)
+         * @description The current assignee of a part that is not done offers it to a friend. The friend gets
+         *     a bot or push message of kind `coop.handoff` and answers with accept or decline.
+         *     One offer per part at a time.
+         */
+        post: operations["offerHandoff"];
+        /** Withdraw an offer that is waiting for an answer */
+        delete: operations["withdrawHandoff"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coops/{coop_id}/parts/{part_id}/handoff/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take over a part offered to you (ADR 0010)
+         * @description The friend joins the co-op and its chat if not yet in it and becomes the assignee. If
+         *     the part is open, the previous assignee's quest for it is removed without points or
+         *     penalty and the friend gets a quest. Quests of parts are outside the daily limit.
+         */
+        post: operations["acceptHandoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coops/{coop_id}/parts/{part_id}/handoff/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline a part offered to you
+         * @description Nothing changes for the plan. The response shows it as the decliner saw it, with `my_status` `declined` if they are not a participant.
+         */
+        post: operations["declineHandoff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1407,6 +1502,103 @@ export interface components {
             status: components["schemas"]["CoopStatus"];
             completed: boolean;
         };
+        /**
+         * @description `same`: everyone does the same quest. `parts`: the plan is split into parts that differ
+         *     in assignee, place, time, checklist and order (ADR 0010).
+         * @enum {string}
+         */
+        CoopKind: "same" | "parts";
+        /** @description A snapshot of a venue, so a plan stays stable if its source changes. */
+        Place: {
+            name: string;
+            address?: string | null;
+            lat?: number | null;
+            lon?: number | null;
+            link?: string | null;
+            source?: string | null;
+            source_id?: string | null;
+            price_hint?: string | null;
+        };
+        CoopItem: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            done: boolean;
+        };
+        /** @description A pending offer of a part to a friend. */
+        CoopHandoffOffer: {
+            to: components["schemas"]["UserSummary"];
+            /** @description The offer is for the viewer, who can accept or decline it. */
+            for_me: boolean;
+        };
+        CoopPart: {
+            /** Format: uuid */
+            id: string;
+            position: number;
+            title: string;
+            category: components["schemas"]["Category"];
+            duration_min: number;
+            place: components["schemas"]["Place"] | null;
+            /** Format: date-time */
+            starts_at: string | null;
+            assignee: components["schemas"]["UserSummary"];
+            /**
+             * @description A locked part waits for the part in `opens_after`; the assignee has no quest for it yet.
+             * @enum {string}
+             */
+            state: "locked" | "open" | "done";
+            /**
+             * Format: uuid
+             * @description The id of the part that must be done first.
+             */
+            opens_after: string | null;
+            /** @description The checklist (for cooking, the shopping list). */
+            items: components["schemas"]["CoopItem"][];
+            /**
+             * Format: uuid
+             * @description The viewer's day quest for the part, when they are the assignee and it is open.
+             */
+            my_quest_id: string | null;
+            handoff: components["schemas"]["CoopHandoffOffer"] | null;
+        };
+        CoopPartInput: {
+            title: string;
+            /** @description The plan's category when omitted. */
+            category?: components["schemas"]["Category"] | null;
+            /** @description The plan's duration when omitted. */
+            duration_min?: number | null;
+            /**
+             * Format: uuid
+             * @description The owner or one of `friend_ids`.
+             */
+            assignee_id: string;
+            place?: components["schemas"]["Place"] | null;
+            /**
+             * Format: date-time
+             * @description Before the end of the owner's day.
+             */
+            starts_at?: string | null;
+            /** @description Index of an earlier part in `parts` that must be done first. */
+            opens_after?: number | null;
+            items?: string[];
+        };
+        CoopCreateInput: {
+            title: string;
+            description?: string | null;
+            category: components["schemas"]["Category"];
+            duration_min: number;
+            /** @default false */
+            outdoor: boolean;
+            place?: components["schemas"]["Place"] | null;
+            /**
+             * Format: date-time
+             * @description Before the end of the owner's day.
+             */
+            starts_at?: string | null;
+            friend_ids: string[];
+            /** @description 2-5 parts for a `parts` co-op; omit for a `same` one. At least one part must not use `opens_after`. */
+            parts?: components["schemas"]["CoopPartInput"][] | null;
+        };
         Coop: {
             /** Format: uuid */
             id: string;
@@ -1434,6 +1626,12 @@ export interface components {
             expires_at: string;
             /** @description Every participant who joined has completed it, and the +50% was awarded. */
             bonus_awarded: boolean;
+            kind?: components["schemas"]["CoopKind"];
+            place?: components["schemas"]["Place"] | null;
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** @description For a `parts` co-op, in order; null for a `same` one. */
+            parts?: components["schemas"]["CoopPart"][] | null;
         };
         /** @enum {string} */
         ConversationKind: "dm" | "coop";
@@ -1554,6 +1752,8 @@ export interface components {
         PostId: string;
         UserId: string;
         CoopId: string;
+        PartId: string;
+        ItemId: string;
         ConversationId: string;
         MessageId: number;
         HabitId: string;
@@ -2472,6 +2672,50 @@ export interface operations {
             401: components["responses"]["Problem"];
         };
     };
+    createPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoopCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description Someone in `friend_ids` is not a friend */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A `same` co-op and the daily limit of taken quests is reached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
+        };
+    };
     getCoop: {
         parameters: {
             query?: never;
@@ -2569,6 +2813,219 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    setCoopItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+                part_id: components["parameters"]["PartId"];
+                item_id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    done: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description The part is assigned to someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            /** @description The part is still locked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
+        };
+    };
+    offerHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+                part_id: components["parameters"]["PartId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    friend_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Offered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description Not a friend, or the part is assigned to someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            /** @description The part is done or already offered */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan is over */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
+        };
+    };
+    withdrawHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+                part_id: components["parameters"]["PartId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description The part is assigned to someone else */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["Problem"];
+        };
+    };
+    acceptHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+                part_id: components["parameters"]["PartId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Taken over */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description The plan already has four participants */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan is over */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    declineHandoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coop_id: components["parameters"]["CoopId"];
+                part_id: components["parameters"]["PartId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declined */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
     createUpload: {

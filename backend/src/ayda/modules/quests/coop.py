@@ -18,6 +18,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.ids import uuid7
+from ayda.modules.quests import plans
 from ayda.modules.quests.day_service import (
     DayError,
     NewQuest,
@@ -27,7 +28,13 @@ from ayda.modules.quests.day_service import (
     taken_count,
 )
 from ayda.modules.quests.days import week_start
-from ayda.modules.quests.models import Coop, CoopParticipant, DayQuest, PointsEntry
+from ayda.modules.quests.models import (
+    Coop,
+    CoopPart,
+    CoopParticipant,
+    DayQuest,
+    PointsEntry,
+)
 from ayda.modules.quests.scoring import scoring_config
 
 JOINED = ("owner", "accepted")
@@ -126,7 +133,17 @@ async def participants(
     out: dict[uuid.UUID, list[Participant]] = {c: [] for c in coop_ids}
     for coop_id, user_id, status, day_quest_id, state in rows:
         out[coop_id].append(Participant(user_id, status, day_quest_id, state == "completed"))
-    return out
+    # In a co-op of parts, a person is done when all the parts they hold are done.
+    done = await plans.part_completers(session, coop_ids)
+    return {
+        coop_id: [
+            Participant(p.user_id, p.status, p.day_quest_id, done[coop_id].get(p.user_id, False))
+            if coop_id in done
+            else p
+            for p in people
+        ]
+        for coop_id, people in out.items()
+    }
 
 
 def bonus_awarded(people: Sequence[Participant]) -> bool:
@@ -160,6 +177,11 @@ async def _lock(session: AsyncSession, coop_id: uuid.UUID) -> Coop | None:
     return await session.get(Coop, coop_id, with_for_update=True, populate_existing=True)
 
 
+async def lock_coop(session: AsyncSession, coop_id: uuid.UUID) -> Coop | None:
+    """The co-op row locked for this transaction (after the user's day pool, if any)."""
+    return await _lock(session, coop_id)
+
+
 async def accept(
     session: AsyncSession,
     coop_id: uuid.UUID,
@@ -167,8 +189,10 @@ async def accept(
     day: date,
     expires_at: datetime,
     now: datetime,
-) -> tuple[Coop, DayQuest]:
-    """Join: the quest is added to the user's day as taken (it counts toward the limit)."""
+) -> tuple[Coop, DayQuest | None]:
+    """Join: the quest is added to the user's day as taken (it counts toward the limit).
+    A co-op of parts adds none: the user gets the quests of their parts that are open, and
+    later ones as the parts open."""
     pool = await ensure_pool(session, user_id, day, now)
     coop = await _lock(session, coop_id)
     me = await participant(session, coop_id, user_id) if coop else None
@@ -178,6 +202,12 @@ async def accept(
         raise DayError("coop-already-answered")
     if now >= coop.expires_at:
         raise DayError("coop-over")
+    if coop.kind == "parts":
+        me.status = "accepted"
+        me.answered_at = now
+        await session.flush()
+        await plans.issue_missing(session, coop, user_id, (day, expires_at), now)
+        return coop, None
     if await taken_count(session, pool.id) >= scoring_config().max_taken_per_day:
         raise DayError("daily-limit-reached")
     position = await session.scalar(
@@ -208,9 +238,14 @@ async def accept(
 
 
 async def decline(
-    session: AsyncSession, coop_id: uuid.UUID, user_id: uuid.UUID, now: datetime
+    session: AsyncSession,
+    coop_id: uuid.UUID,
+    user_id: uuid.UUID,
+    now: datetime,
+    slots_for: plans.SlotsFor | None = None,
 ) -> tuple[Coop, dict[uuid.UUID, int]]:
-    """Returns the co-op and the bonuses this made due (the rest may all be done)."""
+    """Returns the co-op and the bonuses this made due (the rest may all be done). In a
+    co-op of parts the parts of the one who declines go back to the owner."""
     coop = await _lock(session, coop_id)
     me = await participant(session, coop_id, user_id) if coop else None
     if coop is None or me is None:
@@ -220,14 +255,29 @@ async def decline(
     me.status = "declined"
     me.answered_at = now
     await session.flush()
+    if coop.kind == "parts":
+        await plans.reassign_to_owner(session, coop, user_id, slots_for, now)
+        return coop, {}
     return coop, await _award_bonus(session, coop, now)
 
 
 async def after_completion(
-    session: AsyncSession, quest: DayQuest, now: datetime
-) -> tuple[Coop, dict[uuid.UUID, int]] | None:
+    session: AsyncSession,
+    quest: DayQuest,
+    now: datetime,
+    slots_for: plans.SlotsFor | None = None,
+) -> plans.Progress | None:
     """Call after the quest is completed (its day pool is locked). Returns the co-op and
-    the bonuses awarded now, by day quest id, or None if the quest is not in a co-op."""
+    what this changed (the bonuses awarded, by day quest id, and for a part the parts it
+    opened), or None if the quest is not in a co-op."""
+    part_id = await session.scalar(select(CoopPart.id).where(CoopPart.day_quest_id == quest.id))
+    if part_id is not None:
+        coop_id = await session.scalar(select(CoopPart.coop_id).where(CoopPart.id == part_id))
+        coop = await _lock(session, coop_id) if coop_id else None
+        part = await session.get(CoopPart, part_id, populate_existing=True)
+        if coop is None or part is None or part.day_quest_id != quest.id or part.state != "open":
+            return None
+        return await plans.complete_part(session, coop, part, slots_for, now)
     coop_id = await session.scalar(
         select(CoopParticipant.coop_id).where(CoopParticipant.day_quest_id == quest.id)
     )
@@ -236,7 +286,7 @@ async def after_completion(
     coop = await _lock(session, coop_id)
     if coop is None:
         return None
-    return coop, await _award_bonus(session, coop, now)
+    return plans.Progress(coop, await _award_bonus(session, coop, now))
 
 
 async def _award_bonus(session: AsyncSession, coop: Coop, now: datetime) -> dict[uuid.UUID, int]:
@@ -306,7 +356,8 @@ async def coops_by_quest(
             CoopParticipant.day_quest_id.in_(quest_ids)
         )
     )
-    return {q: c for q, c in rows if q is not None}
+    found = {q: c for q, c in rows if q is not None}
+    return found | await plans.part_quest_ids(session, quest_ids)
 
 
 async def coop_titles(session: AsyncSession, coop_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:

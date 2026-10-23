@@ -26,11 +26,17 @@ class EventType(StrEnum):
     COOP_CREATED = "coop_created"
     COOP_ANSWERED = "coop_answered"
     COOP_BONUS = "coop_bonus"
+    COOP_PART_OPENED = "coop_part_opened"
+    COOP_PART_COMPLETED = "coop_part_completed"
+    COOP_PART_HANDED_OFF = "coop_part_handed_off"
+    COOP_HANDOFF_ANSWERED = "coop_handoff_answered"
     SIGNED_IN = "signed_in"
 
 
 SCHEMA_VERSIONS: dict[EventType, int] = dict.fromkeys(EventType, 1) | {
     # v2 (M3): event listing ids next to template ids.
+    # v2 (M5): co-op kind and part count.
+    EventType.COOP_CREATED: 2,
     EventType.POOL_SHOWN: 2,
     EventType.QUEST_TAKEN: 2,
     EventType.QUEST_REJECTED: 2,
