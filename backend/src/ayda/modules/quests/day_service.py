@@ -79,9 +79,10 @@ async def get_pool(
 
 
 async def ensure_pool(
-    session: AsyncSession, user_id: uuid.UUID, day: date, now: datetime
+    session: AsyncSession, user_id: uuid.UUID, day: date, now: datetime, *, lock: bool = True
 ) -> DayPool:
-    """Today's pool row, locked for this transaction; created empty (`none`) if missing."""
+    """The day's pool row, locked for this transaction unless `lock` is off; created empty
+    (`none`) if missing."""
     await session.execute(
         insert(DayPool)
         .values(
@@ -96,7 +97,7 @@ async def ensure_pool(
         )
         .on_conflict_do_nothing(constraint="uq_day_pools_user_id_local_date")
     )
-    pool = await get_pool(session, user_id, day, lock=True)
+    pool = await get_pool(session, user_id, day, lock=lock)
     assert pool is not None
     await session.refresh(pool)
     return pool

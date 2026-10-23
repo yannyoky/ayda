@@ -143,6 +143,11 @@ class Coop(Base):
     category: Mapped[str] = mapped_column(Text)
     duration_min: Mapped[int] = mapped_column(SmallInteger)
     outdoor: Mapped[bool] = mapped_column(Boolean)
+    # 'same': everyone does this quest; 'parts': split into CoopPart rows (ADR 0010)
+    kind: Mapped[str] = mapped_column(Text, default="same")
+    # A snapshot of the venue: name, address, lat, lon, link, source, source id, price hint
+    place: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     bonus_awarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -158,3 +163,46 @@ class CoopParticipant(Base):
     day_quest_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(DayQuest.id))
     invited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CoopPart(Base):
+    """One part of a `parts` co-op: its own assignee, place, time and checklist."""
+
+    __tablename__ = "coop_parts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    coop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(Coop.id))
+    position: Mapped[int] = mapped_column(SmallInteger)
+    title: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(Text)
+    duration_min: Mapped[int] = mapped_column(SmallInteger)
+    place: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    assignee_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    opens_after_part_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("coop_parts.id"))
+    day_quest_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(DayQuest.id))
+    # 'locked' (waits for the part before it), 'open' or 'done'
+    state: Mapped[str] = mapped_column(Text)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CoopPartItem(Base):
+    __tablename__ = "coop_part_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    part_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(CoopPart.id))
+    position: Mapped[int] = mapped_column(SmallInteger)
+    text: Mapped[str] = mapped_column(String(120))
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CoopHandoff(Base):
+    """An offer to take over a part; the row lives only until it is answered or withdrawn."""
+
+    __tablename__ = "coop_handoffs"
+
+    part_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(CoopPart.id), primary_key=True)
+    from_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    to_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -947,6 +947,48 @@ paths:
         '401':
           $ref: '#/components/responses/Problem'
 
+    post:
+      tags: [coop]
+      operationId: createPlan
+      summary: Create a shared plan directly (M5, ADR 0010)
+      description: |
+        Without `parts`, a `same` co-op: everyone does the same quest, with an optional place
+        and time; the owner gets it as taken (it counts toward the daily limit). With 2-5
+        `parts`, a `parts` co-op: each part has an assignee (the owner or an invited friend),
+        a place, a time, a checklist and optionally `opens_after`, the index of an earlier
+        part that must be done first. Parts that wait for nobody open at once. Part quests
+        do not count toward the daily limit. Friends get a bot message and `coop.updated`;
+        the plan gets a shared chat and ends with the owner's day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoopCreateInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: Someone in `friend_ids` is not a friend
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: A `same` co-op and the daily limit of taken quests is reached
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
   /coops/{coop_id}:
     get:
       tags: [coop]
@@ -1022,6 +1064,188 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+
+  /coops/{coop_id}/parts/{part_id}/items/{item_id}:
+    patch:
+      tags: [coop]
+      operationId: setCoopItem
+      summary: Tick or untick a checklist item of a part (ADR 0010)
+      description: Only the part's assignee, while the part is open. Unticked items never block completing a part.
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+        - $ref: '#/components/parameters/PartId'
+        - $ref: '#/components/parameters/ItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [done]
+              properties:
+                done:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: The part is assigned to someone else
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The part is still locked
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /coops/{coop_id}/parts/{part_id}/handoff:
+    post:
+      tags: [coop]
+      operationId: offerHandoff
+      summary: Offer a part to a friend (ADR 0010)
+      description: |
+        The current assignee of a part that is not done offers it to a friend. The friend gets
+        a bot or push message of kind `coop.handoff` and answers with accept or decline.
+        One offer per part at a time.
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+        - $ref: '#/components/parameters/PartId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [friend_id]
+              properties:
+                friend_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Offered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: Not a friend, or the part is assigned to someone else
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The part is done or already offered
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '410':
+          description: The plan is over
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [coop]
+      operationId: withdrawHandoff
+      summary: Withdraw an offer that is waiting for an answer
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+        - $ref: '#/components/parameters/PartId'
+      responses:
+        '200':
+          description: Withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: The part is assigned to someone else
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /coops/{coop_id}/parts/{part_id}/handoff/accept:
+    post:
+      tags: [coop]
+      operationId: acceptHandoff
+      summary: Take over a part offered to you (ADR 0010)
+      description: |
+        The friend joins the co-op and its chat if not yet in it and becomes the assignee. If
+        the part is open, the previous assignee's quest for it is removed without points or
+        penalty and the friend gets a quest. Quests of parts are outside the daily limit.
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+        - $ref: '#/components/parameters/PartId'
+      responses:
+        '200':
+          description: Taken over
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The plan already has four participants
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '410':
+          description: The plan is over
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /coops/{coop_id}/parts/{part_id}/handoff/decline:
+    post:
+      tags: [coop]
+      operationId: declineHandoff
+      summary: Decline a part offered to you
+      description: Nothing changes for the plan. The response shows it as the decliner saw it, with `my_status` `declined` if they are not a participant.
+      parameters:
+        - $ref: '#/components/parameters/CoopId'
+        - $ref: '#/components/parameters/PartId'
+      responses:
+        '200':
+          description: Declined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
 
   /media/uploads:
     post:
@@ -1567,6 +1791,20 @@ components:
         format: uuid
     CoopId:
       name: coop_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PartId:
+      name: part_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ItemId:
+      name: item_id
       in: path
       required: true
       schema:
@@ -2365,6 +2603,203 @@ components:
         completed:
           type: boolean
 
+    CoopKind:
+      type: string
+      enum: [same, parts]
+      description: |
+        `same`: everyone does the same quest. `parts`: the plan is split into parts that differ
+        in assignee, place, time, checklist and order (ADR 0010).
+
+    Place:
+      type: object
+      description: A snapshot of a venue, so a plan stays stable if its source changes.
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        address:
+          type: [string, 'null']
+          maxLength: 200
+        lat:
+          type: [number, 'null']
+          minimum: -90
+          maximum: 90
+        lon:
+          type: [number, 'null']
+          minimum: -180
+          maximum: 180
+        link:
+          type: [string, 'null']
+          maxLength: 500
+          pattern: '^https://'
+        source:
+          type: [string, 'null']
+          maxLength: 32
+        source_id:
+          type: [string, 'null']
+          maxLength: 64
+        price_hint:
+          type: [string, 'null']
+          maxLength: 40
+
+    CoopItem:
+      type: object
+      required: [id, text, done]
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+          maxLength: 120
+        done:
+          type: boolean
+
+    CoopHandoffOffer:
+      type: object
+      description: A pending offer of a part to a friend.
+      required: [to, for_me]
+      properties:
+        to:
+          $ref: '#/components/schemas/UserSummary'
+        for_me:
+          type: boolean
+          description: The offer is for the viewer, who can accept or decline it.
+
+    CoopPart:
+      type: object
+      required: [id, position, title, category, duration_min, place, starts_at, assignee, state, opens_after, items, my_quest_id, handoff]
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        title:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        duration_min:
+          type: integer
+        place:
+          oneOf:
+            - $ref: '#/components/schemas/Place'
+            - type: 'null'
+        starts_at:
+          type: [string, 'null']
+          format: date-time
+        assignee:
+          $ref: '#/components/schemas/UserSummary'
+        state:
+          type: string
+          enum: [locked, open, done]
+          description: A locked part waits for the part in `opens_after`; the assignee has no quest for it yet.
+        opens_after:
+          type: [string, 'null']
+          format: uuid
+          description: The id of the part that must be done first.
+        items:
+          type: array
+          description: The checklist (for cooking, the shopping list).
+          items:
+            $ref: '#/components/schemas/CoopItem'
+        my_quest_id:
+          type: [string, 'null']
+          format: uuid
+          description: The viewer's day quest for the part, when they are the assignee and it is open.
+        handoff:
+          oneOf:
+            - $ref: '#/components/schemas/CoopHandoffOffer'
+            - type: 'null'
+
+    CoopPartInput:
+      type: object
+      required: [title, assignee_id]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        category:
+          description: The plan's category when omitted.
+          oneOf:
+            - $ref: '#/components/schemas/Category'
+            - type: 'null'
+        duration_min:
+          type: [integer, 'null']
+          minimum: 5
+          maximum: 480
+          description: The plan's duration when omitted.
+        assignee_id:
+          type: string
+          format: uuid
+          description: The owner or one of `friend_ids`.
+        place:
+          oneOf:
+            - $ref: '#/components/schemas/Place'
+            - type: 'null'
+        starts_at:
+          type: [string, 'null']
+          format: date-time
+          description: Before the end of the owner's day.
+        opens_after:
+          type: [integer, 'null']
+          minimum: 0
+          description: Index of an earlier part in `parts` that must be done first.
+        items:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+
+    CoopCreateInput:
+      type: object
+      required: [title, category, duration_min, friend_ids]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: [string, 'null']
+          maxLength: 500
+        category:
+          $ref: '#/components/schemas/Category'
+        duration_min:
+          type: integer
+          minimum: 5
+          maximum: 480
+        outdoor:
+          type: boolean
+          default: false
+        place:
+          oneOf:
+            - $ref: '#/components/schemas/Place'
+            - type: 'null'
+        starts_at:
+          type: [string, 'null']
+          format: date-time
+          description: Before the end of the owner's day.
+        friend_ids:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        parts:
+          type: [array, 'null']
+          description: 2-5 parts for a `parts` co-op; omit for a `same` one. At least one part must not use `opens_after`.
+          minItems: 2
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/CoopPartInput'
+
     Coop:
       type: object
       required: [id, title, category, duration_min, owner, my_status, participants, my_quest_id, conversation_id, expires_at, bonus_awarded]
@@ -2402,6 +2837,20 @@ components:
         bonus_awarded:
           type: boolean
           description: Every participant who joined has completed it, and the +50% was awarded.
+        kind:
+          $ref: '#/components/schemas/CoopKind'
+        place:
+          oneOf:
+            - $ref: '#/components/schemas/Place'
+            - type: 'null'
+        starts_at:
+          type: [string, 'null']
+          format: date-time
+        parts:
+          type: [array, 'null']
+          description: For a `parts` co-op, in order; null for a `same` one.
+          items:
+            $ref: '#/components/schemas/CoopPart'
 
     ConversationKind:
       type: string
