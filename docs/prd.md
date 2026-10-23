@@ -160,7 +160,7 @@ Example: a 40-minute walk with a photo on day 10 of a streak gives 35 × 1.0 × 
 
 ## AI assistant: who decides what
 
-Code selects candidates; the LLM only ranks them and writes the text. So the pool works without an LLM, and the model cannot invent a quest that is not in the catalog.
+Code selects candidates; the LLM only ranks them and writes the text. So the pool works without an LLM, and the model cannot invent a quest that is not in the catalog. From M6 the LLM also talks in the assistant chat, but every quest, place or recipe it shows still comes from code (ADR 0013).
 
 1. **Parse the check-in.** The LLM extracts tasks, busy hours and mood into JSON by schema. Without an LLM, tasks are taken line by line and the time after 18:00 counts as free.
 2. **Candidates.** Code takes 20-30 catalog quests: they match goals and habits, fit free slots, are allowed by the weather, were not shown yesterday and were not replaced today.
@@ -214,3 +214,13 @@ Owner's scenarios, 2026-10-17 (epic #119). Both rest on one mechanism: a co-op q
 - **Cooking with a shopping hand-off.** In the morning check-in a user says she wants to cook lunch. The assistant offers 2-3 recipes and asks what is at home. Missing ingredients become a "buy groceries" part with a checklist that she can hand to a friend or partner; the "cook" part opens after it. Each gets points for their own part and a bonus if both parts close the same day.
 - **Privacy:** the assistant reads a chat only after the tap and only the last few messages; message text is not logged. Our LLM providers are in the US, so background chat reading is out (152-FZ).
 - **Data:** venues and recipes come from free sources with clear terms, no scraping (#121, #122). Default for venues: OpenStreetMap plus a link to 2GIS or Yandex Maps for reviews. Recipes come from a curated catalog; the LLM only picks and adapts them, because invented ingredients can miss allergens.
+
+## After M5: assistant chat (M6)
+
+Owner's request, 2026-10-23 (epic #160, ADR 0013).
+
+- **The check-in opens a chat.** Sending the check-in no longer closes it: the user sees their message, the assistant's answer and a button to the picker, and can keep writing all day to talk or ask for advice. A first check-in with nothing taken yet goes straight to the picker (#158).
+- **Discuss a quest.** Every quest in the picker and on Today has "Обсудить", which opens the chat on that quest. The assistant suggests how to vary it and, when asked, shows cards: places to walk for a walk, cafes, restaurants or bars for eating out, dishes from what is at home for cooking (then the cooking plan of M5), or a new quest to take.
+- **Who decides what.** The LLM talks, gives advice and picks; places, recipes and quests on cards come only from code and our sources (OpenStreetMap, the recipe catalog, the quest catalog). Without an LLM, code answers the obvious requests by keywords.
+- **Privacy:** the chat lives for the day and is deleted after it; message text is not logged; the LLM gets the last messages of the topic without name or city. The consent names the assistant chat.
+- **Limits:** up to 40 messages a day; no limit on taken quests (owner, 2026-10-23): take as many as you like, points and the ladder count the first 5 completed a day (#165).

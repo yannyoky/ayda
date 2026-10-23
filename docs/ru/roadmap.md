@@ -79,6 +79,17 @@ MVP выходит в три вехи. Каждая веха - эпик-issue с
 - #125 Cooking quests: recipes in the check-in, shopping list and hand-off
 - #126 Mini App and Android: shared plans UI
 
+## M6: чат с помощником ([#160](https://github.com/yannyoky/ayda/issues/160))
+
+Чек-ин становится дневным чатом с помощником, а любой квест можно обсудить, чтобы разнообразить его местами, блюдами или новым квестом.
+
+- #158 Check-in shows progress and opens the picker
+- #161 Assistant chat design: ADR 0013, PRD and roadmap
+- #162 Backend: assistant chat API
+- #163 Assistant actions: places to walk, places to eat, menu from what is at home, new quests
+- #164 Mini App and Android: assistant chat UI
+- #165 Take any number of quests, points for the first 5
+
 ## После M4
 
 Подталкивания на основе Steam и экранного времени, строгий режим и самостоятельно выбранные штрафы, рейтинг доверия и вызовы, видеоподтверждения, предиктивные рекомендации по залогированным событиям.

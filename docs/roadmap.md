@@ -79,6 +79,17 @@ Co-op quests made of parts with their own assignees: a meetup organized from a c
 - #125 Cooking quests: recipes in the check-in, shopping list and hand-off
 - #126 Mini App and Android: shared plans UI
 
+## M6: assistant chat ([#160](https://github.com/yannyoky/ayda/issues/160))
+
+The check-in becomes a day chat with the assistant, and every quest can be discussed to vary it with places, dishes or a new quest.
+
+- #158 Check-in shows progress and opens the picker
+- #161 Assistant chat design: ADR 0013, PRD and roadmap
+- #162 Backend: assistant chat API
+- #163 Assistant actions: places to walk, places to eat, menu from what is at home, new quests
+- #164 Mini App and Android: assistant chat UI
+- #165 Take any number of quests, points for the first 5
+
 ## After M4
 
 Nudges from Steam and screen time, strict mode and self-chosen penalties, trust rating and call-outs, video proofs, predictive recommendations on the logged events.
