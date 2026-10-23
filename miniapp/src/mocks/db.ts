@@ -703,6 +703,18 @@ export class MockDb {
     return { items: this.assistantMessages.filter((m) => m.quest_id === questId), messages_left: this.assistantLeft() }
   }
 
+  topEvents(): Schemas['TopEvents'] {
+    const at = (h: number) => new Date(Date.now() + h * 3600_000).toISOString()
+    const base = { ends_at: null, address: null, category: 'city' as const, source: 'kudago' as const }
+    return {
+      items: [
+        { ...base, id: 11, title: 'Реконструкция боя за форт № 5', starts_at: at(60), venue: 'Форт № 5', city: 'Калининград', distance_km: 0, is_free: true, price_min: null, url: 'https://example.com/fort' },
+        { ...base, id: 12, title: 'Фестиваль на набережной', starts_at: at(100), venue: 'Набережная', city: 'Светлогорск', distance_km: 35, is_free: false, price_min: 300, url: 'https://example.com/fest' },
+      ],
+      attribution: 'Афиша: Timepad и KudaGo',
+    }
+  }
+
   /** A keyword stand-in for the assistant: the same cards code builds on the server. */
   sendAssistant(text: string, questId: string | null): Schemas['AssistantExchange'] {
     const sent = this.addAssistantMessage('user', text, questId)

@@ -5,6 +5,7 @@ import app.ayda.api.apis.AuthApi
 import app.ayda.api.apis.ChatApi
 import app.ayda.api.apis.CoopApi
 import app.ayda.api.apis.DayApi
+import app.ayda.api.apis.EventsApi
 import app.ayda.api.apis.MediaApi
 import app.ayda.api.apis.ProfileApi
 import app.ayda.api.apis.RecipesApi
@@ -72,6 +73,7 @@ class AydaClient(
     val assistant = AssistantApi(this.baseUrl, http)
     val profile = ProfileApi(this.baseUrl, http)
     val day = DayApi(this.baseUrl, http)
+    val events = EventsApi(this.baseUrl, http)
     val social = SocialApi(this.baseUrl, http)
     val chat = ChatApi(this.baseUrl, http)
     val coop = CoopApi(this.baseUrl, http)

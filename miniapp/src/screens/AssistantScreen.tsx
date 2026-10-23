@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
 import { useAssistantThread, useSendAssistantMessage, useTakeQuests, useToday } from '../api/queries'
+import { EventItem } from '../features/events/EventItem'
 import { RecipeSheet } from '../features/recipes/RecipeSheet'
 import { t } from '../i18n'
 import { useBackButton } from '../telegram/useBackButton'
@@ -10,7 +11,6 @@ import { Icon } from '../ui/Icon'
 import { InlineError, Splash } from '../ui/states'
 
 const MESSAGE_MAX = 1000
-const eventWhen = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
 /** The day chat with the assistant (ADR 0013): the check-in opens it, and every quest of the
  * day has its own topic (`?quest=<id>`). Cards carry facts from code: places, recipes, a quest. */
@@ -207,19 +207,7 @@ function AssistantCardView({ card, onCook }: { card: Schemas['AssistantCard']; o
       {card.events.length > 0 && (
         <ul aria-label={t.assistant.eventsTitle} className="m-0 flex list-none flex-col gap-2 p-0">
           {card.events.map((e) => (
-            <li key={e.id} className="flex flex-col gap-1.5 rounded-card bg-surface p-3.5">
-              <span className="text-[15px] font-bold">{e.title}</span>
-              <span className="text-sm font-semibold">{eventWhen.format(new Date(e.starts_at))}</span>
-              <span className="text-xs font-semibold text-muted">
-                {[e.venue, e.city, t.assistant.eventDistance(e.distance_km), e.is_free ? t.assistant.eventFree : e.price_min ? t.assistant.eventFrom(e.price_min) : null]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-              <a href={e.url} target="_blank" rel="noreferrer" className="flex h-9 w-fit items-center gap-1 rounded-field bg-bg px-3 text-xs font-extrabold text-ink no-underline">
-                {t.assistant.eventOpen}
-                <Icon name="external" size={14} />
-              </a>
-            </li>
+            <EventItem key={e.id} event={e} />
           ))}
         </ul>
       )}

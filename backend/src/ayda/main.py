@@ -22,6 +22,7 @@ from ayda.api import (
     reference,
     system,
 )
+from ayda.api import events as events_api
 from ayda.app.day import DayTools
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
@@ -84,6 +85,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         coop.router,
         recipes.router,
         assistant_api.router,
+        events_api.router,
     ):
         app.include_router(router, prefix=API_PREFIX)
     return app

@@ -8,6 +8,7 @@ import { CheckinCard } from '../features/day/CheckinCard'
 import { OwnQuestSheet } from '../features/day/OwnQuestSheet'
 import { QuestRow } from '../features/day/QuestRow'
 import { StatsRow } from '../features/day/StatsRow'
+import { TopEventsCard } from '../features/events/TopEventsCard'
 import { formatDayTitle, t } from '../i18n'
 import { Icon } from '../ui/Icon'
 import { ScreenHeader } from '../ui/primitives'
@@ -27,6 +28,7 @@ export function TodayScreen() {
           <StatsRow day={day} />
           <CoopInvites />
           <QuestsCard day={day} />
+          <TopEventsCard />
         </>
       )}
     </>

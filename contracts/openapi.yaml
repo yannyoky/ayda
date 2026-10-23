@@ -53,6 +53,9 @@ tags:
     description: |
       The day chat with the assistant (M6, ADR 0013): it starts with the check-in, has a topic
       per quest, and every place, recipe or quest on its cards comes from code.
+  - name: events
+    description: |
+      Listings of the user's region (ADR 0008, 0015): the "top nearby" picks (ADR 0016).
   - name: system
     description: Service health.
 
@@ -1137,6 +1140,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
         '422':
+          $ref: '#/components/responses/Problem'
+
+  /events/top:
+    get:
+      tags: [events]
+      operationId: listTopEvents
+      summary: The most notable events of the user's region in the next two weeks (ADR 0016)
+      description: |
+        Chosen by code without the user's tastes: public places, free entry, long or repeated
+        runs, mass-event words and the season (holidays). One event per title, best first, at
+        most 6. Empty when the profile has no city or the listings have nothing.
+      responses:
+        '200':
+          description: The picks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopEvents'
+        '401':
           $ref: '#/components/responses/Problem'
 
   /assistant/messages:
@@ -3194,6 +3216,18 @@ components:
         created_at:
           type: string
           format: date-time
+
+    TopEvents:
+      type: object
+      required: [items, attribution]
+      properties:
+        items:
+          type: array
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/AssistantEvent'
+        attribution:
+          type: string
 
     AssistantThread:
       type: object

@@ -44,6 +44,7 @@ class TodayViewModelTest {
     private var checkin = "null"
     private var replacementsLeft = 5
     private var nextId = 1
+    private var topFails = false
 
     @BeforeTest
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -77,6 +78,12 @@ class TodayViewModelTest {
         val taken = quests.values.count { it != "offered" }
         return when {
             call == "GET /days/today" -> json(dayJson())
+            call == "GET /events/top" ->
+                if (topFails) {
+                    problem(HttpStatusCode.InternalServerError, "oops", "Не вышло")
+                } else {
+                    json(TOP_JSON)
+                }
             call == "PUT /days/today/checkin" -> {
                 checkin = """{"text":"","mood":"tired","submitted_at":"2026-10-17T07:00:00Z"}"""
                 pool = "generating"
@@ -123,6 +130,34 @@ class TodayViewModelTest {
             )
         return TodayViewModel(AydaClient(TEST_BASE, InMemoryTokenStore(), engine))
     }
+
+    @Test
+    fun theTopEventsOfTheRegionAreLoadedWithToday() =
+        runTest(dispatcher) {
+            val model = model()
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("Реконструкция боя"),
+                model.state.value.topEvents
+                    .map { it.title },
+            )
+        }
+
+    @Test
+    fun noTopEventsIsNotAnError() =
+        runTest(dispatcher) {
+            topFails = true
+            val model = model()
+            advanceUntilIdle()
+
+            assertTrue(
+                model.state.value.topEvents
+                    .isEmpty(),
+            )
+            assertNull(model.state.value.loadError)
+            assertEquals(0, model.state.value.quests.size)
+        }
 
     @Test
     fun aCheckInShowsThePoolOnceTheAssistantIsDone() =
@@ -252,3 +287,9 @@ class TodayViewModelTest {
             assertEquals("На сегодня взято слишком много квестов", model.state.value.error)
         }
 }
+
+private const val TOP_JSON =
+    """{"items":[{"id":1,"title":"Реконструкция боя","starts_at":"2026-10-25T10:00:00Z","ends_at":null,""" +
+        """"venue":"Форт № 5","address":null,"city":"Калининград","distance_km":0.0,"category":"city",""" +
+        """"is_free":true,"price_min":null,"url":"https://example.com/fort","source":"kudago"}],""" +
+        """"attribution":"Афиша: Timepad и KudaGo"}"""

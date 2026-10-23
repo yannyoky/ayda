@@ -340,7 +340,7 @@ private fun PlaceView(place: AssistantPlace) {
 private val eventWhen = DateTimeFormatter.ofPattern("EEE, d MMMM, HH:mm", Russian)
 
 @Composable
-private fun EventView(event: AssistantEvent) {
+fun EventView(event: AssistantEvent) {
     val colors = LocalAydaColors.current
     val uriHandler = LocalUriHandler.current
     val starts =
