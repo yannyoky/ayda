@@ -1,0 +1,304 @@
+# Ingredients of the recipe catalog (ADR 0012). Reviewed by the owner before release.
+ingredients:
+- id: tomato
+  name: Помидоры
+  unit: g
+  aisle: produce
+- id: cucumber
+  name: Огурцы
+  unit: g
+  aisle: produce
+- id: onion
+  name: Лук репчатый
+  unit: pcs
+  aisle: produce
+- id: garlic
+  name: Чеснок
+  unit: clove
+  aisle: produce
+- id: potato
+  name: Картофель
+  unit: g
+  aisle: produce
+- id: carrot
+  name: Морковь
+  unit: g
+  aisle: produce
+- id: bell_pepper
+  name: Перец болгарский
+  unit: pcs
+  aisle: produce
+- id: zucchini
+  name: Кабачок
+  unit: g
+  aisle: produce
+- id: eggplant
+  name: Баклажан
+  unit: g
+  aisle: produce
+- id: cabbage
+  name: Капуста белокочанная
+  unit: g
+  aisle: produce
+- id: spinach
+  name: Шпинат
+  unit: g
+  aisle: produce
+- id: mushrooms
+  name: Шампиньоны
+  unit: g
+  aisle: produce
+- id: lettuce
+  name: Салат листовой
+  unit: g
+  aisle: produce
+- id: lemon
+  name: Лимон
+  unit: pcs
+  aisle: produce
+- id: banana
+  name: Бананы
+  unit: pcs
+  aisle: produce
+- id: apple
+  name: Яблоки
+  unit: pcs
+  aisle: produce
+- id: avocado
+  name: Авокадо
+  unit: pcs
+  aisle: produce
+- id: pumpkin
+  name: Тыква
+  unit: g
+  aisle: produce
+- id: greens
+  name: Зелень (укроп, петрушка)
+  unit: g
+  aisle: produce
+- id: milk
+  name: Молоко
+  unit: ml
+  aisle: dairy
+  allergens:
+  - milk
+- id: butter
+  name: Сливочное масло
+  unit: g
+  aisle: dairy
+  allergens:
+  - milk
+- id: sour_cream
+  name: Сметана
+  unit: g
+  aisle: dairy
+  allergens:
+  - milk
+- id: cheese
+  name: Сыр твёрдый
+  unit: g
+  aisle: dairy
+  allergens:
+  - milk
+- id: cottage_cheese
+  name: Творог
+  unit: g
+  aisle: dairy
+  allergens:
+  - milk
+- id: yogurt
+  name: Йогурт натуральный
+  unit: g
+  aisle: dairy
+  allergens:
+  - milk
+- id: cream
+  name: Сливки 10-20%
+  unit: ml
+  aisle: dairy
+  allergens:
+  - milk
+- id: feta
+  name: Брынза
+  unit: g
+  aisle: dairy
+  allergens:
+  - milk
+- id: eggs
+  name: Яйца
+  unit: pcs
+  aisle: dairy
+  allergens:
+  - egg
+- id: chicken_fillet
+  name: Куриное филе
+  unit: g
+  aisle: meat
+  diet: meat
+- id: chicken_legs
+  name: Куриные бёдра
+  unit: g
+  aisle: meat
+  diet: meat
+- id: ground_beef
+  name: Фарш говяжий
+  unit: g
+  aisle: meat
+  diet: meat
+- id: bacon
+  name: Бекон
+  unit: g
+  aisle: meat
+  diet: meat
+- id: hake
+  name: Филе хека
+  unit: g
+  aisle: fish
+  allergens:
+  - fish
+  diet: fish
+- id: salmon
+  name: Лосось (филе)
+  unit: g
+  aisle: fish
+  allergens:
+  - fish
+  diet: fish
+- id: tuna_canned
+  name: Тунец консервированный
+  unit: g
+  aisle: fish
+  allergens:
+  - fish
+  diet: fish
+- id: shrimp
+  name: Креветки очищенные
+  unit: g
+  aisle: fish
+  allergens:
+  - shellfish
+  diet: fish
+- id: pasta
+  name: Паста
+  unit: g
+  aisle: grocery
+  allergens:
+  - gluten
+- id: rice
+  name: Рис
+  unit: g
+  aisle: grocery
+- id: buckwheat
+  name: Гречка
+  unit: g
+  aisle: grocery
+- id: oats
+  name: Овсяные хлопья
+  unit: g
+  aisle: grocery
+  allergens:
+  - gluten
+- id: lentils
+  name: Чечевица красная
+  unit: g
+  aisle: grocery
+- id: flour
+  name: Мука пшеничная
+  unit: g
+  aisle: grocery
+  allergens:
+  - gluten
+- id: bread
+  name: Хлеб
+  unit: slice
+  aisle: bakery
+  allergens:
+  - gluten
+- id: tortilla
+  name: Лепёшки тортилья
+  unit: pcs
+  aisle: bakery
+  allergens:
+  - gluten
+- id: canned_tomatoes
+  name: Томаты в собственном соку
+  unit: g
+  aisle: grocery
+- id: tomato_paste
+  name: Томатная паста
+  unit: tbsp
+  aisle: grocery
+- id: beans_canned
+  name: Фасоль консервированная
+  unit: g
+  aisle: grocery
+- id: corn_canned
+  name: Кукуруза консервированная
+  unit: g
+  aisle: grocery
+- id: soy_sauce
+  name: Соевый соус
+  unit: tbsp
+  aisle: grocery
+  allergens:
+  - soy
+  - gluten
+- id: cocoa
+  name: Какао
+  unit: tbsp
+  aisle: grocery
+- id: honey
+  name: Мёд
+  unit: tbsp
+  aisle: grocery
+- id: walnuts
+  name: Грецкие орехи
+  unit: g
+  aisle: grocery
+  allergens:
+  - nuts
+- id: baking_powder
+  name: Разрыхлитель
+  unit: tsp
+  aisle: grocery
+  staple: true
+- id: sugar
+  name: Сахар
+  unit: tbsp
+  aisle: grocery
+  staple: true
+- id: salt
+  name: Соль
+  unit: pinch
+  aisle: grocery
+  staple: true
+- id: pepper
+  name: Чёрный перец молотый
+  unit: pinch
+  aisle: grocery
+  staple: true
+- id: oil
+  name: Растительное масло
+  unit: tbsp
+  aisle: grocery
+  staple: true
+- id: olive_oil
+  name: Оливковое масло
+  unit: tbsp
+  aisle: grocery
+  staple: true
+- id: paprika
+  name: Паприка молотая
+  unit: tsp
+  aisle: grocery
+  staple: true
+- id: herbs_dried
+  name: Итальянские травы сушёные
+  unit: tsp
+  aisle: grocery
+  staple: true
+- id: cinnamon
+  name: Корица
+  unit: tsp
+  aisle: grocery
+  staple: true

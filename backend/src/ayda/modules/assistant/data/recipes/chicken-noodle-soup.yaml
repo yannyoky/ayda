@@ -1,0 +1,29 @@
+id: chicken-noodle-soup
+title: Куриный суп с лапшой
+meal: lunch
+minutes: 40
+servings: 2
+tags:
+- comfort
+ingredients:
+- ingredient: chicken_legs
+  amount: 400
+- ingredient: pasta
+  amount: 80
+- ingredient: carrot
+  amount: 100
+- ingredient: onion
+  amount: 1
+- ingredient: potato
+  amount: 200
+- ingredient: greens
+  amount: 10
+  optional: true
+- ingredient: salt
+  amount: 2
+- ingredient: pepper
+  amount: 1
+steps:
+- Сварить курицу в 1,5 л воды 20 минут, снимая пену.
+- Добавить картофель, морковь и лук, варить 10 минут.
+- Положить пасту и варить, пока она не будет готова, посолить, посыпать зеленью.

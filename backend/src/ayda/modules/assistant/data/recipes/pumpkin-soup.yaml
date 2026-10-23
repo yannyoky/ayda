@@ -1,0 +1,27 @@
+id: pumpkin-soup
+title: Тыквенный суп-пюре
+meal: lunch
+minutes: 35
+servings: 2
+tags:
+- light
+- vegetarian-friendly
+ingredients:
+- ingredient: pumpkin
+  amount: 500
+- ingredient: onion
+  amount: 1
+- ingredient: carrot
+  amount: 100
+- ingredient: cream
+  amount: 100
+- ingredient: butter
+  amount: 15
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Обжарить лук на масле, добавить тыкву и морковь кубиками.
+- Залить водой так, чтобы покрыла овощи, варить 20 минут.
+- Пробить блендером, добавить сливки, посолить и прогреть.

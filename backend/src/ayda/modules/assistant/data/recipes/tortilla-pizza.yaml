@@ -1,0 +1,26 @@
+id: tortilla-pizza
+title: Пицца на лепёшке
+meal: dinner
+minutes: 20
+servings: 2
+tags:
+- quick
+- oven
+ingredients:
+- ingredient: tortilla
+  amount: 2
+- ingredient: tomato_paste
+  amount: 3
+- ingredient: cheese
+  amount: 120
+- ingredient: tomato
+  amount: 150
+- ingredient: mushrooms
+  amount: 100
+  optional: true
+- ingredient: herbs_dried
+  amount: 1
+steps:
+- Смазать лепёшки томатной пастой и посыпать травами.
+- Выложить тонкие кружки помидоров, грибы и тёртый сыр.
+- Выпекать 8 минут при 200 °C.

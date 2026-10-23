@@ -1,0 +1,28 @@
+id: greek-salad
+title: Греческий салат
+meal: lunch
+minutes: 10
+servings: 2
+tags:
+- quick
+- no-cook
+- vegetarian-friendly
+ingredients:
+- ingredient: tomato
+  amount: 300
+- ingredient: cucumber
+  amount: 250
+- ingredient: bell_pepper
+  amount: 1
+- ingredient: feta
+  amount: 100
+- ingredient: onion
+  amount: 1
+- ingredient: olive_oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+steps:
+- Нарезать помидоры, огурцы и перец крупными кусками, лук полукольцами.
+- Добавить брынзу кубиками.
+- Посолить и заправить маслом.

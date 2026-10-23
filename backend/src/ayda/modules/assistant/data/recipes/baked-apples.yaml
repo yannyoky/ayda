@@ -1,0 +1,23 @@
+id: baked-apples
+title: Печёные яблоки с творогом
+meal: dessert
+minutes: 30
+servings: 2
+tags:
+- light
+ingredients:
+- ingredient: apple
+  amount: 4
+- ingredient: cottage_cheese
+  amount: 150
+- ingredient: honey
+  amount: 2
+- ingredient: cinnamon
+  amount: 1
+- ingredient: walnuts
+  amount: 30
+  optional: true
+steps:
+- Вырезать у яблок сердцевину, оставив дно.
+- Смешать творог с мёдом и корицей и наполнить яблоки.
+- Запекать 20 минут при 180 °C до мягкости.

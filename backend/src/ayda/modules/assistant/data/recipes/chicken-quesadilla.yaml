@@ -1,0 +1,27 @@
+id: chicken-quesadilla
+title: Кесадилья с курицей и сыром
+meal: lunch
+minutes: 20
+servings: 2
+tags:
+- quick
+- one-pan
+ingredients:
+- ingredient: tortilla
+  amount: 4
+- ingredient: chicken_fillet
+  amount: 200
+- ingredient: cheese
+  amount: 120
+- ingredient: bell_pepper
+  amount: 1
+- ingredient: oil
+  amount: 1
+- ingredient: paprika
+  amount: 1
+- ingredient: salt
+  amount: 1
+steps:
+- Обжарить нарезанную курицу с перцем, паприкой и солью.
+- На половину лепёшки выложить сыр и начинку, сложить пополам.
+- Подрумянить на сухой сковороде по 2 минуты с каждой стороны.

@@ -1,0 +1,28 @@
+id: rice-veg-egg
+title: Рис с овощами и яйцом
+meal: dinner
+minutes: 25
+servings: 2
+tags:
+- quick
+- one-pan
+- cheap
+ingredients:
+- ingredient: rice
+  amount: 160
+- ingredient: eggs
+  amount: 2
+- ingredient: carrot
+  amount: 100
+- ingredient: bell_pepper
+  amount: 1
+- ingredient: corn_canned
+  amount: 100
+- ingredient: soy_sauce
+  amount: 2
+- ingredient: oil
+  amount: 2
+steps:
+- Сварить рис и дать ему остыть несколько минут.
+- Обжарить морковь и перец, добавить кукурузу и рис.
+- Сдвинуть в сторону, пожарить яйца, перемешать, добавить соевый соус.

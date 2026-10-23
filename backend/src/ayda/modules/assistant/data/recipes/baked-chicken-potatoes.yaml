@@ -1,0 +1,27 @@
+id: baked-chicken-potatoes
+title: Запечённая курица с картофелем
+meal: dinner
+minutes: 60
+servings: 2
+tags:
+- comfort
+- oven
+ingredients:
+- ingredient: chicken_legs
+  amount: 600
+- ingredient: potato
+  amount: 600
+- ingredient: garlic
+  amount: 3
+- ingredient: oil
+  amount: 3
+- ingredient: paprika
+  amount: 1
+- ingredient: salt
+  amount: 2
+- ingredient: pepper
+  amount: 1
+steps:
+- Смазать курицу маслом со специями, солью и чесноком, оставить на 15 минут.
+- Нарезать картофель дольками, посолить, смешать с маслом.
+- Запекать всё на противне при 200 °C 45 минут, один раз перевернув.

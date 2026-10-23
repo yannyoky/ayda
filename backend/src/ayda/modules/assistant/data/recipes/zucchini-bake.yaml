@@ -1,0 +1,29 @@
+id: zucchini-bake
+title: Запеканка из кабачков с сыром
+meal: dinner
+minutes: 45
+servings: 2
+tags:
+- oven
+- vegetarian-friendly
+ingredients:
+- ingredient: zucchini
+  amount: 500
+- ingredient: eggs
+  amount: 2
+- ingredient: cheese
+  amount: 100
+- ingredient: sour_cream
+  amount: 100
+- ingredient: flour
+  amount: 30
+- ingredient: garlic
+  amount: 1
+- ingredient: salt
+  amount: 1
+- ingredient: oil
+  amount: 1
+steps:
+- Натереть кабачки и отжать лишний сок.
+- Смешать с яйцами, сметаной, мукой, чесноком, солью и половиной сыра.
+- Выложить в форму, посыпать остальным сыром, запекать 30 минут при 190 °C.

@@ -1,0 +1,23 @@
+id: buckwheat-milk
+title: Гречневая каша с молоком
+meal: breakfast
+minutes: 25
+servings: 2
+tags:
+- cheap
+ingredients:
+- ingredient: buckwheat
+  amount: 120
+- ingredient: milk
+  amount: 300
+- ingredient: butter
+  amount: 15
+- ingredient: sugar
+  amount: 1
+  optional: true
+- ingredient: salt
+  amount: 1
+steps:
+- Промыть гречку и залить 250 мл воды, посолить.
+- Варить под крышкой 15 минут на слабом огне.
+- Подать с тёплым молоком и маслом.

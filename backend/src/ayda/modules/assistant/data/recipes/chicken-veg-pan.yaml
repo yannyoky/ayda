@@ -1,0 +1,30 @@
+id: chicken-veg-pan
+title: Куриное филе с овощами на сковороде
+meal: dinner
+minutes: 30
+servings: 2
+tags:
+- one-pan
+- light
+ingredients:
+- ingredient: chicken_fillet
+  amount: 350
+- ingredient: zucchini
+  amount: 250
+- ingredient: bell_pepper
+  amount: 1
+- ingredient: onion
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: soy_sauce
+  amount: 1
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Нарезать курицу кубиками и обжарить 6 минут.
+- Добавить лук, кабачок и перец кусочками, жарить ещё 8 минут.
+- Посолить, поперчить, при желании добавить соевый соус.

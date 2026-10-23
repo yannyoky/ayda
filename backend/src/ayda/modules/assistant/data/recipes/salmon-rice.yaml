@@ -1,0 +1,28 @@
+id: salmon-rice
+title: Лосось на сковороде с рисом
+meal: dinner
+minutes: 25
+servings: 2
+tags:
+- quick
+- light
+ingredients:
+- ingredient: salmon
+  amount: 300
+- ingredient: rice
+  amount: 160
+- ingredient: lemon
+  amount: 1
+- ingredient: oil
+  amount: 1
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+- ingredient: greens
+  amount: 10
+  optional: true
+steps:
+- Сварить рис.
+- Посолить рыбу и обжарить кожей вниз 4 минуты, перевернуть и жарить ещё 3 минуты.
+- Подать с рисом, лимоном и зеленью.

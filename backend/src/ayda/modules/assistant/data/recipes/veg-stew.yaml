@@ -1,0 +1,32 @@
+id: veg-stew
+title: Овощное рагу
+meal: dinner
+minutes: 40
+servings: 2
+tags:
+- cheap
+- vegetarian-friendly
+- one-pan
+ingredients:
+- ingredient: potato
+  amount: 300
+- ingredient: zucchini
+  amount: 250
+- ingredient: carrot
+  amount: 150
+- ingredient: cabbage
+  amount: 200
+- ingredient: onion
+  amount: 1
+- ingredient: tomato_paste
+  amount: 2
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Обжарить лук и морковь 5 минут.
+- Добавить нарезанные картофель, кабачок и капусту, томатную пасту и стакан воды.
+- Тушить под крышкой 25 минут.

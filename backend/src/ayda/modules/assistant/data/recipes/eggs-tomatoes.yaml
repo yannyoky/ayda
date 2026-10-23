@@ -1,0 +1,26 @@
+id: eggs-tomatoes
+title: Яичница с помидорами
+meal: breakfast
+minutes: 10
+servings: 2
+tags:
+- quick
+- one-pan
+ingredients:
+- ingredient: eggs
+  amount: 4
+- ingredient: tomato
+  amount: 200
+- ingredient: oil
+  amount: 1
+- ingredient: greens
+  amount: 10
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Нарезать помидоры и тушить на масле 3 минуты.
+- Влить яйца, посолить и поперчить.
+- Готовить под крышкой 4 минуты, посыпать зеленью.

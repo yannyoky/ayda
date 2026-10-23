@@ -1,0 +1,27 @@
+id: shrimp-garlic-pasta
+title: Паста с креветками и чесноком
+meal: dinner
+minutes: 20
+servings: 2
+tags:
+- quick
+ingredients:
+- ingredient: pasta
+  amount: 200
+- ingredient: shrimp
+  amount: 250
+- ingredient: garlic
+  amount: 3
+- ingredient: olive_oil
+  amount: 3
+- ingredient: lemon
+  amount: 1
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Сварить пасту.
+- На масле обжарить чеснок 30 секунд, добавить креветки и готовить 3 минуты.
+- Смешать с пастой, добавить сок лимона по вкусу.

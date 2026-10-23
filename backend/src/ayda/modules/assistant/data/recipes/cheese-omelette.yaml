@@ -1,0 +1,23 @@
+id: cheese-omelette
+title: Омлет с сыром
+meal: breakfast
+minutes: 10
+servings: 2
+tags:
+- quick
+- one-pan
+ingredients:
+- ingredient: eggs
+  amount: 4
+- ingredient: milk
+  amount: 80
+- ingredient: cheese
+  amount: 60
+- ingredient: butter
+  amount: 10
+- ingredient: salt
+  amount: 1
+steps:
+- Взбить яйца с молоком и щепоткой соли.
+- Растопить масло на сковороде и влить смесь.
+- Когда края схватятся, посыпать тёртым сыром, накрыть крышкой на 2 минуты.

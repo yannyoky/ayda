@@ -1,0 +1,30 @@
+id: chicken-plov
+title: Плов с курицей
+meal: dinner
+minutes: 50
+servings: 2
+tags:
+- comfort
+- one-pan
+ingredients:
+- ingredient: rice
+  amount: 200
+- ingredient: chicken_legs
+  amount: 400
+- ingredient: carrot
+  amount: 200
+- ingredient: onion
+  amount: 2
+- ingredient: garlic
+  amount: 3
+- ingredient: oil
+  amount: 3
+- ingredient: paprika
+  amount: 1
+- ingredient: salt
+  amount: 2
+steps:
+- Обжарить курицу в казане или глубокой сковороде до корочки, добавить лук и морковь соломкой, жарить
+  7 минут.
+- Всыпать промытый рис, добавить чеснок, специи и соль, залить горячей водой на 1,5 см выше риса.
+- Готовить под крышкой на слабом огне 25 минут, дать постоять 10 минут.

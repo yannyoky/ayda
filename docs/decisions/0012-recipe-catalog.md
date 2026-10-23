@@ -13,3 +13,5 @@ The M5 cooking quest (#125) needs recipes with exact ingredients: the app asks w
 
 ## Consequences
 The licence is clean and the shopping hand-off needs no text parsing. Variety grows with the work of writing recipes, so the first release is small. A later user-recipes feature and Open Food Facts for packaged products fit the same schema. Fixing the unit and aisle lists is part of #125.
+
+**Update (#125):** the catalog is not copied into the database. The `assistant` module loads the YAML files into memory once (`modules/assistant/recipes.py`, data in `modules/assistant/data/`), validates them with pydantic on load and in tests, and the cooking plan stores only recipe ids and the generated checklist. Recipes change with a release, so a table would only add a migration step.

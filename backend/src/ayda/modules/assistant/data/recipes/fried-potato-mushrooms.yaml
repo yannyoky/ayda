@@ -1,0 +1,29 @@
+id: fried-potato-mushrooms
+title: Жареная картошка с грибами
+meal: dinner
+minutes: 35
+servings: 2
+tags:
+- cheap
+- one-pan
+- vegetarian-friendly
+ingredients:
+- ingredient: potato
+  amount: 600
+- ingredient: mushrooms
+  amount: 250
+- ingredient: onion
+  amount: 1
+- ingredient: oil
+  amount: 3
+- ingredient: greens
+  amount: 10
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Обжарить нарезанный картофель на масле до корочки, около 12 минут.
+- В отдельной сковороде обжарить лук с грибами.
+- Соединить, посолить, поперчить, довести 3 минуты, посыпать зеленью.

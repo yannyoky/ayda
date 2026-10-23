@@ -1,0 +1,28 @@
+id: buckwheat-mushrooms
+title: Гречка с грибами и луком
+meal: dinner
+minutes: 30
+servings: 2
+tags:
+- cheap
+- vegetarian-friendly
+ingredients:
+- ingredient: buckwheat
+  amount: 150
+- ingredient: mushrooms
+  amount: 300
+- ingredient: onion
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: butter
+  amount: 15
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Отварить гречку в двух объёмах воды 15 минут.
+- Обжарить лук, добавить грибы и жарить до испарения влаги, около 10 минут.
+- Смешать с гречкой, добавить масло.

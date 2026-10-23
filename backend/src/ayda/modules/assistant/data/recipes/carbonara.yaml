@@ -1,0 +1,24 @@
+id: carbonara
+title: Паста карбонара
+meal: dinner
+minutes: 25
+servings: 2
+tags:
+- comfort
+ingredients:
+- ingredient: pasta
+  amount: 200
+- ingredient: bacon
+  amount: 120
+- ingredient: eggs
+  amount: 2
+- ingredient: cheese
+  amount: 60
+- ingredient: pepper
+  amount: 2
+- ingredient: salt
+  amount: 1
+steps:
+- Сварить пасту, оставив полстакана воды от варки.
+- Обжарить бекон до румяности. Смешать яйца с тёртым сыром и перцем.
+- Снять сковороду с огня, соединить пасту, бекон и яичную смесь, разбавляя водой до кремовой консистенции.

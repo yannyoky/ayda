@@ -1,0 +1,25 @@
+id: syrniki
+title: Сырники
+meal: breakfast
+minutes: 25
+servings: 2
+tags:
+- comfort
+ingredients:
+- ingredient: cottage_cheese
+  amount: 300
+- ingredient: eggs
+  amount: 1
+- ingredient: flour
+  amount: 50
+- ingredient: sugar
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: sour_cream
+  amount: 60
+  optional: true
+steps:
+- Смешать творог, яйцо, сахар и половину муки до плотной массы.
+- Сформировать лепёшки и обвалять в оставшейся муке.
+- Обжарить на масле по 3 минуты с каждой стороны, подавать со сметаной.

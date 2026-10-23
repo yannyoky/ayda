@@ -1,0 +1,29 @@
+id: cabbage-sausage-skillet
+title: Тушёная капуста с курицей
+meal: dinner
+minutes: 40
+servings: 2
+tags:
+- cheap
+- one-pan
+ingredients:
+- ingredient: cabbage
+  amount: 500
+- ingredient: chicken_fillet
+  amount: 250
+- ingredient: carrot
+  amount: 100
+- ingredient: onion
+  amount: 1
+- ingredient: tomato_paste
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Обжарить курицу кусочками с луком и морковью.
+- Добавить шинкованную капусту и томатную пасту, влить полстакана воды.
+- Тушить под крышкой 25 минут, посолить и поперчить.
