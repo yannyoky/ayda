@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '../api/client'
 import { useAnswerCoop, useCoop, useMe, useToday } from '../api/queries'
 import { answerErrorText } from '../features/coop/errors'
+import { PartsPlan } from '../features/coop/PartsPlan'
 import { t } from '../i18n'
 import { useBackButton } from '../telegram/useBackButton'
 import { haptic } from '../telegram/webapp'
@@ -90,6 +91,8 @@ export function CoopScreen() {
         </ul>
       </section>
 
+      {c.kind === 'parts' && c.my_status !== 'invited' && c.my_status !== 'declined' && <PartsPlan coop={c} meId={me.data?.id} />}
+
       {answer.isError && (
         <p role="alert" className="m-0 rounded-card bg-surface p-4 text-sm font-bold">
           {answerErrorText(answer.error)}
@@ -116,7 +119,9 @@ export function CoopScreen() {
             </div>
           ))}
         {c.my_status === 'declined' && <p className="m-0 text-center text-sm font-bold text-muted">{t.coop.declined}</p>}
-        {myQuest?.state === 'taken' && <PrimaryButton onClick={() => navigate(`/quest/${myQuest.id}/done`)}>{t.coop.complete}</PrimaryButton>}
+        {c.kind !== 'parts' && myQuest?.state === 'taken' && (
+          <PrimaryButton onClick={() => navigate(`/quest/${myQuest.id}/done`)}>{t.coop.complete}</PrimaryButton>
+        )}
         {c.conversation_id && (
           <Link
             to={`/chats/${c.conversation_id}`}
