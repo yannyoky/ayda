@@ -62,7 +62,7 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
         <h2 id="quests-title" className="m-0 font-display text-base font-bold">
           {t.today.questsTitle}
         </h2>
-        <span className="text-[13px] font-bold text-muted">{t.today.takenOf(day.limits.taken, day.limits.max_taken)}</span>
+        <span className="text-[13px] font-bold text-muted">{t.today.scoredOf(day.limits.scored, day.limits.max_scored)}</span>
       </div>
       {weather && day.pool_status !== 'none' && (
         <span className="pb-1 text-xs font-semibold text-muted">{t.today.weather(weather.temperature_c, t.today.conditions[weather.condition])}</span>
@@ -98,7 +98,7 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
               to="/pick"
               className="flex h-12 flex-1 items-center justify-center gap-2 rounded-field bg-plate text-[15px] font-extrabold text-on-plate no-underline"
             >
-              {mine.length > 0 ? t.today.pickMore(left) : t.today.pickCta}
+              {mine.length > 0 ? t.today.pickMore : t.today.pickCta}
               <Icon name="arrow" size={18} strokeWidth={2.4} />
             </Link>
           )}

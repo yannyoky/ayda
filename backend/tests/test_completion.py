@@ -212,3 +212,21 @@ async def test_ledger_is_append_only(client: httpx.AsyncClient, database: Databa
             assert "append-only" in str(exc)
         else:
             raise AssertionError("ledger update was allowed")
+
+
+async def test_only_the_first_five_completed_quests_bring_points(
+    client: httpx.AsyncClient,
+) -> None:
+    user = await onboarded(client)
+    awarded = []
+    for _ in range(7):  # more than the old limit of 3: taking has no real limit now
+        quest_id = await own_quest(client, user, duration=30)
+        response = await complete(client, user, quest_id, visibility="personal")
+        assert response.status_code == 200, response.text
+        awarded.append(response.json()["points_awarded"])
+    assert awarded == [10] * 5 + [0, 0]
+
+    day = (await client.get("/days/today", headers=user.headers)).json()
+    assert day["points_today"] == 50 and day["streak"]["current_days"] == 1
+    assert day["limits"]["taken"] == 7
+    assert (day["limits"]["scored"], day["limits"]["max_scored"]) == (5, 5)

@@ -1,4 +1,13 @@
 // Russian UI strings. Every user-facing string lives here (PRD: strings in translation files).
+// Local copy of the plural rule: index.ts imports this file.
+function questWord(n: number): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return 'квест'
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'квеста'
+  return 'квестов'
+}
+
 export const ru = {
   appName: 'Ayda',
   nav: {
@@ -27,11 +36,11 @@ export const ru = {
     week: 'За неделю',
     todayPoints: (n: number) => `сегодня +${n}`,
     questsTitle: 'Квесты дня',
-    takenOf: (taken: number, max: number) => `${taken} из ${max}`,
+    scoredOf: (scored: number, max: number) => `очки за ${scored} из ${max}`,
     generating: 'Собираем квесты под твой день…',
     poolFailed: 'Помощник не ответил, показали квесты попроще',
     pickCta: 'Выбрать квесты',
-    pickMore: (n: number) => `Можно взять ещё ${n}`,
+    pickMore: 'Взять ещё',
     noneTaken: 'Пока ничего не взято',
     own: 'Свой квест',
     done: 'Готово',
@@ -76,9 +85,10 @@ export const ru = {
   },
   pick: {
     title: 'Квесты на сегодня',
-    subtitle: (n: number) => (n > 0 ? `Собраны под твой день · выбери до ${n}` : 'Лимит на сегодня набран'),
+    subtitle: (left: number, maxScored: number) =>
+      left > 0 ? `Собраны под твой день · бери сколько хочешь, очки за первые ${maxScored}` : 'На сегодня квестов уже много',
     close: 'Закрыть',
-    take: (n: number) => (n === 0 ? 'Выбери квесты' : `Взять ${n} ${n === 1 ? 'квест' : 'квеста'}`),
+    take: (n: number) => (n === 0 ? 'Выбери квесты' : `Взять ${n} ${questWord(n)}`),
     notToday: 'Не сегодня',
     notTodayFor: (title: string) => `Не сегодня: ${title}`,
     reasonTitle: 'Почему не подходит?',
@@ -129,7 +139,7 @@ export const ru = {
     category: 'Категория',
     duration: 'Сколько времени',
     add: 'Добавить',
-    limit: 'Уже взято три квеста на сегодня',
+    limit: 'На сегодня взято слишком много квестов',
   },
   feed: {
     title: 'Лента',
@@ -259,7 +269,7 @@ export const ru = {
     complete: 'Отметить выполнение',
     declined: 'Ты отказался от этого квеста',
     over: 'Этот совместный квест уже закончился',
-    limit: 'Сегодня уже взято 3 квеста',
+    limit: 'На сегодня взято слишком много квестов',
     answered: 'Ты уже ответил на это приглашение',
     notFound: 'Совместный квест не найден',
     plan: {

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { coopKey } from '../api/queries'
 import { launchPath } from '../app/launch'
-import { db } from '../mocks/db'
+import { db, MAX_TAKEN } from '../mocks/db'
 import { handleRealtimeEvent } from '../realtime/realtime'
 import { renderApp } from '../test/render'
 
@@ -70,12 +70,12 @@ describe('Co-op quests (US-18)', () => {
     expect(await screen.findByText('Ты отказался от этого квеста')).toBeInTheDocument()
   })
 
-  it('shows the daily limit when accepting', async () => {
+  it('shows the abuse guard when accepting', async () => {
     const user = userEvent.setup()
-    for (const title of ['Один', 'Два', 'Три']) db.addOwn({ title, category: 'project', duration_min: 30 })
+    for (let i = 0; i < MAX_TAKEN; i++) db.addOwn({ title: `Квест ${i + 1}`, category: 'project', duration_min: 30 })
     renderApp(`/coops/${db.coops[0]!.id}`)
     await user.click(await screen.findByRole('button', { name: 'Принять' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Сегодня уже взято 3 квеста')
+    expect(await screen.findByRole('alert')).toHaveTextContent('На сегодня взято слишком много квестов')
   })
 
   it('reloads a co-op on a realtime update', () => {

@@ -53,7 +53,8 @@ class CompleteViewModelTest {
     private val day =
         ApiJson.decodeFromString<Day>(
             """{"local_date":"2026-10-17","checkin":null,"pool_status":"ready","quests":[$quest],""" +
-                """"limits":{"taken":1,"max_taken":3,"replacements_left":5},"points_today":0,"points_week":0,""" +
+                """"limits":{"taken":1,"max_taken":30,"scored":0,"max_scored":5,"replacements_left":5},""" +
+                """"points_today":0,"points_week":0,""" +
                 """"streak":{"current_days":13,"best_days":13,"freeze_available":true}}""",
         )
 

@@ -6,7 +6,7 @@ from ayda.modules.quests.day_service import DayError
 PROBLEMS: dict[str, tuple[int, str]] = {
     "quest-not-found": (404, "Такого квеста сегодня нет"),
     "quest-not-offered": (409, "Этот квест уже не предлагается"),
-    "daily-limit-reached": (409, "Сегодня уже взято 3 квеста"),
+    "daily-limit-reached": (409, "Сегодня взято слишком много квестов"),
     "no-replacements-left": (409, "Замены на сегодня закончились"),
     "too-many-checkins": (429, "Слишком много чек-инов за день"),
     "quest-not-taken": (409, "Сначала возьми этот квест"),

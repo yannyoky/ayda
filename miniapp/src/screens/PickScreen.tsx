@@ -12,7 +12,7 @@ import { Icon } from '../ui/Icon'
 import { Sheet } from '../ui/Sheet'
 import { Splash } from '../ui/states'
 
-/** Quest picker (US-07): take up to the daily limit, swap what does not fit. */
+/** Quest picker (US-07): take any number (points for the first few completed), swap what does not fit. */
 export function PickScreen() {
   const navigate = useNavigate()
   const today = useToday()
@@ -66,7 +66,7 @@ export function PickScreen() {
       <header className="flex items-start justify-between gap-3 px-1">
         <div className="flex flex-col gap-1">
           <h1 className="m-0 font-display text-2xl font-bold tracking-[-0.5px]">{t.pick.title}</h1>
-          <span className="text-[13px] font-semibold text-muted">{t.pick.subtitle(left)}</span>
+          <span className="text-[13px] font-semibold text-muted">{t.pick.subtitle(left, day.limits.max_scored)}</span>
         </div>
         <button type="button" aria-label={t.pick.close} onClick={back} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
           <Icon name="close" size={20} strokeWidth={2.2} />

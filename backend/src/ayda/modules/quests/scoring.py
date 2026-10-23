@@ -21,7 +21,10 @@ class ScoringConfig:
     streak_step_days: int = 7
     streak_step_bonus: float = 0.1
     streak_max_bonus: float = 0.3
-    max_taken_per_day: int = 3
+    # No real limit on taking quests (owner, 2026-10-23, #165); this only guards against
+    # abuse. Points count for the first `max_scored_per_day` completed quests of a day.
+    max_taken_per_day: int = 30
+    max_scored_per_day: int = 5
     max_replacements_per_day: int = 5
     # Each participant of a co-op quest gets this share of their quest points once all
     # who joined have completed it.

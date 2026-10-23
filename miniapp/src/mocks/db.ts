@@ -9,7 +9,9 @@ type Comment = Schemas['Comment']
 type Friend = Schemas['Friend']
 type Visibility = Schemas['Visibility']
 
-export const MAX_TAKEN = 3
+// No real limit on taking (owner, 2026-10-23): a guard of 30, points for the first 5 completed.
+export const MAX_TAKEN = 30
+export const MAX_SCORED = 5
 export const MAX_REPLACEMENTS = 5
 
 export function uuid(): string {
@@ -675,7 +677,13 @@ export class MockDb {
       pool_status: this.poolStatus,
       weather: { temperature_c: 9, condition: 'clear' },
       quests: this.quests.filter((q) => q.state !== 'replaced').map(publicQuest),
-      limits: { taken: this.takenCount(), max_taken: MAX_TAKEN, replacements_left: this.replacementsLeft },
+      limits: {
+        taken: this.takenCount(),
+        max_taken: MAX_TAKEN,
+        scored: this.scoredCount(),
+        max_scored: MAX_SCORED,
+        replacements_left: this.replacementsLeft,
+      },
       points_today: this.pointsToday,
       points_week: this.pointsWeek,
       streak: this.streak,
@@ -764,6 +772,10 @@ export class MockDb {
     return publicQuest(q)
   }
 
+  scoredCount(): number {
+    return this.quests.filter((x) => x.state === 'completed' && (x.points_awarded ?? 0) > 0).length
+  }
+
   complete(q: StoredQuest, input: Schemas['CompleteQuestInput']): Schemas['Completion'] {
     const firstToday = this.quests.every((x) => x.state !== 'completed')
     if (firstToday) {
@@ -775,7 +787,7 @@ export class MockDb {
     }
     const vm = VISIBILITY_MULTIPLIER[input.visibility]
     const sm = streakMultiplier(this.streak.current_days)
-    const points = Math.round(q.base_points * vm * sm)
+    const points = this.scoredCount() >= MAX_SCORED ? 0 : Math.round(q.base_points * vm * sm)
     q.state = 'completed'
     q.visibility = input.visibility
     // The last one of a co-op brings everyone +50%

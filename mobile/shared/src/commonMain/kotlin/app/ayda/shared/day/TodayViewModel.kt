@@ -84,7 +84,7 @@ data class TodayState(
 
 /**
  * The Today screen and the quest picker (US-05..US-08, US-19): morning check-in, the daily
- * pool, taking up to the limit, "not today" swaps with a reason and own quests.
+ * pool, taking any number of quests, "not today" swaps with a reason and own quests.
  */
 class TodayViewModel(
     private val client: AydaClient,
@@ -281,6 +281,6 @@ class TodayViewModel(
         val DURATIONS = listOf(15, 30, 45, 60, 90)
         private val POLL_EVERY = 1500.milliseconds
         private const val CONFLICT = 409
-        private const val LIMIT_REACHED = "Уже взято три квеста на сегодня"
+        private const val LIMIT_REACHED = "На сегодня взято слишком много квестов"
     }
 }

@@ -4,6 +4,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
@@ -107,7 +108,13 @@ async def test_today_before_checkin(app: FastAPI, client: httpx.AsyncClient) -> 
     assert_matches(response, "getToday")
     day = response.json()
     assert day["pool_status"] == "none" and day["checkin"] is None and day["quests"] == []
-    assert day["limits"] == {"taken": 0, "max_taken": 3, "replacements_left": 5}
+    assert day["limits"] == {
+        "taken": 0,
+        "max_taken": 30,
+        "scored": 0,
+        "max_scored": 5,
+        "replacements_left": 5,
+    }
 
 
 async def test_checkin_with_llm_builds_ranked_pool(
@@ -161,6 +168,7 @@ async def test_checkin_without_llm_uses_code_and_weather(
     assert shown["provider"] == "code" and shown["weather"] == "rain"
 
 
+@pytest.mark.usefixtures("take_guard_of_3")
 async def test_take_limit_and_states(app: FastAPI, client: httpx.AsyncClient) -> None:
     use_tools(app, [], forecast())
     user = await onboarded(client)
@@ -246,6 +254,7 @@ async def test_repeat_checkin_keeps_taken_quests(app: FastAPI, client: httpx.Asy
     assert day["quests"][0]["id"] == first[0]["id"]
 
 
+@pytest.mark.usefixtures("take_guard_of_3")
 async def test_own_quest_is_taken_and_counts(app: FastAPI, client: httpx.AsyncClient) -> None:
     user = await onboarded(client)
 

@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 
 from ayda.app import coop as coop_app
@@ -134,6 +135,7 @@ async def test_coop_quest_with_shared_chat_and_bonus(
         ]
 
 
+@pytest.mark.usefixtures("take_guard_of_3")
 async def test_coop_rules(
     client: httpx.AsyncClient, realtime: FakeRealtime, database: Database
 ) -> None:
