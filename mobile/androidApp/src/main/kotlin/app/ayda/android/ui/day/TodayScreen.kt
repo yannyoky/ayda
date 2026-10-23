@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -520,47 +519,78 @@ private fun QuestRow(
                     quest.why,
                 ).joinToString(" · ")
         }
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    // The title gets the whole width; the buttons sit on their own line under the text.
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (completed) {
-            Box(
-                Modifier.size(44.dp).background(colors.plate, MaterialTheme.shapes.small),
-                contentAlignment = Alignment.Center,
-            ) { AydaIcon(R.drawable.ic_check, colors.onPlate) }
-        } else {
-            CategoryTile(quest.category)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (completed) {
+                Box(
+                    Modifier.size(44.dp).background(colors.plate, MaterialTheme.shapes.small),
+                    contentAlignment = Alignment.Center,
+                ) { AydaIcon(R.drawable.ic_check, colors.onPlate) }
+            } else {
+                CategoryTile(quest.category)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    quest.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (completed || expired) colors.muted else colors.ink,
+                    textDecoration = if (completed || expired) TextDecoration.LineThrough else null,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    meta,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.muted,
+                    maxLines = if (event != null) 3 else 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (event != null && !completed && !expired) EventLink(event)
+            }
+            if (quest.state != QuestState.taken) {
+                Text(
+                    stringResource(R.string.quest_points, quest.pointsAwarded ?: quest.basePoints),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
-        Column(Modifier.weight(1f)) {
-            Text(
-                quest.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (completed || expired) colors.muted else colors.ink,
-                textDecoration = if (completed || expired) TextDecoration.LineThrough else null,
-            )
-            Text(
-                meta,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.muted,
-                maxLines = if (event != null) 3 else 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (event != null && !completed && !expired) EventLink(event)
-        }
-        coopButton()
         if (quest.state == QuestState.taken) {
-            Button(
-                onClick = onDone,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
-            ) { Text(stringResource(R.string.today_done), style = MaterialTheme.typography.titleMedium) }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                Text(
+                    stringResource(R.string.quest_points, quest.basePoints),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.muted,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.weight(1f).padding(start = 56.dp),
+                )
+                coopButton()
+                Button(
+                    onClick = onDone,
+                    shape = MaterialTheme.shapes.medium,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = colors.accent,
+                            contentColor = colors.onAccent,
+                        ),
+                ) { Text(stringResource(R.string.today_done), style = MaterialTheme.typography.titleMedium) }
+            }
         } else {
-            Text(
-                stringResource(R.string.quest_points, quest.pointsAwarded ?: quest.basePoints),
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { coopButton() }
         }
     }
 }
