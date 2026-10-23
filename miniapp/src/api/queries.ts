@@ -160,7 +160,11 @@ export function useSubmitCheckin() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (body: Schemas['CheckinInput']) => unwrap(api.PUT('/days/today/checkin', { body })),
-    onSuccess: (day) => client.setQueryData(dayKey, day),
+    onSuccess: (day) => {
+      client.setQueryData(dayKey, day)
+      // The check-in is the first message of the day chat
+      void client.invalidateQueries({ queryKey: assistantKey(null) })
+    },
   })
 }
 
@@ -575,5 +579,31 @@ export function usePlanRecipe() {
     mutationFn: ({ recipeId, ...body }: Schemas['RecipePlanInput'] & { recipeId: string }) =>
       unwrap(api.POST('/recipes/{recipe_id}/plan', { params: { path: { recipe_id: recipeId } }, body })),
     onSuccess: (coop) => storeCoop(client, coop),
+  })
+}
+
+// ---- assistant chat: the day topic and one topic per quest (ADR 0013) ----
+
+export const assistantKey = (questId: string | null) => ['assistant', questId ?? 'day'] as const
+
+export function useAssistantThread(questId: string | null) {
+  return useQuery({
+    queryKey: assistantKey(questId),
+    queryFn: () => unwrap(api.GET('/assistant/messages', { params: { query: questId ? { quest_id: questId } : {} } })),
+  })
+}
+
+export function useSendAssistantMessage(questId: string | null) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (text: string) => unwrap(api.POST('/assistant/messages', { body: questId ? { text, quest_id: questId } : { text } })),
+    onSuccess: (exchange) => {
+      client.setQueryData<Schemas['AssistantThread']>(assistantKey(questId), (thread) => ({
+        items: [...(thread?.items ?? []), exchange.sent, exchange.reply],
+        messages_left: exchange.messages_left,
+      }))
+      // A suggested quest lands in today's pool
+      if (exchange.reply.cards.some((c) => c.quest)) void client.invalidateQueries({ queryKey: dayKey })
+    },
   })
 }

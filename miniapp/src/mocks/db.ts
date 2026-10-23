@@ -13,6 +13,8 @@ type Visibility = Schemas['Visibility']
 export const MAX_TAKEN = 30
 export const MAX_SCORED = 5
 export const MAX_REPLACEMENTS = 5
+export const ASSISTANT_DAILY_LIMIT = 40
+export const ASSISTANT_REPLY_CHECKIN = 'Записала твой план и собираю квесты. Пиши, если хочешь что-то обсудить: места, блюда, идеи на вечер.'
 
 export function uuid(): string {
   return globalThis.crypto?.randomUUID?.() ?? `00000000-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, '0')}`
@@ -121,6 +123,8 @@ export interface MockOptions {
   withFriends?: boolean
   /** How long the check-in request itself takes (the server parses the text first). */
   checkinDelayMs?: number
+  /** How long the assistant takes to answer a chat message. */
+  assistantDelayMs?: number
 }
 
 export class MockDb {
@@ -144,15 +148,19 @@ export class MockDb {
   private nextMessageId = 1
   poolDelayMs = 1200
   checkinDelayMs = 0
+  assistantDelayMs = 0
+  assistantMessages: Schemas['AssistantMessage'][] = []
   deletionRequested = false
 
   constructor(options: MockOptions = {}) {
     this.reset(options)
   }
 
-  reset({ onboarded = false, poolDelayMs = 1200, withFriends = true, checkinDelayMs = 0 }: MockOptions = {}): void {
+  reset({ onboarded = false, poolDelayMs = 1200, withFriends = true, checkinDelayMs = 0, assistantDelayMs = 0 }: MockOptions = {}): void {
     this.poolDelayMs = poolDelayMs
     this.checkinDelayMs = checkinDelayMs
+    this.assistantDelayMs = assistantDelayMs
+    this.assistantMessages = []
     this.me = {
       id: uuid(),
       first_name: 'Саша',
@@ -669,6 +677,63 @@ export class MockDb {
 
   // ---- day ----
 
+  addAssistantMessage(
+    role: Schemas['AssistantMessage']['role'],
+    text: string,
+    questId: string | null,
+    source: Schemas['AssistantMessage']['source'] = null,
+    cards: Schemas['AssistantCard'][] = [],
+  ): Schemas['AssistantMessage'] {
+    const message = { id: uuid(), role, text, quest_id: questId, source, cards, created_at: new Date().toISOString() }
+    this.assistantMessages.push(message)
+    return message
+  }
+
+  assistantLeft(): number {
+    return Math.max(ASSISTANT_DAILY_LIMIT - this.assistantMessages.filter((m) => m.role === 'user').length, 0)
+  }
+
+  assistantThread(questId: string | null): Schemas['AssistantThread'] {
+    return { items: this.assistantMessages.filter((m) => m.quest_id === questId), messages_left: this.assistantLeft() }
+  }
+
+  /** A keyword stand-in for the assistant: the same cards code builds on the server. */
+  sendAssistant(text: string, questId: string | null): Schemas['AssistantExchange'] {
+    const sent = this.addAssistantMessage('user', text, questId)
+    const lowered = text.toLowerCase()
+    const card = (fields: Partial<Schemas['AssistantCard']> & Pick<Schemas['AssistantCard'], 'kind'>): Schemas['AssistantCard'] => ({
+      places: [],
+      recipes: [],
+      quest: null,
+      note: null,
+      attribution: null,
+      ...fields,
+    })
+    let reply = 'Хороший вопрос. Попробуй начать с малого и сделать перерыв, когда устанешь.'
+    let cards: Schemas['AssistantCard'][] = []
+    if (/приготов|рецепт|меню|из продукт/.test(lowered)) {
+      reply = 'Вот что можно приготовить.'
+      cards = [card({ kind: 'dishes', recipes: sampleRecipes.slice(0, 3).map((r) => ({ ...r.card, why: 'Есть дома: 2 из 3' })), note: 'Аллергены указаны по рецепту. Состав покупных продуктов проверяй сам.' })]
+    } else if (/гуля|прогул|парк|мест/.test(lowered)) {
+      reply = 'Вот где можно погулять.'
+      cards = [card({ kind: 'places', places: sampleWalkPlaces.map((p, i) => mockPlace(p, i + 10)), attribution: '© OpenStreetMap contributors' })]
+    } else if (/ресторан|кафе|поесть|поужина/.test(lowered)) {
+      reply = 'Вот места, где можно поесть.'
+      cards = [card({ kind: 'places', places: sampleVenues.map((v, i) => mockPlace(v, i + 1)), attribution: '© OpenStreetMap contributors' })]
+    } else if (/квест|идею|придумай/.test(lowered)) {
+      reply = 'Вот идея на сегодня, бери, если нравится.'
+      const q: StoredQuest = {
+        ...newQuest({ title: 'Пройти 3 км по набережной', category: 'walk', duration_min: 45, outdoor: true, why: 'Придумали вместе с помощником' }),
+        source: 'custom',
+        catalogIndex: null,
+      }
+      this.quests.push(q)
+      cards = [card({ kind: 'quest', quest: publicQuest(q) })]
+    }
+    const answer = this.addAssistantMessage('assistant', reply, questId, 'llm', cards)
+    return { sent, reply: answer, messages_left: this.assistantLeft() }
+  }
+
   day(): Schemas['Day'] {
     if (this.poolStatus === 'generating' && Date.now() >= this.poolReadyAt) this.buildPool()
     return {
@@ -696,6 +761,9 @@ export class MockDb {
 
   submitCheckin(input: Schemas['CheckinInput']): void {
     this.checkin = { text: input.text ?? '', mood: input.mood, submitted_at: new Date().toISOString() }
+    // The check-in opens the day chat with the assistant (ADR 0013)
+    if (input.text?.trim()) this.addAssistantMessage('user', input.text.trim(), null)
+    this.addAssistantMessage('assistant', ASSISTANT_REPLY_CHECKIN, null, 'code')
     // Quests not taken yet are rebuilt; taken and completed stay
     this.quests = this.quests.filter((q) => q.state === 'taken' || q.state === 'completed')
     this.poolStatus = 'generating'
@@ -954,6 +1022,25 @@ function eventQuest(e: (typeof sampleEvents)[number]): StoredQuest {
     source: 'event',
     event: { ...info, starts_at: starts.toISOString(), ends_at: new Date(starts.getTime() + 2 * 3600_000).toISOString() },
     catalogIndex: null,
+  }
+}
+
+const sampleWalkPlaces: { name: string; kind: Schemas['AssistantPlace']['kind']; address: string | null; distance_m: number }[] = [
+  { name: 'Центральный парк', kind: 'park', address: null, distance_m: 1200 },
+  { name: 'Набережная Ветеранов', kind: 'embankment', address: null, distance_m: 800 },
+]
+
+function mockPlace(p: { name: string; kind: Schemas['AssistantPlace']['kind']; address: string | null; distance_m: number; open_now?: boolean | null }, id: number): Schemas['AssistantPlace'] {
+  return {
+    id,
+    name: p.name,
+    kind: p.kind,
+    address: p.address,
+    distance_m: p.distance_m,
+    open_now: p.open_now ?? null,
+    osm_url: `https://www.openstreetmap.org/node/${id}`,
+    gis_url: `https://2gis.ru/search/${encodeURIComponent(p.name)}`,
+    yandex_url: `https://yandex.ru/maps/?text=${encodeURIComponent(p.name)}`,
   }
 }
 

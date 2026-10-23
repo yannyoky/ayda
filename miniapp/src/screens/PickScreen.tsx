@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
 import { useReplaceQuest, useTakeQuests, useToday } from '../api/queries'
 import { eventSummary } from '../features/day/event'
@@ -188,6 +188,14 @@ function QuestCard({
         </span>
       </button>
       {quest.event && <EventLink event={quest.event} title={quest.title} variant="card" />}
+      <Link
+        to={`/assistant?quest=${quest.id}`}
+        aria-label={t.assistant.discussQuest(quest.title)}
+        className={`mx-2 mb-1 flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-extrabold no-underline ${selected ? 'text-on-accent' : 'text-ink'} bg-[rgb(0_0_0/0.06)]`}
+      >
+        <Icon name="chat" size={14} strokeWidth={2.4} />
+        {t.assistant.discuss}
+      </Link>
       {canReplace && (
         <button
           type="button"
