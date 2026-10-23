@@ -11,7 +11,7 @@ from ayda.modules.auth.refresh import revoke_user_refresh_tokens
 from ayda.modules.auth.telegram import TelegramUser
 
 # Version of the personal data processing consent the user must accept (docs/privacy).
-CURRENT_CONSENT_VERSION = "2026-10-16"
+CURRENT_CONSENT_VERSION = "2026-10-23"
 
 
 async def upsert_telegram_user(session: AsyncSession, tg: TelegramUser) -> tuple[User, bool]:

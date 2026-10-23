@@ -56,7 +56,7 @@ async def test_first_sign_in_creates_user_and_later_finds_it(client: httpx.Async
     body = first.json()
     assert body["user"]["first_name"] == "Саша"
     assert body["user"]["onboarded"] is False
-    assert body["user"]["consent_required"] == "2026-10-16"
+    assert body["user"]["consent_required"] == "2026-10-23"
     assert body["user"]["theme"] == "graphite"
 
     second = await client.post("/auth/telegram", json={"init_data": make_init_data(7, "Саня")})

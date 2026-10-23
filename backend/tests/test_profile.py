@@ -55,10 +55,10 @@ async def test_onboarding_flow(client: httpx.AsyncClient) -> None:
     assert blocked.status_code == 409
     assert_matches(blocked, "completeOnboarding")
 
-    consent = await client.post("/me/consents", json={"version": "2026-10-16"}, headers=h)
+    consent = await client.post("/me/consents", json={"version": "2026-10-23"}, headers=h)
     assert consent.status_code == 204
     assert_matches(consent, "acceptConsent")
-    again = await client.post("/me/consents", json={"version": "2026-10-16"}, headers=h)
+    again = await client.post("/me/consents", json={"version": "2026-10-23"}, headers=h)
     assert again.status_code == 204
 
     no_city = await client.post("/me/onboarding/complete", headers=h)
