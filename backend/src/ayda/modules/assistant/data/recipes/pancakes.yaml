@@ -1,0 +1,27 @@
+id: pancakes
+title: Блины на молоке
+meal: breakfast
+minutes: 35
+servings: 2
+tags:
+- comfort
+ingredients:
+- ingredient: flour
+  amount: 150
+- ingredient: milk
+  amount: 300
+- ingredient: eggs
+  amount: 2
+- ingredient: sugar
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: sour_cream
+  amount: 80
+  optional: true
+steps:
+- Взбить яйца с молоком, сахаром и солью, добавить муку и масло, размешать без комков.
+- Дать тесту постоять 10 минут.
+- Печь на разогретой сковороде по минуте с каждой стороны.

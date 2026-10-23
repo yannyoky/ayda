@@ -1,0 +1,30 @@
+id: tuna-bean-salad
+title: Салат с тунцом и фасолью
+meal: lunch
+minutes: 10
+servings: 2
+tags:
+- quick
+- no-cook
+ingredients:
+- ingredient: tuna_canned
+  amount: 150
+- ingredient: beans_canned
+  amount: 200
+- ingredient: tomato
+  amount: 200
+- ingredient: onion
+  amount: 1
+- ingredient: olive_oil
+  amount: 2
+- ingredient: lemon
+  amount: 1
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Слить жидкость с фасоли и тунца.
+- Смешать с нарезанными помидорами и тонкими полукольцами лука.
+- Заправить маслом, лимоном, солью и перцем.

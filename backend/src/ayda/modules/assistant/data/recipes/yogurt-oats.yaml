@@ -1,0 +1,22 @@
+id: yogurt-oats
+title: Йогурт с овсянкой и бананом
+meal: snack
+minutes: 5
+servings: 2
+tags:
+- quick
+- no-cook
+ingredients:
+- ingredient: yogurt
+  amount: 250
+- ingredient: oats
+  amount: 40
+- ingredient: banana
+  amount: 1
+- ingredient: honey
+  amount: 1
+  optional: true
+steps:
+- Смешать йогурт с хлопьями и оставить на 5 минут.
+- Нарезать банан и выложить сверху.
+- Добавить мёд по вкусу.

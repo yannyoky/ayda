@@ -1,0 +1,30 @@
+id: meatballs-tomato
+title: Тефтели в томатном соусе
+meal: dinner
+minutes: 45
+servings: 2
+tags:
+- comfort
+ingredients:
+- ingredient: ground_beef
+  amount: 400
+- ingredient: rice
+  amount: 60
+- ingredient: onion
+  amount: 1
+- ingredient: eggs
+  amount: 1
+- ingredient: tomato_paste
+  amount: 2
+- ingredient: sour_cream
+  amount: 80
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Смешать фарш с сырым рисом, мелким луком, яйцом, солью и перцем, сформировать шарики.
+- Обжарить шарики 5 минут на масле.
+- Развести томатную пасту и сметану в 300 мл воды, залить тефтели и тушить под крышкой 25 минут.

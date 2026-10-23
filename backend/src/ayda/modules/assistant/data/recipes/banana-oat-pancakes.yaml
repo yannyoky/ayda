@@ -1,0 +1,24 @@
+id: banana-oat-pancakes
+title: Банановые оладьи с овсянкой
+meal: breakfast
+minutes: 20
+servings: 2
+tags:
+- quick
+- cheap
+ingredients:
+- ingredient: banana
+  amount: 2
+- ingredient: eggs
+  amount: 2
+- ingredient: oats
+  amount: 60
+- ingredient: oil
+  amount: 1
+- ingredient: cinnamon
+  amount: 1
+  optional: true
+steps:
+- Размять бананы вилкой, добавить яйца и хлопья, перемешать.
+- Дать постоять 5 минут, чтобы хлопья набухли.
+- Жарить небольшие оладьи на масле по 2 минуты с каждой стороны.

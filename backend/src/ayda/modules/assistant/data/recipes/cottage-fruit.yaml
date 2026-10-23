@@ -1,0 +1,25 @@
+id: cottage-fruit
+title: Творог с яблоком и мёдом
+meal: breakfast
+minutes: 5
+servings: 2
+tags:
+- quick
+- no-cook
+ingredients:
+- ingredient: cottage_cheese
+  amount: 250
+- ingredient: apple
+  amount: 1
+- ingredient: honey
+  amount: 2
+- ingredient: cinnamon
+  amount: 1
+  optional: true
+- ingredient: walnuts
+  amount: 20
+  optional: true
+steps:
+- Выложить творог в миски.
+- Нарезать яблоко кубиками и добавить сверху.
+- Полить мёдом, посыпать корицей и орехами.

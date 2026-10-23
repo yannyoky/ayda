@@ -1,0 +1,25 @@
+id: spinach-pasta-feta
+title: Паста со шпинатом и брынзой
+meal: dinner
+minutes: 20
+servings: 2
+tags:
+- quick
+- vegetarian-friendly
+ingredients:
+- ingredient: pasta
+  amount: 200
+- ingredient: spinach
+  amount: 150
+- ingredient: feta
+  amount: 100
+- ingredient: garlic
+  amount: 2
+- ingredient: olive_oil
+  amount: 2
+- ingredient: pepper
+  amount: 1
+steps:
+- Сварить пасту.
+- На масле прогреть чеснок, добавить шпинат на 2 минуты.
+- Смешать с пастой, сверху покрошить брынзу.

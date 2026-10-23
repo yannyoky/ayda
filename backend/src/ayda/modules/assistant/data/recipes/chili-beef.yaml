@@ -1,0 +1,29 @@
+id: chili-beef
+title: Чили с говядиной и фасолью
+meal: dinner
+minutes: 45
+servings: 2
+tags:
+- comfort
+- one-pan
+ingredients:
+- ingredient: ground_beef
+  amount: 350
+- ingredient: beans_canned
+  amount: 250
+- ingredient: canned_tomatoes
+  amount: 400
+- ingredient: onion
+  amount: 1
+- ingredient: garlic
+  amount: 2
+- ingredient: paprika
+  amount: 2
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+steps:
+- Обжарить лук с чесноком, добавить фарш и жарить до исчезновения розового цвета.
+- Добавить томаты, фасоль, паприку и соль.
+- Тушить под крышкой 25 минут, при необходимости подливая воду.

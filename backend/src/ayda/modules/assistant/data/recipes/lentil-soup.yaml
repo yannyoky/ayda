@@ -1,0 +1,32 @@
+id: lentil-soup
+title: Чечевичный суп
+meal: lunch
+minutes: 35
+servings: 2
+tags:
+- cheap
+- vegetarian-friendly
+ingredients:
+- ingredient: lentils
+  amount: 150
+- ingredient: carrot
+  amount: 150
+- ingredient: onion
+  amount: 1
+- ingredient: potato
+  amount: 200
+- ingredient: garlic
+  amount: 2
+- ingredient: oil
+  amount: 2
+- ingredient: paprika
+  amount: 1
+- ingredient: salt
+  amount: 1
+- ingredient: lemon
+  amount: 1
+  optional: true
+steps:
+- Обжарить лук и морковь, добавить чеснок и паприку.
+- Положить картофель кубиками и промытую чечевицу, залить 1 л воды.
+- Варить 20 минут, посолить, подавать с лимоном.

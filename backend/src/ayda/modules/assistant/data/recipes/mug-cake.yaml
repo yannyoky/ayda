@@ -1,0 +1,27 @@
+id: mug-cake
+title: Шоколадный кекс в кружке
+meal: dessert
+minutes: 5
+servings: 2
+tags:
+- quick
+- no-oven
+ingredients:
+- ingredient: flour
+  amount: 40
+- ingredient: cocoa
+  amount: 1
+- ingredient: sugar
+  amount: 2
+- ingredient: baking_powder
+  amount: 1
+- ingredient: milk
+  amount: 60
+- ingredient: oil
+  amount: 1
+- ingredient: eggs
+  amount: 1
+steps:
+- В большой кружке смешать муку, какао, сахар и разрыхлитель.
+- Добавить яйцо, молоко и масло, размешать до гладкости.
+- Греть в микроволновке 1,5 минуты на полной мощности, остудить минуту.

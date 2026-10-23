@@ -1,0 +1,28 @@
+id: baked-hake-potatoes
+title: Хек, запечённый с лимоном и картофелем
+meal: dinner
+minutes: 45
+servings: 2
+tags:
+- oven
+- light
+ingredients:
+- ingredient: hake
+  amount: 400
+- ingredient: potato
+  amount: 500
+- ingredient: lemon
+  amount: 1
+- ingredient: onion
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 2
+- ingredient: pepper
+  amount: 1
+steps:
+- Нарезать картофель тонкими дольками, посолить и выложить в форму с маслом, запекать 15 минут при 200
+  °C.
+- Сверху положить рыбу, лук кольцами и ломтики лимона, посолить.
+- Запекать ещё 20 минут.

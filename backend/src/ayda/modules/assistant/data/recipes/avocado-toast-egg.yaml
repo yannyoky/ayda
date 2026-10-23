@@ -1,0 +1,25 @@
+id: avocado-toast-egg
+title: Тост с авокадо и яйцом
+meal: breakfast
+minutes: 10
+servings: 2
+tags:
+- quick
+ingredients:
+- ingredient: bread
+  amount: 4
+- ingredient: avocado
+  amount: 1
+- ingredient: eggs
+  amount: 2
+- ingredient: lemon
+  amount: 1
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Подсушить хлеб на сухой сковороде или в тостере.
+- Размять авокадо вилкой с солью, перцем и каплей лимона, намазать на хлеб.
+- 'Сверху положить яйцо: сваренное 7 минут или жареное.'

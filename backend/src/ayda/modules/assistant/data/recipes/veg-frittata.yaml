@@ -1,0 +1,29 @@
+id: veg-frittata
+title: Фриттата с овощами
+meal: dinner
+minutes: 25
+servings: 2
+tags:
+- quick
+- one-pan
+ingredients:
+- ingredient: eggs
+  amount: 6
+- ingredient: zucchini
+  amount: 200
+- ingredient: tomato
+  amount: 150
+- ingredient: cheese
+  amount: 60
+- ingredient: onion
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Обжарить лук и кабачок 5 минут, добавить помидоры.
+- Залить взбитыми с солью яйцами, посыпать сыром.
+- Готовить под крышкой на слабом огне 10 минут.

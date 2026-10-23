@@ -1,0 +1,28 @@
+id: chicken-caesar
+title: Салат с курицей и сыром
+meal: lunch
+minutes: 25
+servings: 2
+tags:
+- light
+ingredients:
+- ingredient: chicken_fillet
+  amount: 250
+- ingredient: lettuce
+  amount: 150
+- ingredient: tomato
+  amount: 200
+- ingredient: cheese
+  amount: 40
+- ingredient: bread
+  amount: 2
+- ingredient: olive_oil
+  amount: 2
+- ingredient: sour_cream
+  amount: 60
+- ingredient: salt
+  amount: 1
+steps:
+- Обжарить курицу с солью 8 минут, нарезать.
+- Подсушить кубики хлеба на сковороде.
+- Смешать листья салата, помидоры, курицу и сухарики, заправить сметаной и стружкой сыра.

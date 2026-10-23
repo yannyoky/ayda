@@ -1,0 +1,30 @@
+id: pasta-tomato
+title: Паста с томатным соусом
+meal: dinner
+minutes: 25
+servings: 2
+tags:
+- cheap
+- vegetarian-friendly
+ingredients:
+- ingredient: pasta
+  amount: 200
+- ingredient: canned_tomatoes
+  amount: 400
+- ingredient: garlic
+  amount: 2
+- ingredient: olive_oil
+  amount: 2
+- ingredient: herbs_dried
+  amount: 1
+- ingredient: cheese
+  amount: 30
+  optional: true
+- ingredient: salt
+  amount: 1
+- ingredient: sugar
+  amount: 1
+steps:
+- Сварить пасту в подсоленной воде до состояния аль денте.
+- На масле 1 минуту обжарить чеснок, добавить томаты, травы, соль и щепотку сахара, томить 10 минут.
+- Смешать пасту с соусом, сверху посыпать сыром.

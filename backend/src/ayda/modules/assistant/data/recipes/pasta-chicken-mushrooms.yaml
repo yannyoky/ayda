@@ -1,0 +1,28 @@
+id: pasta-chicken-mushrooms
+title: Паста с курицей и грибами в сливках
+meal: dinner
+minutes: 30
+servings: 2
+tags:
+- comfort
+ingredients:
+- ingredient: pasta
+  amount: 200
+- ingredient: chicken_fillet
+  amount: 250
+- ingredient: mushrooms
+  amount: 200
+- ingredient: cream
+  amount: 150
+- ingredient: onion
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Обжарить нарезанную курицу с луком до золотистого цвета, добавить грибы и жарить 7 минут.
+- Влить сливки, посолить, поперчить и томить 5 минут.
+- Смешать с отварной пастой.

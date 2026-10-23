@@ -1,0 +1,28 @@
+id: beef-patties-mash
+title: Котлеты с картофельным пюре
+meal: dinner
+minutes: 50
+servings: 2
+tags:
+- comfort
+ingredients:
+- ingredient: ground_beef
+  amount: 400
+- ingredient: potato
+  amount: 600
+- ingredient: onion
+  amount: 1
+- ingredient: bread
+  amount: 1
+- ingredient: milk
+  amount: 100
+- ingredient: butter
+  amount: 30
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 2
+steps:
+- Замочить хлеб в части молока, смешать с фаршем, мелким луком и солью, сформировать котлеты.
+- Обжарить котлеты с двух сторон по 4 минуты, затем довести под крышкой 8 минут.
+- Отварить картофель, размять с оставшимся молоком и маслом.

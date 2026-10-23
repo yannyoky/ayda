@@ -1,0 +1,27 @@
+id: pasta-tuna
+title: Паста с тунцом и помидорами
+meal: dinner
+minutes: 20
+servings: 2
+tags:
+- quick
+- cheap
+ingredients:
+- ingredient: pasta
+  amount: 200
+- ingredient: tuna_canned
+  amount: 150
+- ingredient: tomato
+  amount: 250
+- ingredient: garlic
+  amount: 2
+- ingredient: olive_oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: pepper
+  amount: 1
+steps:
+- Сварить пасту.
+- На масле обжарить чеснок и нарезанные помидоры 5 минут, добавить тунец.
+- Смешать с пастой и прогреть минуту.

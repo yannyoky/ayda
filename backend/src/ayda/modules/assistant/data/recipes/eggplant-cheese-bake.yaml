@@ -1,0 +1,27 @@
+id: eggplant-cheese-bake
+title: Баклажаны с помидорами и сыром
+meal: dinner
+minutes: 40
+servings: 2
+tags:
+- oven
+- vegetarian-friendly
+ingredients:
+- ingredient: eggplant
+  amount: 400
+- ingredient: tomato
+  amount: 300
+- ingredient: cheese
+  amount: 100
+- ingredient: garlic
+  amount: 2
+- ingredient: olive_oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: herbs_dried
+  amount: 1
+steps:
+- Нарезать баклажаны и помидоры кружками, посолить баклажаны и через 10 минут промокнуть.
+- Выложить слоями в форму, перемежая чесноком и маслом.
+- Сверху посыпать сыром и травами, запекать 25 минут при 190 °C.

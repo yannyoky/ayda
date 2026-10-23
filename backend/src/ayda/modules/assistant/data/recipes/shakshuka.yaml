@@ -1,0 +1,33 @@
+id: shakshuka
+title: Шакшука
+meal: dinner
+minutes: 25
+servings: 2
+tags:
+- quick
+- one-pan
+- cheap
+ingredients:
+- ingredient: eggs
+  amount: 4
+- ingredient: canned_tomatoes
+  amount: 400
+- ingredient: bell_pepper
+  amount: 1
+- ingredient: onion
+  amount: 1
+- ingredient: garlic
+  amount: 2
+- ingredient: paprika
+  amount: 1
+- ingredient: oil
+  amount: 2
+- ingredient: salt
+  amount: 1
+- ingredient: bread
+  amount: 4
+  optional: true
+steps:
+- Обжарить лук и перец, добавить чеснок, паприку и томаты, томить 8 минут.
+- Сделать в соусе углубления и разбить в них яйца.
+- Готовить под крышкой 6 минут, подавать с хлебом.

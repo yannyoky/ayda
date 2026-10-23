@@ -1,0 +1,24 @@
+id: oatmeal-banana
+title: Овсянка с бананом
+meal: breakfast
+minutes: 10
+servings: 2
+tags:
+- quick
+- cheap
+ingredients:
+- ingredient: oats
+  amount: 80
+- ingredient: milk
+  amount: 300
+- ingredient: banana
+  amount: 1
+- ingredient: honey
+  amount: 1
+  optional: true
+- ingredient: salt
+  amount: 1
+steps:
+- Довести молоко до кипения, всыпать хлопья и щепотку соли.
+- Варить на слабом огне 5 минут, помешивая.
+- Сверху выложить нарезанный банан и, по желанию, мёд.
