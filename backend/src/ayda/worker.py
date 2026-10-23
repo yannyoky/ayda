@@ -23,7 +23,7 @@ from ayda.core.push import FcmSender, LogPushSender
 from ayda.core.realtime import Realtime
 from ayda.core.storage import Storage
 from ayda.modules import social
-from ayda.modules.events import EventSource
+from ayda.modules.events import EventSource, OverpassSource
 
 
 def default_sender(settings: Settings) -> notifications.Sender:
@@ -46,6 +46,7 @@ def build_worker(
     push_sender: notifications.PushSender | None = None,
     realtime_client: Realtime | None = None,
     event_sources: Sequence[EventSource] | None = None,
+    venues: OverpassSource | None = None,
 ) -> Worker:
     storage = storage or Storage(settings)
     publisher = realtime_client or Realtime(settings)
@@ -53,6 +54,8 @@ def build_worker(
     push_sender = push_sender or default_push_sender(settings)
     if event_sources is None:
         event_sources = local_events.default_sources(settings, local_events.source_http())
+    if venues is None:
+        venues = local_events.venue_source(settings, local_events.source_http())
     reminders.register(settings)
     chat.register(settings)
     coop.register(settings)
@@ -84,8 +87,15 @@ def build_worker(
     async def ingest_events(session: AsyncSession, payload: dict[str, Any]) -> None:
         await local_events.run_ingest(session, event_sources, datetime.now(UTC))
 
+    async def load_venues(session: AsyncSession, payload: dict[str, Any]) -> None:
+        if venues is not None:
+            await local_events.run_venues(
+                session, venues, settings.venues_radius_m, datetime.now(UTC)
+            )
+
     handlers: dict[str, Handler] = {
         local_events.INGEST_JOB: ingest_events,
+        local_events.VENUES_JOB: load_venues,
         realtime.PUBLISH_JOB: publish_event,
         backup.BACKUP_JOB: run_backup,
         privacy.ERASE_JOB: erase_account,
@@ -109,8 +119,12 @@ def build_worker(
     async def schedule_events(session: AsyncSession, now: datetime) -> None:
         await local_events.schedule_ingest(session, settings, now)
 
+    async def schedule_venues(session: AsyncSession, now: datetime) -> None:
+        await local_events.schedule_venues(session, settings, now)
+
     periodic = [
         Periodic("events.ingest", 600, schedule_events),
+        Periodic("events.venues", 600, schedule_venues),
         Periodic("db.backup", 600, schedule_backup),
         Periodic("media.delete_unattached", 3600, delete_unattached_media),
         Periodic("reminders", 60, schedule_reminders),

@@ -18,6 +18,7 @@ from ayda.modules import auth, events, quests
 from ayda.modules.quests.day_service import NewQuest
 
 INGEST_JOB = "events.ingest"
+VENUES_JOB = "events.venues"
 EVENTS_IN_POOL = 2
 EVENT_CANDIDATES = 20
 MIN_LEAD = timedelta(hours=1)
@@ -45,6 +46,11 @@ def source_http() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=15.0, headers={"User-Agent": USER_AGENT})
 
 
+def venue_source(settings: Settings, http: httpx.AsyncClient) -> events.OverpassSource | None:
+    urls = [u.strip() for u in settings.venues_overpass_urls.split(",") if u.strip()]
+    return events.OverpassSource(http, urls) if urls else None
+
+
 def _due_date(settings: Settings, now: datetime) -> str | None:
     local = now.astimezone(ZoneInfo(settings.events_timezone))
     if local.time() < settings.events_ingest_at:
@@ -60,6 +66,23 @@ async def schedule_ingest(session: AsyncSession, settings: Settings, now: dateti
     return await enqueue(
         session, INGEST_JOB, {"day": day}, dedupe_key=f"{INGEST_JOB}:{day}", max_attempts=3
     )
+
+
+async def schedule_venues(session: AsyncSession, settings: Settings, now: datetime) -> bool:
+    """Queue tonight's venue load once, like the listings; each run loads a few cities."""
+    day = _due_date(settings, now)
+    if day is None or not settings.venues_overpass_urls.strip():
+        return False
+    return await enqueue(
+        session, VENUES_JOB, {"day": day}, dedupe_key=f"{VENUES_JOB}:{day}", max_attempts=3
+    )
+
+
+async def run_venues(
+    session: AsyncSession, source: events.OverpassSource, radius_m: int, now: datetime
+) -> dict[int, int]:
+    city_ids = await auth.user_city_ids(session)
+    return await events.load_venues(session, source, city_ids, radius_m, now)
 
 
 async def run_ingest(

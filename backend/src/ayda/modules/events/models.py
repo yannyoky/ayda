@@ -43,3 +43,29 @@ class Listing(Base):
     url: Mapped[str] = mapped_column(Text)
     category: Mapped[str] = mapped_column(Text)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Venue(Base):
+    """A place from OpenStreetMap (ADR 0011); `location` is PostGIS, queried in SQL."""
+
+    __tablename__ = "venues"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    osm_type: Mapped[str] = mapped_column(Text)
+    osm_id: Mapped[int] = mapped_column(BigInteger)
+    city_id: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    cuisine: Mapped[str | None] = mapped_column(Text)
+    address: Mapped[str | None] = mapped_column(Text)
+    opening_hours: Mapped[str | None] = mapped_column(Text)
+    website: Mapped[str | None] = mapped_column(Text)
+    loaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class VenueLoad(Base):
+    __tablename__ = "venue_loads"
+
+    city_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    loaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    venues: Mapped[int] = mapped_column(Integer)
