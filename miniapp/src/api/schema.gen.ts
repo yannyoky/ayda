@@ -606,6 +606,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest 2-3 recipes for a cooking quest (M5, ADR 0012)
+         * @description Code filters the recipe catalog by meal, time, vegetarian diet and the allergens the
+         *     caller named (recipes containing them are dropped); the assistant only picks 2-3 of the
+         *     candidates and says why. Nothing about the caller goes into the prompt. Without a
+         *     working assistant, code takes the first candidates (`source` is `code`). The app never
+         *     claims a dish is safe: each card lists its allergens.
+         */
+        post: operations["suggestRecipes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/{recipe_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A recipe with amounts for the given number of servings */
+        get: operations["getRecipe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/{recipe_id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a recipe a shared plan with a friend
+         * @description Creates a `parts` co-op like `createPlan`: part 1 "Купить продукты" (the shopping list
+         *     as its checklist, without ingredients listed in `at_home`, optional ones and staples)
+         *     for the shopper, part 2 "Приготовить" (the steps as its checklist) for the cook, opened
+         *     when the shopping is done. The shopper can hand the list to the partner with
+         *     `offerHandoff`. When nothing needs buying, the result is a `same` co-op.
+         */
+        post: operations["planRecipe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/day-quests/{quest_id}/coop": {
         parameters: {
             query?: never;
@@ -1606,6 +1671,70 @@ export interface components {
              * @description Before the end of the day.
              */
             starts_at: string;
+        };
+        /** @enum {string} */
+        Meal: "breakfast" | "lunch" | "dinner" | "snack" | "dessert";
+        /** @enum {string} */
+        Allergen: "gluten" | "milk" | "egg" | "fish" | "shellfish" | "nuts" | "peanut" | "soy" | "sesame";
+        RecipeSuggestInput: {
+            meal?: components["schemas"]["Meal"] | null;
+            max_minutes?: number | null;
+            allergens?: components["schemas"]["Allergen"][];
+            /** @default false */
+            vegetarian: boolean;
+        };
+        RecipeCard: {
+            id: string;
+            title: string;
+            meal: components["schemas"]["Meal"];
+            minutes: number;
+            /** @description The servings the catalog amounts are written for. */
+            servings: number;
+            allergens: components["schemas"]["Allergen"][];
+            vegetarian: boolean;
+            /** @description One Russian sentence from the assistant; null when code picked. */
+            why: string | null;
+        };
+        RecipeOffer: {
+            /** @enum {string} */
+            source: "llm" | "code";
+            recipes: components["schemas"]["RecipeCard"][];
+            note: string | null;
+        };
+        RecipeLine: {
+            ingredient: string;
+            name: string;
+            amount: number;
+            /** @enum {string} */
+            unit: "g" | "ml" | "pcs" | "clove" | "slice" | "tbsp" | "tsp" | "pinch";
+            /** @enum {string} */
+            aisle: "produce" | "dairy" | "meat" | "fish" | "grocery" | "bakery" | "frozen" | "drinks" | "other";
+            optional: boolean;
+            /** @description Usually at home (salt, oil); not put on the shopping list. */
+            staple: boolean;
+        };
+        RecipeDetail: {
+            recipe: components["schemas"]["RecipeCard"];
+            servings: number;
+            lines: components["schemas"]["RecipeLine"][];
+            steps: string[];
+            /** @description Must be shown with the allergens. */
+            note: string;
+        };
+        RecipePlanInput: {
+            /** Format: uuid */
+            friend_id: string;
+            /**
+             * @description Who buys the groceries; the other one cooks.
+             * @enum {string}
+             */
+            shopper: "me" | "friend";
+            /** @default 2 */
+            servings: number;
+            /** @description Ingredient ids of the recipe the caller already has. */
+            at_home?: string[];
+            /** Format: date-time */
+            starts_at?: string | null;
         };
         /**
          * @description `same`: everyone does the same quest. `parts`: the plan is split into parts that differ
@@ -2755,6 +2884,106 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             /** @description Someone in the chat is not a friend */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            /** @description The daily limit of taken quests is reached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
+        };
+    };
+    suggestRecipes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeSuggestInput"];
+            };
+        };
+        responses: {
+            /** @description The cards; `note` explains an empty one */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeOffer"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getRecipe: {
+        parameters: {
+            query?: {
+                servings?: number;
+            };
+            header?: never;
+            path: {
+                recipe_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recipe */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeDetail"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    planRecipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipe_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipePlanInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coop"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            /** @description Not a friend */
             403: {
                 headers: {
                     [name: string]: unknown;

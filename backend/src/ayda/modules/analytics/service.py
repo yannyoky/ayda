@@ -31,6 +31,8 @@ class EventType(StrEnum):
     COOP_PART_HANDED_OFF = "coop_part_handed_off"
     COOP_HANDOFF_ANSWERED = "coop_handoff_answered"
     MEETUP_SUGGESTED = "meetup_suggested"
+    RECIPES_SUGGESTED = "recipes_suggested"
+    RECIPE_PLANNED = "recipe_planned"
     SIGNED_IN = "signed_in"
 
 

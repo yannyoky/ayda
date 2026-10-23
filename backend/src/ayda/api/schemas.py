@@ -520,3 +520,61 @@ class MeetupPick(BaseModel):
         Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)] | None
     ) = None
     starts_at: datetime
+
+
+Meal = Literal["breakfast", "lunch", "dinner", "snack", "dessert"]
+Allergen = Literal["gluten", "milk", "egg", "fish", "shellfish", "nuts", "peanut", "soy", "sesame"]
+
+
+class RecipeSuggestInput(BaseModel):
+    meal: Meal | None = None
+    max_minutes: int | None = Field(default=None, ge=10, le=240)
+    allergens: list[Allergen] = Field(default_factory=lambda: [], max_length=9)
+    vegetarian: bool = False
+
+
+class RecipeCard(BaseModel):
+    id: str
+    title: str
+    meal: Meal
+    minutes: int
+    servings: int
+    allergens: list[Allergen]
+    vegetarian: bool
+    why: str | None
+
+
+class RecipeOffer(BaseModel):
+    source: Literal["llm", "code"]
+    recipes: list[RecipeCard]
+    note: str | None
+
+
+class RecipeLine(BaseModel):
+    ingredient: str
+    name: str
+    amount: float
+    unit: Literal["g", "ml", "pcs", "clove", "slice", "tbsp", "tsp", "pinch"]
+    aisle: Literal[
+        "produce", "dairy", "meat", "fish", "grocery", "bakery", "frozen", "drinks", "other"
+    ]
+    optional: bool
+    staple: bool
+
+
+class RecipeDetail(BaseModel):
+    recipe: RecipeCard
+    servings: int
+    lines: list[RecipeLine]
+    steps: list[str]
+    note: str
+
+
+class RecipePlanInput(BaseModel):
+    friend_id: uuid.UUID
+    shopper: Literal["me", "friend"]
+    servings: int = Field(default=2, ge=1, le=8)
+    at_home: list[Annotated[str, StringConstraints(max_length=40)]] = Field(
+        default_factory=lambda: [], max_length=60
+    )
+    starts_at: datetime | None = None

@@ -17,6 +17,7 @@ from ayda.api import (
     me,
     media,
     realtime,
+    recipes,
     reference,
     system,
 )
@@ -80,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         realtime.router,
         chat.router,
         coop.router,
+        recipes.router,
     ):
         app.include_router(router, prefix=API_PREFIX)
     return app
