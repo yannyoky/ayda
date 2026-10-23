@@ -66,6 +66,11 @@ class TelegramLoginExchange(BaseModel):
     poll_secret: str = Field(max_length=128)
 
 
+class TelegramLoginApprove(BaseModel):
+    init_data: str = Field(max_length=4096)
+    code: str = Field(max_length=64)
+
+
 class SignInIdentity(BaseModel):
     id: uuid.UUID
     provider: Literal["telegram", "email"]

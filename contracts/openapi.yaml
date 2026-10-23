@@ -187,9 +187,10 @@ paths:
       operationId: createTelegramLoginRequest
       summary: Start signing in (or linking Telegram) through the bot from a native app
       description: |
-        Returns a link to the bot (`t.me/<bot>?start=login_<code>`) valid for 5 minutes and a
-        secret that only this app knows. The user opens the link, presses Start and confirms
-        in the bot; the app then calls exchangeTelegramLoginRequest with the secret.
+        Returns a link (`t.me/<bot>?startapp=login_<code>`) valid for 5 minutes and a secret
+        that only this app knows. The link opens the Mini App, where the user confirms
+        (approveTelegramLoginRequest); the app then calls exchangeTelegramLoginRequest with
+        the secret. The bot still answers `/start login_<code>` with a confirm button.
         With a bearer token the confirmed Telegram account is linked to the signed-in user
         instead (ADR 0009).
       security:
@@ -207,6 +208,41 @@ paths:
         '429':
           $ref: '#/components/responses/Problem'
         '503':
+          $ref: '#/components/responses/Problem'
+
+  /auth/telegram/login-requests/approve:
+    post:
+      tags: [auth]
+      operationId: approveTelegramLoginRequest
+      summary: Confirm a native app sign-in from the Mini App
+      description: |
+        The Mini App opened with `startapp=login_<code>` sends the code with its fresh initData;
+        the Telegram user in the verified initData confirms the request. Works without the bot
+        receiving updates. 404 when the code is unknown, expired or already confirmed (ADR 0009).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [init_data, code]
+              properties:
+                init_data:
+                  type: string
+                  maxLength: 4096
+                code:
+                  type: string
+                  maxLength: 64
+                  description: The start parameter without the `login_` prefix.
+      responses:
+        '204':
+          description: Confirmed; the native app picks up its session
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
           $ref: '#/components/responses/Problem'
 
   /auth/telegram/login-requests/{request_id}/exchange:
@@ -2184,7 +2220,7 @@ components:
         bot_url:
           type: string
           format: uri
-          examples: ['https://t.me/ayda_quest_bot?start=login_x8Kq2LmN0pQr7sTu']
+          examples: ['https://t.me/ayda_quest_bot?startapp=login_x8Kq2LmN0pQr7sTu']
         expires_at:
           type: string
           format: date-time

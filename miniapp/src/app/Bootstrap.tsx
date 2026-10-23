@@ -6,10 +6,19 @@ import { Onboarding } from '../features/onboarding/Onboarding'
 import { t } from '../i18n'
 import { useRealtime } from '../realtime/realtime'
 import { FullScreen, PrimaryButton, Splash } from '../ui/states'
+import { nativeLoginCode } from '../telegram/webapp'
+import { ConfirmLogin } from './ConfirmLogin'
 import { useApplyTheme } from './theme'
 
-/** Signs in with Telegram (US-01), then asks for consent and onboarding before the app itself. */
+/** Signs in with Telegram (US-01), then asks for consent and onboarding before the app itself.
+ * Opened from the native app's sign-in link, it only confirms that sign-in. */
 export function Bootstrap({ children }: { children: ReactNode }) {
+  const [loginCode] = useState(nativeLoginCode)
+  if (loginCode) return <ConfirmLogin code={loginCode} />
+  return <SignedIn>{children}</SignedIn>
+}
+
+function SignedIn({ children }: { children: ReactNode }) {
   const session = useSession()
   const me = useMe({ signedIn: session.isSuccess })
   const [retrying, setRetrying] = useState(false)

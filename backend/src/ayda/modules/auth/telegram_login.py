@@ -1,7 +1,8 @@
 """Sign-in through the bot from native apps (ADR 0009).
 
-The app creates a request and opens `t.me/<bot>?start=login_<code>`; the user confirms in
-the bot (the confirmation comes from Telegram itself, so the Telegram user is trusted);
+The app creates a request and opens `t.me/<bot>?startapp=login_<code>`; the user confirms in
+the Mini App (verified initData) or in the bot (`/start login_<code>`), so the Telegram user
+comes from Telegram itself and is trusted;
 the app exchanges the request once with a secret only it knows. Only hashes of the code
 and the secret are stored.
 """

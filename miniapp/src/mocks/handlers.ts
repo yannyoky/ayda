@@ -48,6 +48,13 @@ export const handlers = [
     return HttpResponse.json(session)
   }),
 
+  http.post<never, { init_data: string; code: string }, DefaultBodyType>(`${API}/auth/telegram/login-requests/approve`, async ({ request }) => {
+    const body = await request.json()
+    if (!body?.init_data) return problem(401, 'Не удалось проверить вход')
+    if (body.code === 'expired') return problem(404, 'Ссылка для входа устарела, начните вход заново')
+    return new HttpResponse(null, { status: 204 })
+  }),
+
   // ---- profile ----
   http.get(`${API}/me`, authed(() => HttpResponse.json(db.me))),
   http.delete(

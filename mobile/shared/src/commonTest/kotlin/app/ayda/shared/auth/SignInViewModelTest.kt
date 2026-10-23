@@ -126,7 +126,7 @@ class SignInViewModelTest {
                     if (request.url.encodedPath.endsWith("/login-requests")) {
                         json(
                             """{"id":"4b8d7c3e-1f2a-4e5b-8c9d-0e1f2a3b4c5d","poll_secret":"s",""" +
-                                """"bot_url":"https://t.me/bot?start=login_x","expires_at":"2999-01-01T00:00:00Z"}""",
+                                """"bot_url":"https://t.me/bot?startapp=login_x","expires_at":"2999-01-01T00:00:00Z"}""",
                             HttpStatusCode.Created,
                         )
                     } else {
@@ -136,7 +136,7 @@ class SignInViewModelTest {
 
             model.signInWithTelegram()
             dispatcher.scheduler.advanceTimeBy(5_000)
-            assertEquals("https://t.me/bot?start=login_x", model.state.value.telegramUrl)
+            assertEquals("https://t.me/bot?startapp=login_x", model.state.value.telegramUrl)
 
             model.cancelTelegram()
             advanceUntilIdle()

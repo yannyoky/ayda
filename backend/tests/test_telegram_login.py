@@ -8,7 +8,7 @@ from ayda.core.db import Database
 from ayda.modules.auth.models import TelegramLoginRequest, User
 from tests.conftest import FakeMailer
 from tests.contract import assert_matches
-from tests.helpers import sign_in
+from tests.helpers import make_init_data, sign_in
 from tests.test_email_auth import allow_resend, email_session, last_code
 
 TG = TgUser(id=777, is_bot=False, first_name="Петя", username="petya")
@@ -22,7 +22,7 @@ async def start(client: httpx.AsyncClient, headers: dict[str, str] | None = None
 
 
 def code_of(request: dict[str, str]) -> str:
-    prefix = "https://t.me/ayda_quest_bot?start=login_"
+    prefix = "https://t.me/ayda_quest_bot?startapp=login_"
     assert request["bot_url"].startswith(prefix)
     return request["bot_url"].removeprefix(prefix)
 
@@ -188,3 +188,36 @@ async def test_email_of_another_account_is_not_linked(
     )
     assert taken.status_code == 409
     assert_matches(taken, "linkMyEmail")
+
+
+async def approve(client: httpx.AsyncClient, code: str, init_data: str) -> httpx.Response:
+    return await client.post(
+        "/auth/telegram/login-requests/approve", json={"init_data": init_data, "code": code}
+    )
+
+
+async def test_sign_in_confirmed_in_the_mini_app(client: httpx.AsyncClient) -> None:
+    request = await start(client)
+    code = code_of(request)
+
+    ok = await approve(client, code, make_init_data(777, "Петя", start_param=f"login_{code}"))
+    assert ok.status_code == 204, ok.text
+    # The same link cannot confirm twice.
+    again = await approve(client, code, make_init_data(888, "Вася"))
+    assert again.status_code == 404
+    assert_matches(again, "approveTelegramLoginRequest")
+
+    session = await exchange(client, request)
+    assert session.status_code == 200, session.text
+    assert session.json()["user"]["first_name"] == "Петя"
+
+
+async def test_mini_app_confirmation_needs_valid_init_data(client: httpx.AsyncClient) -> None:
+    request = await start(client)
+    code = code_of(request)
+
+    forged = await approve(client, code, make_init_data(777, bot_token="1:OTHER"))
+    assert forged.status_code == 401
+    unknown = await approve(client, "unknown-code", make_init_data(777))
+    assert unknown.status_code == 404
+    assert (await exchange(client, request)).status_code == 202
