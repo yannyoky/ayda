@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
@@ -295,6 +296,9 @@ private fun BottomBar(
                     pluralStringResource(R.plurals.pick_take, count, count)
                 },
                 style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
             )
             if (state.chosenPoints > 0) {
                 Spacer(Modifier.size(8.dp))
@@ -302,6 +306,8 @@ private fun BottomBar(
                     stringResource(R.string.quest_points, state.chosenPoints),
                     style = MaterialTheme.typography.labelLarge,
                     color = colors.onAccent,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.background(colors.accent, MaterialTheme.shapes.small).padding(8.dp, 2.dp),
                 )
             }
