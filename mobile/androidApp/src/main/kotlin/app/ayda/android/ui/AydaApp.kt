@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -235,12 +237,16 @@ private fun SignedInHome(
         onOpened()
     }
 
+    // With the keyboard open the tab bar hides: otherwise the screen would keep its space above
+    // the keyboard and add the keyboard's own padding on top, leaving an empty strip.
+    val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val tab = screen.tab()
+    val showTabBar = tab != null && !keyboardOpen
     Column(Modifier.fillMaxSize().background(LocalAydaColors.current.bg)) {
         // The tab bar takes the navigation bar inset, so the screen above must not add it again.
         Box(
             Modifier.weight(1f).then(
-                if (tab != null) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier,
+                if (showTabBar) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier,
             ),
         ) {
             when (screen) {
@@ -394,7 +400,7 @@ private fun SignedInHome(
                 screen = Screen.Friends
             }
         }
-        if (tab != null) TabBar(tab, unreadChats = chatsState.unread, onSelect = { screen = it.screen() })
+        if (tab != null && showTabBar) TabBar(tab, unreadChats = chatsState.unread, onSelect = { screen = it.screen() })
     }
 }
 
