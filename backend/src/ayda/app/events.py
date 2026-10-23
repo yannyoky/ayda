@@ -8,9 +8,10 @@ ones closest to what the user wrote and to their goals go first.
 
 import random
 import re
+import uuid
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -72,6 +73,55 @@ def stems(text: str, limit: int = 8) -> tuple[str, ...]:
     return tuple(out[:limit])
 
 
+TASTE_DAYS = 60
+TASTE_HALF_LIFE_DAYS = 30
+TASTE_SATURATION = 4.0
+TASTE_CATEGORY_POINTS = 2.0
+TASTE_WORD_CAP = 2.0
+# What one quest says about the user: finished is a strong yes, taken a weak yes, swapped
+# away a no ("dont_want" is a clear one; "no_time" and "cant" say little about taste).
+_SIGNAL_WEIGHT = {"completed": 3.0, "taken": 1.0}
+_REJECT_WEIGHT = {"dont_want": -2.5, "no_time": -0.5, "cant": 0.0}
+
+
+@dataclass(frozen=True)
+class Taste:
+    """A user's taste learned from what they took, finished and swapped away (ADR 0017):
+    a share in (-1, 1) per quest category, and a weight per stem of event titles."""
+
+    categories: dict[str, float] = field(default_factory=lambda: {})
+    words: dict[str, float] = field(default_factory=lambda: {})
+
+
+def learn_taste(signals: Iterable[quests.QuestSignal], today: date) -> Taste:
+    """Sums the signals with a 30-day half-life; a few signs stay modest because the
+    saturation keeps a share well under 1."""
+    cats: dict[str, float] = {}
+    words: dict[str, float] = {}
+    for s in signals:
+        weight = (
+            _REJECT_WEIGHT.get(s.reject_reason or "", -0.5)
+            if s.state == "replaced"
+            else _SIGNAL_WEIGHT.get(s.state, 0.0)
+        )
+        if weight == 0.0:
+            continue
+        weight *= 0.5 ** (max((today - s.local_date).days, 0) / TASTE_HALF_LIFE_DAYS)
+        cats[s.category] = cats.get(s.category, 0.0) + weight
+        if s.source == "event":
+            for stem in {w[:4] for w in stems(s.title, limit=6)}:  # short: джазовый ~ джаза
+                words[stem] = words.get(stem, 0.0) + weight
+    return Taste(
+        categories={c: v / (abs(v) + TASTE_SATURATION) for c, v in cats.items()},
+        words={w: v / (abs(v) + TASTE_SATURATION) for w, v in words.items()},
+    )
+
+
+async def load_taste(session: AsyncSession, user_id: uuid.UUID, today: date) -> Taste:
+    since = today - timedelta(days=TASTE_DAYS)
+    return learn_taste(await quests.recent_signals(session, user_id, since), today)
+
+
 @dataclass(frozen=True)
 class Interest:
     """What the user is into right now: words they asked for (strong), words of their
@@ -81,6 +131,7 @@ class Interest:
     mentioned: tuple[str, ...] = ()
     category: str | None = None
     goals: tuple[str, ...] = ()
+    taste: Taste = field(default_factory=Taste)
 
     def categories(self) -> set[str]:
         return {c for g in self.goals for c in GOAL_CATEGORIES.get(g, ())}
@@ -91,7 +142,7 @@ def _hits(title: str, words: Iterable[str]) -> int:
     return sum(1 for w in words if w in lowered)
 
 
-def interest_score(listing: events.Listing, interest: Interest) -> float:
+def interest_score(listing: events.Listing | events.ListingData, interest: Interest) -> float:
     """How well an event fits the user; place and time are weighed by the caller."""
     score = 3.0 * _hits(listing.title, interest.asked)
     score += min(_hits(listing.title, interest.mentioned), 3)
@@ -101,7 +152,10 @@ def interest_score(listing: events.Listing, interest: Interest) -> float:
         score += 1
     if listing.is_free:
         score += 0.5
-    return score
+    score += TASTE_CATEGORY_POINTS * interest.taste.categories.get(listing.category, 0.0)
+    lowered = listing.title.lower().replace("ё", "е")
+    liked = sum(v for w, v in interest.taste.words.items() if w in lowered)
+    return score + max(-TASTE_WORD_CAP, min(TASTE_WORD_CAP, TASTE_WORD_CAP * liked))
 
 
 def default_sources(settings: Settings, http: httpx.AsyncClient) -> list[events.EventSource]:

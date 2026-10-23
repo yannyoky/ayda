@@ -141,6 +141,40 @@ async def excluded_event_ids(session: AsyncSession, user_id: uuid.UUID, day: dat
     return {i for i in rows if i is not None}
 
 
+@dataclass(frozen=True)
+class QuestSignal:
+    """What the user did with one quest: the raw material of their taste profile."""
+
+    category: str
+    source: str
+    title: str
+    state: str
+    reject_reason: str | None
+    local_date: date
+
+
+async def recent_signals(
+    session: AsyncSession, user_id: uuid.UUID, since: date
+) -> list[QuestSignal]:
+    """Quests of the user since a day that were taken, done or swapped away. Offered ones the
+    user never touched say nothing, so they are left out."""
+    rows = await session.execute(
+        select(
+            DayQuest.category,
+            DayQuest.source,
+            DayQuest.title,
+            DayQuest.state,
+            DayQuest.reject_reason,
+            DayQuest.local_date,
+        ).where(
+            DayQuest.user_id == user_id,
+            DayQuest.local_date >= since,
+            DayQuest.state.in_(("taken", "completed", "replaced")),
+        )
+    )
+    return [QuestSignal(*row) for row in rows]
+
+
 async def save_checkin(
     session: AsyncSession,
     user_id: uuid.UUID,

@@ -10,10 +10,11 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 
 from ayda.app import events as local_events
+from ayda.app.events import Interest, interest_score, learn_taste
 from ayda.core.config import Settings
 from ayda.core.db import Database
 from ayda.core.jobs import Job
-from ayda.modules import auth, events
+from ayda.modules import auth, events, quests
 from ayda.modules.analytics.models import Event
 from ayda.modules.events import CityRef, Listing, ListingData
 from tests.contract import assert_matches
@@ -327,3 +328,103 @@ def test_default_sources_follow_settings(settings: Settings) -> None:
     assert names == ["timepad", "kudago"]
     only = settings.model_copy(update={"events_sources": "kudago, unknown"})
     assert [s.name for s in local_events.default_sources(only, http)] == ["kudago"]
+
+
+def signal(
+    state: str, days_ago: int, category: str = "city", title: str = "Джазовый вечер", **kw: str
+) -> quests.QuestSignal:
+    return quests.QuestSignal(
+        category=category,
+        source=kw.get("source", "event"),
+        title=title,
+        state=state,
+        reject_reason=kw.get("reason"),
+        local_date=TODAY - timedelta(days=days_ago),
+    )
+
+
+def test_taste_grows_with_finished_quests_and_fades() -> None:
+    fresh = learn_taste([signal("completed", 1), signal("completed", 2)], TODAY)
+    old = learn_taste([signal("completed", 50), signal("completed", 52)], TODAY)
+
+    assert 0.4 < fresh.categories["city"] < 1
+    assert fresh.words["джаз"] > 0
+    assert 0 < old.categories["city"] < fresh.categories["city"] * 0.6
+
+
+def test_swapped_away_quests_count_against_a_category() -> None:
+    taste = learn_taste(
+        [
+            signal("replaced", 1, "sport", "Забег", source="catalog", reason="dont_want"),
+            signal("replaced", 2, "sport", "Зал", source="catalog", reason="no_time"),
+            signal("replaced", 3, "rest", "Чай", source="catalog", reason="cant"),
+        ],
+        TODAY,
+    )
+
+    assert taste.categories["sport"] < -0.4 and "rest" not in taste.categories
+    assert taste.words == {}  # only events teach words
+
+
+def test_taste_moves_the_score_and_stays_bounded() -> None:
+    loved = learn_taste([signal("completed", d) for d in range(1, 9)], TODAY)
+    item = listing("jazz", timedelta(hours=3), title="Джазовый вечер")
+    other = listing("fair", timedelta(hours=3), title="Ярмарка")
+    plain = Interest()
+    trained = Interest(taste=loved)
+
+    assert interest_score(item, trained) > interest_score(item, plain) + 2
+    assert interest_score(other, trained) <= interest_score(other, plain) + 2.001
+    assert interest_score(item, trained) < interest_score(item, plain) + 4.001
+
+
+async def test_taste_picks_the_jazz_event_without_a_word_in_the_check_in(
+    app: FastAPI, client: httpx.AsyncClient, database: Database, fixed_now: datetime
+) -> None:
+    use_tools(app, [], forecast())
+    user = await onboarded(client)
+    async with database.sessionmaker() as session:
+        for i in range(3):
+            day = TODAY - timedelta(days=i + 1)
+            pool = quests.DayPool(
+                user_id=uuid.UUID(user.user_id),
+                local_date=day,
+                status="ready",
+                context={},
+                replacements_used=0,
+                created_at=NOW,
+                updated_at=NOW,
+            )
+            session.add(pool)
+            await session.flush()
+            session.add(
+                quests.DayQuest(
+                    pool_id=pool.id,
+                    user_id=pool.user_id,
+                    local_date=day,
+                    source="event",
+                    event_id=900 + i,
+                    event={"venue": "Дом искусств"},
+                    title="Джазовый концерт",
+                    category="city",
+                    duration_min=90,
+                    outdoor=False,
+                    position=0,
+                    state="completed",
+                    expires_at=NOW,
+                    created_at=NOW,
+                )
+            )
+        await session.commit()
+    await seed(
+        database,
+        [
+            listing("fair", timedelta(hours=3), title="Ярмарка мёда", free=True),
+            listing("jazz", timedelta(hours=4), title="Вечер джаза"),
+        ],
+    )
+
+    day = await checkin(client, user, "")
+
+    first = next(q for q in offered(day) if q["source"] == "event")
+    assert first["title"] == "Вечер джаза"

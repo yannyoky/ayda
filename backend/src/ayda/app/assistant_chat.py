@@ -271,6 +271,9 @@ async def _events(
         asked=words,
         category=action.category,
         goals=tuple(await habits.list_goals(session, user.id)),
+        taste=await events_app.load_taste(
+            session, user.id, day_clock.local_day(now, user.timezone)
+        ),
     )
     hits.sort(key=lambda h: _event_rank(h, interest, target.id, now))
     if action.query and hits and events_app.interest_score(hits[0].listing, interest) < 3:
