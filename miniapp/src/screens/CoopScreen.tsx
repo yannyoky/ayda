@@ -63,6 +63,13 @@ export function CoopScreen() {
             </span>
           </div>
         </div>
+        {c.kind !== 'parts' && (c.place || c.starts_at) && (
+          <p className="m-0 rounded-[14px] bg-surface px-3 py-2 text-sm font-extrabold text-ink">
+            {[c.starts_at ? t.meetup.when(new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(c.starts_at))) : null, c.place?.name, c.place?.address]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        )}
         <p className="m-0 rounded-[14px] bg-surface px-3 py-2 text-sm font-extrabold text-ink">{c.bonus_awarded ? t.coop.bonusDone : t.coop.rule}</p>
       </section>
 

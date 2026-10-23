@@ -85,3 +85,8 @@ export const sampleEvents: (Omit<Schemas['EventInfo'], 'starts_at' | 'ends_at'> 
     in_hours: 6,
   },
 ]
+
+export const sampleVenues: Omit<Schemas['MeetupVenue'], 'id' | 'osm_url' | 'gis_url' | 'yandex_url'>[] = [
+  { name: 'Кофейня на углу', kind: 'cafe', address: 'Ленина, 1', distance_m: 350, opening_hours: 'Mo-Su 08:00-22:00', open_now: true },
+  { name: 'Паб «Янтарь»', kind: 'pub', address: 'Мира, 12', distance_m: 900, opening_hours: null, open_now: null },
+]

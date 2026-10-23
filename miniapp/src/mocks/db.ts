@@ -1,7 +1,7 @@
 // In-memory backend used by the mock API in development and tests.
 // It follows the contract and the PRD rules closely enough to drive every screen.
 import type { Schemas } from '../api/client'
-import { catalog, CONSENT_VERSION, friendNames, sampleCaptions, sampleEvents, type CatalogQuest } from './data'
+import { catalog, CONSENT_VERSION, friendNames, sampleCaptions, sampleEvents, sampleVenues, type CatalogQuest } from './data'
 
 type DayQuest = Schemas['DayQuest']
 type Post = Schemas['Post']
@@ -81,6 +81,8 @@ interface StoredCoop {
   participants: { userId: string; status: Schemas['CoopStatus']; questId: string | null; completed: boolean }[]
   conversationId: string
   parts?: StoredPart[]
+  place?: Schemas['Place']
+  startsAt?: string
 }
 
 interface StoredPart {
@@ -279,6 +281,8 @@ export class MockDb {
       expires_at: c.expiresAt,
       bonus_awarded: people.length >= 2 && people.every((p) => p.completed),
       kind: c.parts ? 'parts' : 'same',
+      place: c.place ?? null,
+      starts_at: c.startsAt ?? null,
       ...(c.parts ? { parts: c.parts.map((part, i) => this.publicPart(part, i)) } : {}),
     }
   }
@@ -460,6 +464,71 @@ export class MockDb {
     return this.publicCoop(c)
   }
 
+  // ---- meetups from a chat (M5) ----
+
+  suggestMeetup(c: StoredConversation): Schemas['MeetupOffer'] {
+    const texts = c.messages.slice(-8).map((m) => m.text)
+    const base = { starts_at: null, activity: null, venues: [], note: null, attribution: null, source: 'llm' as const }
+    if (texts.length === 0) return { ...base, kind: 'unclear', note: 'Не поняла, о какой встрече речь. Напишите, где и когда хотите увидеться.' }
+    const starts = new Date(Math.ceil((Date.now() + 3600_000) / 900_000) * 900_000).toISOString()
+    if (texts.some((x) => /дот|игр/i.test(x))) return { ...base, kind: 'online', starts_at: starts, activity: 'Дота' }
+    return {
+      ...base,
+      kind: 'venue',
+      starts_at: starts,
+      attribution: '© OpenStreetMap contributors',
+      venues: sampleVenues.map((v, i) => ({
+        ...v,
+        id: i + 1,
+        osm_url: `https://www.openstreetmap.org/node/${i + 1}`,
+        gis_url: `https://2gis.ru/search/${encodeURIComponent(v.name)}`,
+        yandex_url: `https://yandex.ru/maps/?text=${encodeURIComponent(v.name)}`,
+      })),
+    }
+  }
+
+  pickMeetup(c: StoredConversation, pick: Schemas['MeetupPick']): Schemas['Coop'] | 'invalid' | 'not_found' {
+    const friends = this.chatMembers(c)
+    if ((pick.venue_id == null) === (pick.activity == null) || friends.length === 0) return 'invalid'
+    const venue = pick.venue_id == null ? undefined : sampleVenues[pick.venue_id - 1]
+    if (pick.venue_id != null && !venue) return 'not_found'
+    const conversation: StoredConversation = { id: uuid(), peerId: friends[0]!, coopId: null, createdAt: new Date().toISOString(), messages: [], lastRead: null }
+    const coop: StoredCoop = {
+      id: uuid(),
+      title: venue ? `Встреча: ${venue.name}` : `Онлайн: ${pick.activity}`,
+      category: 'social',
+      duration_min: 90,
+      ownerId: this.me.id,
+      expiresAt: tomorrowAt4(),
+      participants: [
+        { userId: this.me.id, status: 'owner', questId: null, completed: false },
+        ...friends.map((userId) => ({ userId, status: 'invited' as const, questId: null, completed: false })),
+      ],
+      conversationId: conversation.id,
+      startsAt: pick.starts_at,
+      ...(venue ? { place: { name: venue.name, address: venue.address, source: 'osm' } } : {}),
+    }
+    conversation.coopId = coop.id
+    this.coops.push(coop)
+    this.conversations.push(conversation)
+    const mine: StoredQuest = {
+      ...newQuest({ title: coop.title, category: 'social', duration_min: 90, outdoor: false, why: null }),
+      source: 'coop',
+      state: 'taken',
+      coop_id: coop.id,
+      catalogIndex: null,
+    }
+    this.quests.push(mine)
+    coop.participants[0]!.questId = mine.id
+    return this.publicCoop(coop)
+  }
+
+  private chatMembers(c: StoredConversation): string[] {
+    const coop = c.coopId ? this.coops.find((x) => x.id === c.coopId) : undefined
+    if (!coop) return [c.peerId]
+    return coop.participants.filter((p) => p.userId !== this.me.id && (p.status === 'owner' || p.status === 'accepted')).map((p) => p.userId)
+  }
+
   // ---- chats (US-17) ----
 
   private summary(id: string): Schemas['UserSummary'] {
@@ -468,7 +537,7 @@ export class MockDb {
     return { id, first_name: f?.first_name ?? 'Удалённый пользователь', avatar_url: f?.avatar_url ?? null }
   }
 
-  private addMessage(c: StoredConversation, authorId: string, text: string, at = new Date().toISOString(), clientId: string | null = null): Schemas['Message'] {
+  addMessage(c: StoredConversation, authorId: string, text: string, at = new Date().toISOString(), clientId: string | null = null): Schemas['Message'] {
     const message = { id: this.nextMessageId++, conversation_id: c.id, author: this.summary(authorId), text, created_at: at, client_id: clientId }
     c.messages.push(message)
     if (authorId === this.me.id) c.lastRead = message.id

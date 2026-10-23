@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEven
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
 import { useConversation, useDeleteMessage, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
+import { MeetupSheet } from '../features/chat/MeetupSheet'
 import { t } from '../i18n'
 import { useRealtimeStatus } from '../realtime/realtime'
 import { useBackButton } from '../telegram/useBackButton'
@@ -36,6 +37,7 @@ export function ChatScreen() {
   const [pending, setPending] = useState<Pending[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [organizing, setOrganizing] = useState(false)
   const end = useRef<HTMLDivElement>(null)
   const readUpTo = useRef(0)
 
@@ -106,7 +108,13 @@ export function ChatScreen() {
         </button>
         <Avatar user={chat.peer ?? { first_name: chat.title }} size={40} />
         <h1 className="m-0 min-w-0 flex-1 truncate font-display text-lg font-bold">{chat.title}</h1>
+        {chat.can_send && (
+          <button type="button" onClick={() => setOrganizing(true)} className="h-11 shrink-0 rounded-field bg-surface px-3 text-sm font-extrabold">
+            {t.meetup.button}
+          </button>
+        )}
       </header>
+      {organizing && <MeetupSheet conversationId={id} onClose={() => setOrganizing(false)} />}
       <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-4 pb-3" aria-live="polite">
         {messages.hasNextPage && (
           <button
