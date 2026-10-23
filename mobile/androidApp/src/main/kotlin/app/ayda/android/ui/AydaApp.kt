@@ -44,6 +44,7 @@ import app.ayda.android.R
 import app.ayda.android.push.Push
 import app.ayda.android.ui.chat.ChatScreen
 import app.ayda.android.ui.chat.ChatsScreen
+import app.ayda.android.ui.chat.MeetupSheet
 import app.ayda.android.ui.coop.CoopScreen
 import app.ayda.android.ui.coop.CoopSheet
 import app.ayda.android.ui.day.CompleteScreen
@@ -71,6 +72,7 @@ import app.ayda.shared.day.CompleteViewModel
 import app.ayda.shared.day.TodayViewModel
 import app.ayda.shared.onboarding.ConsentViewModel
 import app.ayda.shared.onboarding.OnboardingViewModel
+import app.ayda.shared.plans.MeetupViewModel
 import app.ayda.shared.profile.ProfileViewModel
 import app.ayda.shared.push.PushRegistration
 import app.ayda.shared.push.PushTarget
@@ -168,6 +170,7 @@ private fun SignedInHome(
     var chatFrom by rememberSaveable { mutableStateOf(Screen.Chats) }
     var coopId by rememberSaveable { mutableStateOf<String?>(null) }
     var inviting by rememberSaveable { mutableStateOf<String?>(null) }
+    var meetupChat by rememberSaveable { mutableStateOf<String?>(null) }
     var invitedBy by rememberSaveable { mutableStateOf<String?>(null) }
     // A new friend through a link: the friends list is loaded again.
     var friendsRev by rememberSaveable { mutableIntStateOf(0) }
@@ -248,7 +251,7 @@ private fun SignedInHome(
                             viewModel(viewModelStoreOwner = rememberScreenStore(id)) {
                                 ChatViewModel(client, realtime, id, chats::markedRead)
                             }
-                        ChatScreen(model, me.id, onBack = back)
+                        ChatScreen(model, me.id, onBack = back, onMeetup = { meetupChat = id })
                     }
                 }
                 Screen.Coop -> {
@@ -269,6 +272,7 @@ private fun SignedInHome(
                             model,
                             me.id,
                             myQuest = todayState.day?.quests?.firstOrNull { it.id == myQuestId },
+                            quests = todayState.day?.quests.orEmpty(),
                             onBack = back,
                             onComplete = complete,
                             onChat = openChat,
@@ -310,6 +314,16 @@ private fun SignedInHome(
                 }
             CoopSheet(model, invitingQuest, onClose = { inviting = null }) { coop ->
                 inviting = null
+                coops.updated(coop)
+                today.refresh()
+                openCoop(coop.id)
+            }
+        }
+        meetupChat?.let { id ->
+            val model =
+                viewModel(viewModelStoreOwner = rememberScreenStore("meetup-$id")) { MeetupViewModel(client, id) }
+            MeetupSheet(model, onClose = { meetupChat = null }) { coop ->
+                meetupChat = null
                 coops.updated(coop)
                 today.refresh()
                 openCoop(coop.id)

@@ -65,6 +65,7 @@ fun ChatScreen(
     model: ChatViewModel,
     meId: String,
     onBack: () -> Unit,
+    onMeetup: () -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
@@ -102,6 +103,9 @@ fun ChatScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (chat.canSend) {
+                    TextButton(onClick = onMeetup) { Text(stringResource(R.string.meetup_button)) }
+                }
             }
         }
         state.error?.let { error ->
