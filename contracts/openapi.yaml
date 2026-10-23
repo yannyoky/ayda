@@ -45,6 +45,10 @@ tags:
       Direct messages between friends and co-op quest chats (M2). New events arrive over
       Centrifugo on the user's personal channel (`RealtimeEvent`, ADR 0007); REST stays the
       source of truth after a reconnect.
+  - name: recipes
+    description: |
+      Cooking quests (M5, ADR 0012): recipes from our own catalog, scaled amounts and a
+      shopping list; a recipe becomes a shared plan of a shopper and a cook.
   - name: system
     description: Service health.
 
@@ -927,6 +931,116 @@ paths:
           $ref: '#/components/responses/Problem'
         '403':
           description: Someone in the chat is not a friend
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The daily limit of taken quests is reached
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /recipes/suggest:
+    post:
+      tags: [recipes]
+      operationId: suggestRecipes
+      summary: Suggest 2-3 recipes for a cooking quest (M5, ADR 0012)
+      description: |
+        Code filters the recipe catalog by meal, time, vegetarian diet and the allergens the
+        caller named (recipes containing them are dropped); the assistant only picks 2-3 of the
+        candidates and says why. Nothing about the caller goes into the prompt. Without a
+        working assistant, code takes the first candidates (`source` is `code`). The app never
+        claims a dish is safe: each card lists its allergens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeSuggestInput'
+      responses:
+        '200':
+          description: The cards; `note` explains an empty one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeOffer'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /recipes/{recipe_id}:
+    get:
+      tags: [recipes]
+      operationId: getRecipe
+      summary: A recipe with amounts for the given number of servings
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: servings
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 8
+            default: 2
+      responses:
+        '200':
+          description: The recipe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeDetail'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
+  /recipes/{recipe_id}/plan:
+    post:
+      tags: [recipes]
+      operationId: planRecipe
+      summary: Make a recipe a shared plan with a friend
+      description: |
+        Creates a `parts` co-op like `createPlan`: part 1 "Купить продукты" (the shopping list
+        as its checklist, without ingredients listed in `at_home`, optional ones and staples)
+        for the shopper, part 2 "Приготовить" (the steps as its checklist) for the cook, opened
+        when the shopping is done. The shopper can hand the list to the partner with
+        `offerHandoff`. When nothing needs buying, the result is a `same` co-op.
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipePlanInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coop'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          description: Not a friend
           content:
             application/problem+json:
               schema:
@@ -2752,6 +2866,142 @@ components:
           type: string
           format: date-time
           description: Before the end of the day.
+
+    Meal:
+      type: string
+      enum: [breakfast, lunch, dinner, snack, dessert]
+
+    Allergen:
+      type: string
+      enum: [gluten, milk, egg, fish, shellfish, nuts, peanut, soy, sesame]
+
+    RecipeSuggestInput:
+      type: object
+      properties:
+        meal:
+          anyOf:
+            - $ref: '#/components/schemas/Meal'
+            - type: 'null'
+        max_minutes:
+          type: [integer, 'null']
+          minimum: 10
+          maximum: 240
+        allergens:
+          type: array
+          maxItems: 9
+          items:
+            $ref: '#/components/schemas/Allergen'
+        vegetarian:
+          type: boolean
+          default: false
+
+    RecipeCard:
+      type: object
+      required: [id, title, meal, minutes, servings, allergens, vegetarian, why]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        meal:
+          $ref: '#/components/schemas/Meal'
+        minutes:
+          type: integer
+        servings:
+          type: integer
+          description: The servings the catalog amounts are written for.
+        allergens:
+          type: array
+          items:
+            $ref: '#/components/schemas/Allergen'
+        vegetarian:
+          type: boolean
+        why:
+          type: [string, 'null']
+          description: One Russian sentence from the assistant; null when code picked.
+
+    RecipeOffer:
+      type: object
+      required: [source, recipes, note]
+      properties:
+        source:
+          type: string
+          enum: [llm, code]
+        recipes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeCard'
+        note:
+          type: [string, 'null']
+
+    RecipeLine:
+      type: object
+      required: [ingredient, name, amount, unit, aisle, optional, staple]
+      properties:
+        ingredient:
+          type: string
+        name:
+          type: string
+        amount:
+          type: number
+        unit:
+          type: string
+          enum: [g, ml, pcs, clove, slice, tbsp, tsp, pinch]
+        aisle:
+          type: string
+          enum: [produce, dairy, meat, fish, grocery, bakery, frozen, drinks, other]
+        optional:
+          type: boolean
+        staple:
+          type: boolean
+          description: Usually at home (salt, oil); not put on the shopping list.
+
+    RecipeDetail:
+      type: object
+      required: [recipe, servings, lines, steps, note]
+      properties:
+        recipe:
+          $ref: '#/components/schemas/RecipeCard'
+        servings:
+          type: integer
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeLine'
+        steps:
+          type: array
+          items:
+            type: string
+        note:
+          type: string
+          description: Must be shown with the allergens.
+
+    RecipePlanInput:
+      type: object
+      required: [friend_id, shopper]
+      properties:
+        friend_id:
+          type: string
+          format: uuid
+        shopper:
+          type: string
+          enum: [me, friend]
+          description: Who buys the groceries; the other one cooks.
+        servings:
+          type: integer
+          minimum: 1
+          maximum: 8
+          default: 2
+        at_home:
+          type: array
+          maxItems: 60
+          items:
+            type: string
+            maxLength: 40
+          description: Ingredient ids of the recipe the caller already has.
+        starts_at:
+          type: [string, 'null']
+          format: date-time
 
     CoopKind:
       type: string
