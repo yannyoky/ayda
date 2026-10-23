@@ -1,7 +1,7 @@
 // In-memory backend used by the mock API in development and tests.
 // It follows the contract and the PRD rules closely enough to drive every screen.
 import type { Schemas } from '../api/client'
-import { catalog, CONSENT_VERSION, friendNames, sampleCaptions, sampleEvents, sampleVenues, type CatalogQuest } from './data'
+import { catalog, CONSENT_VERSION, friendNames, sampleCaptions, sampleEvents, sampleRecipes, sampleVenues, type CatalogQuest } from './data'
 
 type DayQuest = Schemas['DayQuest']
 type Post = Schemas['Post']
@@ -462,6 +462,55 @@ export class MockDb {
     me.status = 'accepted'
     me.questId = q.id
     return this.publicCoop(c)
+  }
+
+  // ---- cooking (M5) ----
+
+  suggestRecipes(input: Schemas['RecipeSuggestInput']): Schemas['RecipeOffer'] {
+    const found = sampleRecipes.filter(
+      (r) =>
+        (!input.meal || r.card.meal === input.meal) &&
+        (!input.max_minutes || r.card.minutes <= input.max_minutes) &&
+        (!input.vegetarian || r.card.vegetarian) &&
+        !(input.allergens ?? []).some((a) => r.card.allergens.includes(a)),
+    )
+    return {
+      source: 'llm',
+      recipes: found.map((r, i) => ({ ...r.card, why: i === 0 ? 'Просто и вкусно, как раз на двоих.' : null })),
+      note: found.length === 0 ? 'Подходящих рецептов нет. Попробуй убрать часть условий.' : (input.allergens ?? []).length > 0 ? 'Рецепты с названными аллергенами убраны. Состав продуктов всё равно проверяй на упаковке.' : null,
+    }
+  }
+
+  recipeDetail(id: string, servings: number): Schemas['RecipeDetail'] | undefined {
+    const r = sampleRecipes.find((x) => x.card.id === id)
+    if (!r) return undefined
+    const factor = servings / r.card.servings
+    return {
+      recipe: { ...r.card, why: null },
+      servings,
+      lines: r.lines.map((l) => ({ ...l, amount: l.unit === 'pcs' ? Math.ceil(l.amount * factor) : Math.round(l.amount * factor) })),
+      steps: r.steps,
+      note: 'Аллергены указаны по ингредиентам из рецепта. Состав покупных продуктов проверяй сам.',
+    }
+  }
+
+  planRecipe(id: string, input: Schemas['RecipePlanInput']): Schemas['Coop'] | 'not_found' | 'not_friends' {
+    const detail = this.recipeDetail(id, input.servings ?? 2)
+    if (!detail) return 'not_found'
+    if (!this.friends.some((f) => f.id === input.friend_id)) return 'not_friends'
+    const need = detail.lines.filter((l) => !l.optional && !l.staple && !(input.at_home ?? []).includes(l.ingredient))
+    const shopper = input.shopper === 'me' ? this.me.id : input.friend_id
+    const cook = input.shopper === 'me' ? input.friend_id : this.me.id
+    const title = `Готовим: ${detail.recipe.title}`
+    const coop =
+      need.length === 0
+        ? this.addPlan(title, [input.friend_id], [])
+        : this.addPlan(title, [input.friend_id], [
+            { title: 'Купить продукты', assigneeId: shopper, items: need.map((l) => `${l.name}: ${l.amount}`) },
+            { title: `Приготовить: ${detail.recipe.title}`, assigneeId: cook, items: detail.steps, opensAfter: 0 },
+          ])
+    if (need.length === 0) delete coop.parts
+    return this.publicCoop(coop)
   }
 
   // ---- meetups from a chat (M5) ----

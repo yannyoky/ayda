@@ -447,6 +447,27 @@ export const handlers = [
       return HttpResponse.json(result, { status: 201 })
     }),
   ),
+  http.post<never, Schemas['RecipeSuggestInput'], DefaultBodyType>(
+    `${API}/recipes/suggest`,
+    authed(async ({ request }) => HttpResponse.json(db.suggestRecipes(await request.json()))),
+  ),
+  http.get<{ id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/recipes/:id`,
+    authed(({ params, request }) => {
+      const servings = Number(new URL(request.url).searchParams.get('servings') ?? 2)
+      const detail = db.recipeDetail(params.id, servings)
+      return detail ? HttpResponse.json(detail) : problem(404, 'Такого рецепта нет', 'https://ayda.app/errors/recipe-not-found')
+    }),
+  ),
+  http.post<{ id: string }, Schemas['RecipePlanInput'], DefaultBodyType>(
+    `${API}/recipes/:id/plan`,
+    authed(async ({ params, request }) => {
+      const result = db.planRecipe(params.id, await request.json())
+      if (result === 'not_found') return problem(404, 'Такого рецепта нет', 'https://ayda.app/errors/recipe-not-found')
+      if (result === 'not_friends') return problem(403, 'Позвать можно только друзей', 'https://ayda.app/errors/not-friends')
+      return HttpResponse.json(result, { status: 201 })
+    }),
+  ),
   http.get(`${API}/coops`, authed(() => HttpResponse.json({ items: db.listCoops() }))),
   http.get<{ coop_id: string }, DefaultBodyType, DefaultBodyType>(
     `${API}/coops/:coop_id`,

@@ -90,3 +90,48 @@ export const sampleVenues: Omit<Schemas['MeetupVenue'], 'id' | 'osm_url' | 'gis_
   { name: 'Кофейня на углу', kind: 'cafe', address: 'Ленина, 1', distance_m: 350, opening_hours: 'Mo-Su 08:00-22:00', open_now: true },
   { name: 'Паб «Янтарь»', kind: 'pub', address: 'Мира, 12', distance_m: 900, opening_hours: null, open_now: null },
 ]
+
+type RecipeLine = Schemas['RecipeLine']
+const line = (ingredient: string, name: string, amount: number, unit: RecipeLine['unit'], aisle: RecipeLine['aisle'], extra: Partial<RecipeLine> = {}): RecipeLine => ({
+  ingredient,
+  name,
+  amount,
+  unit,
+  aisle,
+  optional: false,
+  staple: false,
+  ...extra,
+})
+
+export const sampleRecipes: { card: Omit<Schemas['RecipeCard'], 'why'>; lines: RecipeLine[]; steps: string[] }[] = [
+  {
+    card: { id: 'pancakes', title: 'Блины на молоке', meal: 'breakfast', minutes: 35, servings: 2, allergens: ['egg', 'gluten', 'milk'], vegetarian: true },
+    lines: [
+      line('flour', 'Мука пшеничная', 150, 'g', 'grocery'),
+      line('milk', 'Молоко', 300, 'ml', 'dairy'),
+      line('eggs', 'Яйца', 2, 'pcs', 'dairy'),
+      line('salt', 'Соль', 1, 'pinch', 'grocery', { staple: true }),
+    ],
+    steps: ['Взбить яйца с молоком.', 'Добавить муку и размешать.', 'Печь на сковороде по минуте с каждой стороны.'],
+  },
+  {
+    card: { id: 'greek-salad', title: 'Греческий салат', meal: 'lunch', minutes: 10, servings: 2, allergens: ['milk'], vegetarian: true },
+    lines: [
+      line('tomato', 'Помидоры', 300, 'g', 'produce'),
+      line('cucumber', 'Огурцы', 250, 'g', 'produce'),
+      line('feta', 'Брынза', 100, 'g', 'dairy'),
+      line('olive_oil', 'Оливковое масло', 2, 'tbsp', 'grocery', { staple: true }),
+    ],
+    steps: ['Нарезать овощи крупными кусками.', 'Добавить брынзу и заправить маслом.'],
+  },
+  {
+    card: { id: 'carbonara', title: 'Паста карбонара', meal: 'dinner', minutes: 25, servings: 2, allergens: ['egg', 'gluten', 'milk'], vegetarian: false },
+    lines: [
+      line('pasta', 'Паста', 200, 'g', 'grocery'),
+      line('bacon', 'Бекон', 120, 'g', 'meat'),
+      line('eggs', 'Яйца', 2, 'pcs', 'dairy'),
+      line('cheese', 'Сыр твёрдый', 60, 'g', 'dairy'),
+    ],
+    steps: ['Сварить пасту.', 'Обжарить бекон.', 'Смешать всё с яйцами и сыром.'],
+  },
+]
