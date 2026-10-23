@@ -25,6 +25,7 @@ export interface TelegramWebApp {
   setBottomBarColor?(color: string): void
   openTelegramLink(url: string): void
   openLink(url: string): void
+  close(): void
   BackButton: TelegramBackButton
   HapticFeedback: TelegramHaptics
 }
@@ -88,4 +89,14 @@ export function openExternal(url: string): void {
   const app = webApp()
   if (app) app.openLink(url)
   else window.open(url, '_blank', 'noopener')
+}
+
+/** Code of a native app sign-in when the Mini App was opened by `startapp=login_<code>` (ADR 0009). */
+export function nativeLoginCode(): string | undefined {
+  const param = startParam()
+  return param?.startsWith('login_') ? param.slice('login_'.length) : undefined
+}
+
+export function closeApp(): void {
+  webApp()?.close()
 }

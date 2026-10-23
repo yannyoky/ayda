@@ -41,7 +41,7 @@ class SignInTest {
         TelegramLoginRequest(
             id = "4b8d7c3e-1f2a-4e5b-8c9d-0e1f2a3b4c5d",
             pollSecret = "s3cret",
-            botUrl = "https://t.me/ayda_quest_bot?start=login_x8Kq2LmN",
+            botUrl = "https://t.me/ayda_quest_bot?startapp=login_x8Kq2LmN",
             expiresAt = start + 5.minutes,
         )
 

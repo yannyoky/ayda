@@ -98,13 +98,36 @@ export interface paths {
         put?: never;
         /**
          * Start signing in (or linking Telegram) through the bot from a native app
-         * @description Returns a link to the bot (`t.me/<bot>?start=login_<code>`) valid for 5 minutes and a
-         *     secret that only this app knows. The user opens the link, presses Start and confirms
-         *     in the bot; the app then calls exchangeTelegramLoginRequest with the secret.
+         * @description Returns a link (`t.me/<bot>?startapp=login_<code>`) valid for 5 minutes and a secret
+         *     that only this app knows. The link opens the Mini App, where the user confirms
+         *     (approveTelegramLoginRequest); the app then calls exchangeTelegramLoginRequest with
+         *     the secret. The bot still answers `/start login_<code>` with a confirm button.
          *     With a bearer token the confirmed Telegram account is linked to the signed-in user
          *     instead (ADR 0009).
          */
         post: operations["createTelegramLoginRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/telegram/login-requests/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a native app sign-in from the Mini App
+         * @description The Mini App opened with `startapp=login_<code>` sends the code with its fresh initData;
+         *     the Telegram user in the verified initData confirms the request. Works without the bot
+         *     receiving updates. 404 when the code is unknown, expired or already confirmed (ADR 0009).
+         */
+        post: operations["approveTelegramLoginRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1276,7 +1299,7 @@ export interface components {
             poll_secret: string;
             /**
              * Format: uri
-             * @example https://t.me/ayda_quest_bot?start=login_x8Kq2LmN0pQr7sTu
+             * @example https://t.me/ayda_quest_bot?startapp=login_x8Kq2LmN0pQr7sTu
              */
             bot_url: string;
             /** Format: date-time */
@@ -2239,6 +2262,35 @@ export interface operations {
             401: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
             503: components["responses"]["Problem"];
+        };
+    };
+    approveTelegramLoginRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    init_data: string;
+                    /** @description The start parameter without the `login_` prefix. */
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Confirmed; the native app picks up its session */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     exchangeTelegramLoginRequest: {

@@ -10,6 +10,7 @@ from ayda.api.schemas import (
     EmailVerify,
     RefreshTokenInput,
     Session,
+    TelegramLoginApprove,
     TelegramLoginExchange,
     TelegramLoginRequestOut,
     TelegramSignIn,
@@ -186,12 +187,43 @@ async def create_telegram_login_request(
             429, "too-many-requests", detail="Слишком много попыток, попробуйте чуть позже"
         ) from None
     await session.commit()
+    # The Mini App confirms it (approveTelegramLoginRequest), so the bot need not get updates
+    start = f"{auth.CODE_PREFIX}{created.code}"
     return TelegramLoginRequestOut(
         id=created.id,
         poll_secret=created.poll_secret,
-        bot_url=f"https://t.me/{settings.telegram_bot_username}?start={auth.CODE_PREFIX}{created.code}",
+        bot_url=f"https://t.me/{settings.telegram_bot_username}?startapp={start}",
         expires_at=created.expires_at,
     )
+
+
+@router.post(
+    "/auth/telegram/login-requests/approve",
+    operation_id="approveTelegramLoginRequest",
+    status_code=204,
+)
+async def approve_telegram_login_request(
+    body: TelegramLoginApprove, session: DbSession, settings: AppSettings
+) -> Response:
+    if settings.telegram_bot_token is None:
+        raise Problem(401, "telegram-not-configured", detail="Вход через Telegram не настроен")
+    try:
+        init_data = auth.validate_init_data(
+            body.init_data, settings.telegram_bot_token.get_secret_value()
+        )
+    except auth.InitDataError:
+        raise Problem(401, "invalid-init-data", detail="Не удалось проверить вход") from None
+    request = await auth.find_pending(session, body.code.removeprefix(auth.CODE_PREFIX))
+    approved = request is not None and await auth.approve_request(
+        session, request.id, init_data.user
+    )
+    if not approved:
+        await session.rollback()
+        raise Problem(
+            404, "login-request-expired", detail="Ссылка для входа устарела, начните вход заново"
+        )
+    await session.commit()
+    return Response(status_code=204)
 
 
 @router.post(

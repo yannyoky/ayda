@@ -17,7 +17,7 @@
     <string name="resend_code">Прислать код ещё раз</string>
     <string name="change_email">Другая почта</string>
     <string name="telegram_title">Подтвердите в Telegram</string>
-    <string name="telegram_hint">Откройте бота, нажмите «Старт» и подтвердите вход. Приложение войдёт само.</string>
+    <string name="telegram_hint">В Telegram откроется Ayda: нажмите «Подтвердить вход». Приложение войдёт само.</string>
     <string name="telegram_open">Открыть Telegram</string>
     <string name="cancel">Отмена</string>
     <string name="hello">Привет!</string>
