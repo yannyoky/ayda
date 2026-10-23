@@ -1,5 +1,6 @@
 """Venues for meetups from OpenStreetMap (ADR 0011): a monthly Overpass query per city with
-users, stored in `events.venues`, and code that picks 3-5 candidates.
+users, stored in `events.venues`, and code that picks 3-5 candidates. Since M6 (ADR 0013) the
+same query also loads places for a walk: parks, gardens, embankments, viewpoints and squares.
 
 Requests carry a city center and a radius only, never anything about our users. Reviews and
 the average bill are not stored: a card links to 2GIS and Yandex Maps search instead.
@@ -22,12 +23,14 @@ from ayda.modules.events.models import Venue, VenueLoad
 
 log = logging.getLogger(__name__)
 
-KINDS = ("restaurant", "cafe", "bar", "pub", "fast_food")
+FOOD_KINDS = ("restaurant", "cafe", "bar", "pub", "fast_food")
+WALK_KINDS = ("park", "garden", "embankment", "viewpoint", "square")
+KINDS = FOOD_KINDS + WALK_KINDS
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 RELOAD_AFTER = timedelta(days=30)
 ATTRIBUTION = "© OpenStreetMap contributors"
 MAX_NAME = 120
-MAX_VENUES_PER_CITY = 2000
+MAX_VENUES_PER_CITY = 3000
 
 
 @dataclass(frozen=True)
@@ -45,24 +48,45 @@ class VenueData:
 
 
 def query_for(lat: float, lon: float, radius_m: int) -> str:
-    kinds = "|".join(KINDS)
+    around = f"(around:{radius_m},{lat:.5f},{lon:.5f})"
     return (
-        f"[out:json][timeout:60];"
-        f'nwr["amenity"~"^({kinds})$"]["name"](around:{radius_m},{lat:.5f},{lon:.5f});'
-        f"out center tags {MAX_VENUES_PER_CITY};"
+        f"[out:json][timeout:90];("
+        f'nwr["amenity"~"^({"|".join(FOOD_KINDS)})$"]["name"]{around};'
+        f'nwr["leisure"~"^(park|garden)$"]["name"]{around};'
+        f'nwr["tourism"="viewpoint"]["name"]{around};'
+        f'nwr["place"="square"]["name"]{around};'
+        f'way["highway"]["name"~"набережная",i]{around};'
+        f");out center tags {MAX_VENUES_PER_CITY};"
     )
 
 
+def _kind(tags: dict[str, str]) -> str | None:
+    amenity = tags.get("amenity")
+    if amenity in FOOD_KINDS:
+        return amenity
+    if tags.get("leisure") in ("park", "garden"):
+        return tags["leisure"]
+    if tags.get("tourism") == "viewpoint":
+        return "viewpoint"
+    if tags.get("place") == "square":
+        return "square"
+    if "highway" in tags and "набережная" in tags.get("name", "").lower():
+        return "embankment"
+    return None
+
+
 def parse_venues(payload: dict[str, Any]) -> list[VenueData]:
-    """Named venues of the five kinds with coordinates; anything else is skipped."""
+    """Named places of the known kinds with coordinates; anything else is skipped. An
+    embankment split into several ways is kept once, by name."""
     out: list[VenueData] = []
+    embankments: set[str] = set()
     for element in cast(list[dict[str, Any]], payload.get("elements", [])):
         tags = cast(dict[str, str], element.get("tags") or {})
         center = cast(dict[str, float], element.get("center") or {})
         lat = element.get("lat", center.get("lat"))
         lon = element.get("lon", center.get("lon"))
         name = " ".join(tags.get("name", "").split())
-        kind = tags.get("amenity")
+        kind = _kind(tags)
         osm_type = element.get("type")
         if (
             not name
@@ -72,6 +96,10 @@ def parse_venues(payload: dict[str, Any]) -> list[VenueData]:
             or osm_type not in ("node", "way", "relation")
         ):
             continue
+        if kind == "embankment":
+            if name.lower() in embankments:
+                continue
+            embankments.add(name.lower())
         street = tags.get("addr:street")
         number = tags.get("addr:housenumber")
         address = ", ".join(p for p in (street, number) if p) or None
@@ -290,7 +318,7 @@ async def candidates(
     session: AsyncSession,
     city_id: int,
     when_local: datetime,
-    kinds: Sequence[str] = KINDS,
+    kinds: Sequence[str] = FOOD_KINDS,
     limit: int = 5,
 ) -> list[Candidate]:
     """Up to `limit` venues near the city center: open at the planned time first (unknown

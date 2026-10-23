@@ -9,6 +9,7 @@ is deleted once the day is over.
 
 import uuid
 from datetime import date, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,12 +18,15 @@ from ayda.api.schemas import (
     AssistantExchange,
     AssistantMessage,
     AssistantMessageInput,
+    AssistantPlace,
     AssistantThread,
 )
-from ayda.app.day import DayTools
+from ayda.app.cooking import recipe_card
+from ayda.app.day import DayTools, quest_schema
 from ayda.core.problems import Problem
-from ayda.modules import analytics, assistant, auth, habits, quests
+from ayda.modules import analytics, assistant, auth, events, habits, quests
 from ayda.modules.analytics import EventType
+from ayda.modules.assistant import recipes
 from ayda.modules.quests import days as day_clock
 
 DAILY_LIMIT = 40
@@ -30,7 +34,29 @@ HISTORY = 10
 HISTORY_CHARS = 300
 LLM_DEADLINE_S = 12.0
 
+PLACES_SHOWN = 5
+DISHES_SHOWN = 3
+MAX_OFFERED = 5
+PLACE_KINDS: dict[str, tuple[str, ...]] = {
+    "walk": events.WALK_KINDS,
+    "food": ("restaurant", "cafe", "fast_food"),
+    "drinks": ("bar", "pub"),
+}
+MEALS: tuple[tuple[tuple[str, ...], recipes.Meal], ...] = (
+    (("завтрак",), "breakfast"),
+    (("обед",), "lunch"),
+    (("ужин",), "dinner"),
+    (("десерт", "сладк"), "dessert"),
+    (("перекус",), "snack"),
+)
+
 REPLY_UNAVAILABLE = "Сейчас не получается ответить, попробуй чуть позже."
+NOTE_NO_CITY = "Укажи город в профиле, и я найду места рядом."
+NOTE_NO_PLACES = "Рядом с центром города в карте пока мало таких мест."
+NOTE_UNKNOWN_FOOD = "Таких продуктов нет в моих рецептах, вот что готовится быстро."
+NOTE_ALLERGENS = "Аллергены указаны по рецепту. Состав покупных продуктов проверяй сам."
+NOTE_TOO_MANY = "Сегодня уже ждут несколько моих квестов. Возьми или замени один из них."
+WHY_QUEST = "Придумали вместе с помощником"
 
 # Obvious requests the code understands without the LLM, checked in this order.
 _INTENTS: tuple[tuple[tuple[str, ...], assistant.ChatAction, str], ...] = (
@@ -57,13 +83,128 @@ _INTENTS: tuple[tuple[tuple[str, ...], assistant.ChatAction, str], ...] = (
 )
 
 
+def meal_in(text: str) -> recipes.Meal | None:
+    lowered = text.lower()
+    return next((meal for words, meal in MEALS if any(w in lowered for w in words)), None)
+
+
 def code_answer(text: str) -> assistant.ChatAnswer:
     """The answer when no LLM is available: a known request gets its action."""
     lowered = text.lower()
     for words, action, reply in _INTENTS:
         if any(word in lowered for word in words):
+            if action.type == "suggest_dishes":
+                action = action.model_copy(update={"meal": meal_in(text)})
             return assistant.ChatAnswer(reply=reply, action=action)
     return assistant.ChatAnswer(reply=REPLY_UNAVAILABLE)
+
+
+# --- actions: code builds every fact on a card ------------------------------------------
+
+
+async def _places(
+    session: AsyncSession, user: auth.User, kind: str, now: datetime
+) -> AssistantCard:
+    if user.city_id is None:
+        return AssistantCard(kind="places", note=NOTE_NO_CITY)
+    local = day_clock.local_now(now, user.timezone).replace(tzinfo=None)
+    found = await events.venue_candidates(
+        session, user.city_id, local, PLACE_KINDS[kind], PLACES_SHOWN
+    )
+    if not found:
+        return AssistantCard(kind="places", note=NOTE_NO_PLACES)
+    city = await events.get_city(session, user.city_id)
+    city_name = city.name if city else ""
+    places: list[AssistantPlace] = []
+    for c in found:
+        links = events.map_links(c.venue.name, city_name)
+        places.append(
+            AssistantPlace(
+                id=c.venue.id,
+                name=c.venue.name,
+                kind=c.venue.kind,  # pyright: ignore[reportArgumentType]
+                address=c.venue.address,
+                distance_m=c.distance_m,
+                open_now=c.open_now,
+                osm_url=events.osm_url(c.venue),
+                gis_url=links["2gis"],
+                yandex_url=links["yandex"],
+            )
+        )
+    return AssistantCard(kind="places", places=places, attribution=events.ATTRIBUTION)
+
+
+def dishes_card(named: list[str], meal: recipes.Meal | None, listed: bool) -> AssistantCard:
+    """Recipes from the catalog for what the user has at home (ADR 0012 + 0013). `listed`:
+    `named` are products the LLM picked out, not the whole message."""
+    rb = recipes.book()
+    have = recipes.match_ingredients(rb, named)
+    found = (
+        recipes.dishes_from(rb, have, meal, DISHES_SHOWN)
+        or recipes.dishes_from(rb, have, None, DISHES_SHOWN)
+        if have
+        else []
+    )
+    note = NOTE_ALLERGENS
+    if not found:
+        found = recipes.dishes_from(rb, (), meal, DISHES_SHOWN)
+        note = NOTE_UNKNOWN_FOOD if listed else NOTE_ALLERGENS
+    cards = [
+        recipe_card(d.recipe, rb, f"Есть дома: {d.have} из {d.need}" if d.have else None)
+        for d in found
+    ]
+    return AssistantCard(kind="dishes", recipes=cards, note=note)
+
+
+async def _quest(
+    session: AsyncSession, user: auth.User, day: date, action: assistant.ChatAction, now: datetime
+) -> AssistantCard:
+    assert action.title and action.category and action.duration_min
+    new = quests.NewQuest(
+        source="custom",
+        title=action.title,
+        category=action.category,
+        duration_min=action.duration_min,
+        why=WHY_QUEST,
+    )
+    row = await quests.offer_quest(
+        session,
+        user.id,
+        day,
+        new,
+        day_clock.day_expires_at(day, user.timezone),
+        now,
+        MAX_OFFERED,
+    )
+    if row is None:
+        return AssistantCard(kind="quest", note=NOTE_TOO_MANY)
+    return AssistantCard(kind="quest", quest=quest_schema(row))
+
+
+async def run_action(
+    session: AsyncSession,
+    user: auth.User,
+    day: date,
+    action: assistant.ChatAction | None,
+    text: str,
+    now: datetime,
+) -> list[AssistantCard]:
+    if action is None:
+        return []
+    if action.type == "find_places" and action.kind is not None:
+        return [await _places(session, user, action.kind, now)]
+    if action.type == "suggest_dishes":
+        meal = action.meal or meal_in(text)
+        if action.ingredients:
+            return [dishes_card(action.ingredients, meal, listed=True)]
+        return [dishes_card([text], meal, listed=False)]
+    if action.type == "suggest_quest":
+        return [await _quest(session, user, day, action, now)]
+    return []
+
+
+def _items(card: AssistantCard) -> int:
+    return len(card.places) + len(card.recipes) + (1 if card.quest else 0)
 
 
 def message_schema(message: assistant.chat.ChatMessage) -> AssistantMessage:
@@ -155,6 +296,8 @@ async def send(
     context = await _context(session, user, day, quest)
     result = await assistant.chat_reply(tools.assistant, context, history, LLM_DEADLINE_S)
     answer, source = (result.value, "llm") if result else (code_answer(text), "code")
+    cards = await run_action(session, user, day, answer.action, text, now)
+    stored: list[dict[str, Any]] = [c.model_dump(mode="json") for c in cards]
 
     reply = await assistant.chat.add_message(
         session,
@@ -165,6 +308,7 @@ async def send(
         answer.reply,
         now,
         source=source,
+        cards=stored,
     )
     # Counts and codes only: neither the user's text nor the answer leaves the chat table.
     await analytics.record(
@@ -175,7 +319,8 @@ async def send(
             "topic": "quest" if quest else "day",
             "day_quest_id": quest.id if quest else None,
             "action": answer.action.type if answer.action else None,
-            "cards": len(reply.cards),
+            "cards": len(cards),
+            "items": sum(_items(c) for c in cards),
             "source": source,
             "provider": result.provider if result else "code",
             "history": len(earlier),

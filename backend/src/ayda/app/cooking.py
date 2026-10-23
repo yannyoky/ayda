@@ -56,7 +56,9 @@ ALLERGENS_RU = {
 }
 
 
-def _card(recipe: recipes.Recipe, rb: recipes.RecipeBook, why: str | None = None) -> RecipeCard:
+def recipe_card(
+    recipe: recipes.Recipe, rb: recipes.RecipeBook, why: str | None = None
+) -> RecipeCard:
     return RecipeCard(
         id=recipe.id,
         title=recipe.title,
@@ -111,7 +113,7 @@ async def suggest(
     note = NOTE_NONE if not found else (NOTE_ALLERGENS if body.allergens else None)
     offer = RecipeOffer(
         source=source,  # pyright: ignore[reportArgumentType]
-        recipes=[_card(r, rb, why.get(r.id)) for r in chosen],
+        recipes=[recipe_card(r, rb, why.get(r.id)) for r in chosen],
         note=note,
     )
     await analytics.record(
@@ -136,7 +138,7 @@ def detail(recipe_id: str, servings: int) -> RecipeDetail:
     recipe = _find(recipe_id)
     lines = recipes.scale(recipe, rb, servings)
     return RecipeDetail(
-        recipe=_card(recipe, rb),
+        recipe=recipe_card(recipe, rb),
         servings=servings,
         lines=[RecipeLine.model_validate(ln, from_attributes=True) for ln in lines],
         steps=recipe.steps,

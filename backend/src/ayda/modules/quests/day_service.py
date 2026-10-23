@@ -292,6 +292,38 @@ async def add_own_quest(
     return row
 
 
+async def offer_quest(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    day: date,
+    quest: NewQuest,
+    expires_at: datetime,
+    now: datetime,
+    max_offered: int,
+) -> DayQuest | None:
+    """An extra offered quest at the end of today's pool (the assistant's idea, M6); None
+    when the day already has `max_offered` such quests waiting."""
+    pool = await ensure_pool(session, user_id, day, now)
+    waiting = await session.scalar(
+        select(func.count())
+        .select_from(DayQuest)
+        .where(
+            DayQuest.pool_id == pool.id,
+            DayQuest.source == quest.source,
+            DayQuest.state == "offered",
+        )
+    )
+    if (waiting or 0) >= max_offered:
+        return None
+    position = await session.scalar(
+        select(func.coalesce(func.max(DayQuest.position), -1)).where(DayQuest.pool_id == pool.id)
+    )
+    row = new_day_quest(pool, quest, (position or 0) + 1, "offered", expires_at, now)
+    session.add(row)
+    await session.flush()
+    return row
+
+
 def replacements_left(pool: DayPool | None) -> int:
     used = pool.replacements_used if pool else 0
     return max(scoring_config().max_replacements_per_day - used, 0)
