@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     events_timezone: str = "Europe/Moscow"
     # Optional: a Timepad API token only raises the rate limit; public events need none.
     timepad_token: SecretStr | None = None
+    # Venues for meetups (ADR 0011): public Overpass instances in order, comma-separated;
+    # empty: no venues. A city with users is queried about once a month, a few per night.
+    venues_overpass_urls: str = "https://overpass-api.de/api/interpreter"
+    venues_radius_m: int = 7000
 
     # Realtime through Centrifugo (ADR 0007). Without the API key nothing is published;
     # without the token secret the Mini App gets no realtime token and polls REST instead.

@@ -16,7 +16,7 @@ from ayda.modules.events.listings import (
     save_listings,
     upcoming_near,
 )
-from ayda.modules.events.models import City, Listing
+from ayda.modules.events.models import City, Listing, Venue, VenueLoad
 from ayda.modules.events.sources import (
     CityRef,
     EventSource,
@@ -24,9 +24,27 @@ from ayda.modules.events.sources import (
     ListingData,
     TimepadSource,
 )
+from ayda.modules.events.venues import (
+    ATTRIBUTION,
+    KINDS,
+    Candidate,
+    OverpassSource,
+    VenueData,
+    is_open_at,
+    load_venues,
+    map_links,
+    osm_url,
+    parse_venues,
+    place_snapshot,
+    save_venues,
+)
+from ayda.modules.events.venues import candidates as venue_candidates
 from ayda.modules.events.weather import Weather, WeatherClient
 
 __all__ = [
+    "ATTRIBUTION",
+    "KINDS",
+    "Candidate",
     "City",
     "CityPoint",
     "CityRef",
@@ -34,7 +52,11 @@ __all__ = [
     "KudaGoSource",
     "Listing",
     "ListingData",
+    "OverpassSource",
     "TimepadSource",
+    "Venue",
+    "VenueData",
+    "VenueLoad",
     "Weather",
     "WeatherClient",
     "cities_to_load",
@@ -43,9 +65,17 @@ __all__ = [
     "get_city",
     "get_listings",
     "ingest",
+    "is_open_at",
+    "load_venues",
+    "map_links",
     "nearest_cities",
+    "osm_url",
+    "parse_venues",
+    "place_snapshot",
     "purge_listings",
     "save_listings",
+    "save_venues",
     "search_cities",
     "upcoming_near",
+    "venue_candidates",
 ]
