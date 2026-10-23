@@ -82,39 +82,36 @@ async def test_personal_completion_awards_points_without_post(
     assert types == ["quest_taken", "quest_completed"]
 
 
-async def test_routine_post_hides_details(client: httpx.AsyncClient, database: Database) -> None:
+async def test_a_proof_can_be_text_only(client: httpx.AsyncClient, database: Database) -> None:
     user = await onboarded(client)
     quest_id = await own_quest(client, user, duration=60)
 
-    body = (await complete(client, user, quest_id, visibility="routine")).json()
+    routine = await complete(client, user, quest_id, visibility="routine")
+    assert routine.status_code == 422  # no longer offered
+    response = await complete(client, user, quest_id, visibility="friends", caption="Сделал")
+    assert response.status_code == 200, response.text
+    body = response.json()
 
-    assert body["points_awarded"] == 26  # 35 x 0.75 = 26.25
+    assert body["points_awarded"] == 35  # full points without a photo
     async with database.sessionmaker() as session:
         post = (await session.scalars(select(social.Post))).one()
     assert str(post.id) == body["post_id"]
-    assert (post.kind, post.quest_title, post.caption, post.category) == (
-        "routine",
-        None,
-        None,
-        "project",
-    )
+    assert (post.kind, post.caption, post.category) == ("proof", "Сделал", "project")
 
 
-async def test_friends_proof_needs_photos_and_starts_cleaning(
+async def test_friends_proof_checks_photos_and_starts_cleaning(
     client: httpx.AsyncClient, database: Database
 ) -> None:
     user = await onboarded(client)
     other = await onboarded(client, 2002)
     quest_id = await own_quest(client, user)
 
-    no_photo = await complete(client, user, quest_id, visibility="friends")
     with_caption_personal = await complete(
         client, user, quest_id, visibility="personal", caption="ура"
     )
     foreign = await complete(
         client, user, quest_id, visibility="friends", media_ids=[await add_media(database, other)]
     )
-    assert no_photo.status_code == 422 and no_photo.json()["type"].endswith("/photo-required")
     assert with_caption_personal.status_code == 422
     assert foreign.status_code == 422 and foreign.json()["type"].endswith("/invalid-media")
 
@@ -193,11 +190,11 @@ async def test_streak_bonus_applies_from_day_seven(
         await session.commit()
     quest_id = await own_quest(client, user, duration=60)
 
-    body = (await complete(client, user, quest_id, visibility="routine")).json()
+    body = (await complete(client, user, quest_id, visibility="personal")).json()
 
     assert body["streak"]["current_days"] == 7
     assert body["points_breakdown"]["streak_multiplier"] == 1.1
-    assert body["points_awarded"] == 29  # 35 x 0.75 x 1.1 = 28.875
+    assert body["points_awarded"] == 19  # 35 x 0.5 x 1.1 = 19.25
 
 
 async def test_ledger_is_append_only(client: httpx.AsyncClient, database: Database) -> None:

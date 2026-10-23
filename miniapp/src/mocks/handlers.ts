@@ -221,7 +221,8 @@ export const handlers = [
       if (q.state !== 'taken') return problem(409, 'Квест не взят или уже выполнен')
       const body = await request.json()
       const media = body.media_ids ?? []
-      if (body.visibility === 'friends' && (media.length < 1 || media.length > 3)) return problem(422, 'Для друзей нужно 1-3 фото')
+      if (body.visibility === 'routine') return problem(422, 'Выбери «В ленте» или «Только я»')
+      if (media.length > 3) return problem(422, 'Не больше 3 фото')
       if (body.visibility !== 'friends' && media.length > 0) return problem(422, 'Фото только для друзей')
       return HttpResponse.json(db.complete(q, body))
     }),

@@ -49,7 +49,7 @@ export const ru = {
     visibilityDone: {
       personal: 'только для тебя',
       routine: 'рутина в ленте',
-      friends: 'фото в ленте',
+      friends: 'в ленте',
     },
     weather: (t: number, condition: string) => `${condition}, ${t > 0 ? '+' : ''}${Math.round(t)}°`,
     conditions: {
@@ -104,17 +104,13 @@ export const ru = {
     title: 'Квест выполнен?',
     who: 'Кто увидит',
     options: {
-      friends: { title: 'Друзья', text: 'С фото и подписью в ленте' },
-      routine: {
-        title: 'Рутина',
-        text: 'Друзья увидят только, что ты это сделал',
-      },
+      friends: { title: 'В ленте', text: 'Друзья увидят пост: текст и фото по желанию' },
       personal: { title: 'Только я', text: 'В ленте ничего не появится' },
     },
     multiplier: (m: number) => `×${String(m).replace('.', ',')}`,
     expected: (n: number) => `≈ +${n}`,
     photos: 'Фото',
-    photosHint: 'От 1 до 3 фото, до 10 МБ каждое. Геометки сотрём.',
+    photosHint: 'Фото по желанию: до 3 штук, до 10 МБ каждое. Геометки сотрём.',
     addPhoto: 'Добавить фото',
     removePhoto: (n: number) => `Убрать фото ${n}`,
     photoTooBig: 'Фото больше 10 МБ',
@@ -123,6 +119,7 @@ export const ru = {
     captionPlaceholder: 'Как всё прошло?',
     submit: 'Отметить',
     uploading: (done: number, total: number) => `Загружаем фото ${done} из ${total}…`,
+    uploadFailed: 'Не получилось загрузить фото. Попробуй ещё раз или убери фото и отправь только текст.',
     expired: 'Время на этот квест вышло',
     notTaken: 'Этот квест уже закрыт',
     successTitle: 'Засчитано!',

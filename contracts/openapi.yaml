@@ -887,9 +887,9 @@ paths:
       operationId: completeQuest
       summary: Mark a taken quest done with a visibility level (US-09, US-15)
       description: |
-        `friends` visibility needs 1-3 uploaded photos in `ready` or `processing` state and
-        creates a proof in the feed; `routine` creates a feed entry without details;
-        `personal` creates nothing in the feed. Allowed until the quest's `expires_at`.
+        `friends` visibility creates a proof in the feed, with 0-3 uploaded photos in `ready`
+        or `processing` state (a text-only proof is fine); `personal` creates nothing in the
+        feed. `routine` is no longer accepted (422). Allowed until the quest's `expires_at`.
       parameters:
         - $ref: '#/components/parameters/QuestId'
       requestBody:
@@ -2463,6 +2463,9 @@ components:
     Visibility:
       type: string
       enum: [personal, routine, friends]
+      description: >-
+        `routine` is kept only for quests completed before it was retired; new completions
+        use `friends` (in the feed) or `personal` (only me).
 
     RejectReason:
       type: string
@@ -2674,7 +2677,7 @@ components:
           description: Only for `friends` visibility.
         media_ids:
           type: array
-          description: Required (1-3) for `friends` visibility, must be empty otherwise.
+          description: Optional (0-3) for `friends` visibility, must be empty otherwise.
           maxItems: 3
           uniqueItems: true
           items:
@@ -2772,7 +2775,7 @@ components:
         kind:
           type: string
           enum: [proof, routine]
-          description: '`routine` shows only the category, without title, caption or photos.'
+          description: '`routine` (older entries only) shows only the category, without title, caption or photos.'
         quest_title:
           type: [string, 'null']
         category:

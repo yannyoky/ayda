@@ -64,4 +64,5 @@ fun ApiResult<*>.errorText(): String =
 object ErrorTexts {
     const val OFFLINE = "Нет связи с сервером. Проверьте интернет и попробуйте ещё раз."
     const val GENERIC = "Что-то пошло не так. Попробуйте ещё раз."
+    const val UPLOAD = "Не получилось загрузить фото. Попробуйте ещё раз или уберите фото и отправьте только текст."
 }

@@ -138,7 +138,7 @@ The API issues short-lived signed access tokens (12 hours) after the initData ch
 | state | enum | `offered`, `taken`, `replaced`, `completed`, `expired` |
 | replaced_by_id | uuid FK null | the alternative |
 | reject_reason | enum null | `no_time`, `dont_want`, `cant` |
-| visibility | enum null | `personal`, `routine`, `friends`; set on completion |
+| visibility | enum null | `personal`, `friends` (`routine` only on older rows); set on completion |
 | taken_at, completed_at | timestamptz null | |
 | expires_at | timestamptz | 04:00 local time the next day |
 

@@ -48,10 +48,11 @@ data class CompleteState(
     val result: Completion? = null,
     val error: String? = null,
 ) {
-    val needPhotos: Boolean get() = visibility == Visibility.friends
+    /** A feed post: text, and photos only if the user adds them. */
+    val inFeed: Boolean get() = visibility == Visibility.friends
     val canAddPhoto: Boolean get() = photos.size < CompleteViewModel.MAX_PHOTOS
     val busy: Boolean get() = submitting || uploading != null
-    val ready: Boolean get() = !busy && (!needPhotos || photos.isNotEmpty())
+    val ready: Boolean get() = !busy
 }
 
 /**
@@ -99,7 +100,7 @@ class CompleteViewModel(
         mutableState.update { it.copy(error = null) }
         viewModelScope.launch {
             val mediaIds = mutableListOf<String>()
-            if (current.needPhotos) {
+            if (current.inFeed) {
                 for ((index, photo) in current.photos.withIndex()) {
                     mutableState.update { it.copy(uploading = Upload(index + 1, current.photos.size)) }
                     when (val uploaded = client.uploadPhoto(photo.jpeg)) {
@@ -110,7 +111,7 @@ class CompleteViewModel(
             }
             mutableState.update { it.copy(uploading = null, submitting = true) }
             val input =
-                if (current.needPhotos) {
+                if (current.inFeed) {
                     CompleteQuestInput(
                         visibility = current.visibility,
                         caption = current.caption.trim().ifEmpty { null },

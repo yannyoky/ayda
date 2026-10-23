@@ -4,6 +4,7 @@ import app.ayda.api.models.Day
 import app.ayda.api.models.Visibility
 import app.ayda.shared.AydaClient
 import app.ayda.shared.AydaClient.Companion.ApiJson
+import app.ayda.shared.ErrorTexts
 import app.ayda.shared.InMemoryTokenStore
 import app.ayda.shared.TEST_BASE
 import app.ayda.shared.Tokens
@@ -99,7 +100,7 @@ class CompleteViewModelTest {
     fun friendsVisibilityUploadsPhotosWithoutTheTokenThenCompletes() =
         runTest(dispatcher) {
             val model = model()
-            assertFalse(model.state.value.ready)
+            assertTrue(model.state.value.ready)
             model.addPhoto(byteArrayOf(1, 2, 3))
             model.addPhoto(byteArrayOf(4, 5))
             model.onCaptionChange("  Дошёл до моря  ")
@@ -134,6 +135,22 @@ class CompleteViewModelTest {
         }
 
     @Test
+    fun aFeedPostCanBeTextOnly() =
+        runTest(dispatcher) {
+            val model = model()
+            model.onCaptionChange("Прошёл 5 км")
+
+            model.submit()
+            advanceUntilIdle()
+
+            assertEquals(0, slots)
+            val body = requests.single().bodyText()
+            assertTrue(body.contains(""""visibility":"friends""""), body)
+            assertTrue(body.contains(""""caption":"Прошёл 5 км""""), body)
+            assertEquals(1, completed)
+        }
+
+    @Test
     fun personalVisibilityNeedsNoPhotos() =
         runTest(dispatcher) {
             val model = model()
@@ -161,7 +178,7 @@ class CompleteViewModelTest {
             val state = model.state.value
             assertNull(state.result)
             assertEquals(1, state.photos.size)
-            assertTrue(state.error != null)
+            assertEquals(ErrorTexts.UPLOAD, state.error)
             assertFalse(state.busy)
             assertEquals(0, completed)
         }
@@ -183,7 +200,6 @@ class CompleteViewModelTest {
 
             // 13 days plus today's first completion is two full weeks: x1.2.
             assertEquals(24, model.expectedPoints(Visibility.friends))
-            assertEquals(18, model.expectedPoints(Visibility.routine))
             assertEquals(12, model.expectedPoints(Visibility.personal))
         }
 }

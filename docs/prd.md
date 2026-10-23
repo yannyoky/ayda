@@ -42,7 +42,7 @@ First users are the owner and friends: 20-35 years old, living in different Russ
 | Morning check-in in free text | M1 | main difference from competitors |
 | Daily quest pool, take quests (up to 3 in M1, any number since M6), replace with an alternative | M1 | core of the loop |
 | Own quest added by hand | M1 | when the assistant misses |
-| Completion with a photo proof, visibility personal / routine / friends | M1 | evening half of the loop |
+| Completion with a proof (text and optional photos), visibility personal / friends | M1 | evening half of the loop |
 | Friends via a Telegram invite link | M1 | nobody to show without friends |
 | Friends feed, likes and comments | M1 | "show friends" |
 | Points, streak, weekly friends ladder | M1 | a reason to come back tomorrow |
@@ -97,10 +97,10 @@ A story is done when all its criteria hold, it has tests, and its events are wri
 ### Day and evening: completion and proofs (M1)
 
 - **US-09. Complete a quest.** As a user, I mark a quest done and choose who sees it.
-    - Visibility: personal (only me), "routine" (friends see the fact without details), friends (with photo and caption).
-    - Friends visibility needs a photo; personal and routine count without one.
+    - Visibility: friends ("in the feed", with a caption and optional photos) or personal ("only me").
+    - A feed proof can be text only; photos are optional. The former "routine" level (friends see the fact without details) was retired on 2026-10-23; older routine entries stay in the feed as they were.
     - A daily quest can be closed until 04:00 local time the next day, then it expires with no penalty.
-- **US-10. Photo proof.** As a user, I attach 1-3 photos from my phone.
+- **US-10. Photo proof.** As a user, I can attach up to 3 photos from my phone.
     - Upload goes straight to S3 via a presigned URL, up to 10 MB per photo, JPEG/PNG/HEIC/WebP.
     - EXIF, including geotags, is removed before saving.
     - The author can delete a proof; the photo is deleted from storage and the points stay.
@@ -113,7 +113,7 @@ A story is done when all its criteria hold, it has tests, and its events are wri
 - **US-12. Invite a friend.** As a user, I share a link in Telegram, and whoever opens it becomes my friend.
     - Link `t.me/<bot>?startapp=<code>`, the code lives 7 days and is reusable.
     - Friendship is mutual and can be removed; a former friend immediately stops seeing my posts.
-- **US-13. Feed.** As a user, I see my friends' proofs and routines, newest first.
+- **US-13. Feed.** As a user, I see my friends' proofs, newest first.
     - Only friends and me in the feed; personal quests are never shown to anyone.
     - Pages of 20, the first page in 1 second or less.
 - **US-14. Likes and comments.** As a friend, I like and comment on a proof.
@@ -147,7 +147,7 @@ Points for a quest = base by duration × visibility multiplier × streak bonus, 
 | Parameter | Value |
 | --- | --- |
 | Base: up to 15 min / 16-30 min / 31-60 min / over 60 min | 10 / 20 / 35 / 50 points |
-| Visibility: friends with photo / routine / personal | ×1.0 / ×0.75 / ×0.5 |
+| Visibility: friends (with or without a photo) / personal | ×1.0 / ×0.5 |
 | Streak bonus | +10% for each full 7 days, at most +30% |
 | Co-op, if everyone closes it the same day (M2) | +50% each |
 | Daily limit | none for taking quests since M6 (owner, 2026-10-23, #165; a guard of 30 against abuse); points only for the first 5 completed quests of a day, the rest count for the streak only |

@@ -11,8 +11,9 @@ import { Icon } from '../ui/Icon'
 import { CategoryIcon } from '../ui/quest'
 import { InlineError, PrimaryButton, Splash } from '../ui/states'
 
-type Visibility = Schemas['Visibility']
-const visibilities: Visibility[] = ['friends', 'routine', 'personal']
+// `routine` is kept in the contract only for older quests; it is no longer offered.
+type Visibility = Exclude<Schemas['Visibility'], 'routine'>
+const visibilities: Visibility[] = ['friends', 'personal']
 const MAX_PHOTOS = 3
 
 interface Picked {
@@ -20,7 +21,7 @@ interface Picked {
   preview: string
 }
 
-/** US-09/US-10: mark a taken quest done, choose who sees it, attach 1-3 photos for friends. */
+/** US-09/US-10: mark a taken quest done, post it to the feed (text, up to 3 photos) or keep it to myself. */
 export function CompleteScreen() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
@@ -31,6 +32,7 @@ export function CompleteScreen() {
   const [caption, setCaption] = useState('')
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null)
+  const [uploadFailed, setUploadFailed] = useState(false)
   const [result, setResult] = useState<Schemas['Completion'] | null>(null)
   const back = useCallback(() => navigate('/'), [navigate])
   useBackButton(back)
@@ -48,8 +50,7 @@ export function CompleteScreen() {
   const quest = day.quests.find((q) => q.id === id)
   if (!quest || quest.state !== 'taken') return <Navigate to="/" replace />
 
-  const needPhotos = visibility === 'friends'
-  const ready = !needPhotos || photos.length > 0
+  const inFeed = visibility === 'friends'
   const busy = uploading !== null || complete.isPending
 
   function addFiles(files: FileList | null) {
@@ -77,17 +78,25 @@ export function CompleteScreen() {
   }
 
   async function submit() {
+    setUploadFailed(false)
+    const mediaIds: string[] = []
     try {
-      const mediaIds: string[] = []
-      if (needPhotos) {
+      if (inFeed && photos.length > 0) {
         setUploading({ done: 0, total: photos.length })
         for (const [i, p] of photos.entries()) {
           mediaIds.push(await uploadPhoto(p.file))
           setUploading({ done: i + 1, total: photos.length })
         }
       }
+    } catch {
       setUploading(null)
-      const body: Schemas['CompleteQuestInput'] = needPhotos
+      setUploadFailed(true)
+      haptic('error')
+      return
+    }
+    try {
+      setUploading(null)
+      const body: Schemas['CompleteQuestInput'] = inFeed
         ? { visibility, media_ids: mediaIds, ...(caption.trim() ? { caption: caption.trim() } : {}) }
         : { visibility }
       const completion = await complete.mutateAsync({ id: quest!.id, body })
@@ -132,7 +141,7 @@ export function CompleteScreen() {
         ))}
       </fieldset>
 
-      {needPhotos && (
+      {inFeed && (
         <PhotoSection
           photos={photos}
           caption={caption}
@@ -143,8 +152,9 @@ export function CompleteScreen() {
         />
       )}
 
+      {uploadFailed && <InlineError text={t.complete.uploadFailed} />}
       {complete.isError && <InlineError text={complete.error.message} />}
-      <PrimaryButton disabled={!ready || busy} onClick={() => void submit()} className="mt-auto">
+      <PrimaryButton disabled={busy} onClick={() => void submit()} className="mt-auto">
         {uploading ? t.complete.uploading(uploading.done, uploading.total) : t.complete.submit}
       </PrimaryButton>
     </main>

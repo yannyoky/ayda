@@ -106,7 +106,7 @@ fun CompleteScreen(
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(start = 4.dp, top = 4.dp),
         )
-        listOf(Visibility.friends, Visibility.routine, Visibility.personal).forEach { visibility ->
+        listOf(Visibility.friends, Visibility.personal).forEach { visibility ->
             VisibilityOption(
                 visibility,
                 selected = state.visibility == visibility,
@@ -114,7 +114,7 @@ fun CompleteScreen(
                 onSelect = { model.onVisibilityChange(visibility) },
             )
         }
-        if (state.needPhotos) PhotoSection(state, model)
+        if (state.inFeed) PhotoSection(state, model)
         state.error?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
         val upload = state.uploading
         PrimaryButton(
@@ -139,8 +139,8 @@ private fun VisibilityOption(
     val colors = LocalAydaColors.current
     val (title, text) =
         when (visibility) {
-            Visibility.friends -> R.string.complete_friends to R.string.complete_friends_text
-            Visibility.routine -> R.string.complete_routine to R.string.complete_routine_text
+            // `routine` is no longer offered; it stays in the contract for older quests.
+            Visibility.friends, Visibility.routine -> R.string.complete_friends to R.string.complete_friends_text
             Visibility.personal -> R.string.complete_personal to R.string.complete_personal_text
         }
     val ink = if (selected) colors.onPlate else colors.ink

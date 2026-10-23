@@ -44,6 +44,7 @@ async def post(
     user: SignedIn,
     visibility: str,
     title: str = "Пробежка у моря",
+    photo: bool = True,
 ) -> str | None:
     quest = await client.post(
         "/day-quests",
@@ -52,7 +53,9 @@ async def post(
     )
     body: dict[str, object] = {"visibility": visibility}
     if visibility == "friends":
-        body |= {"caption": "Было холодно", "media_ids": [await ready_photo(database, user)]}
+        body["caption"] = "Было холодно"
+        if photo:
+            body["media_ids"] = [await ready_photo(database, user)]
     done = await client.post(
         f"/day-quests/{quest.json()['id']}/complete", json=body, headers=user.headers
     )
@@ -66,7 +69,7 @@ async def test_feed_shows_friends_posts_only(client: httpx.AsyncClient, database
     carol = await sign_in(client, 3003, "Катя")
     await befriend(client, alice, bob)
     proof = await post(client, database, alice, "friends")
-    routine = await post(client, database, alice, "routine", "Секретная тема")
+    text_only = await post(client, database, alice, "friends", "Только текст", photo=False)
     assert await post(client, database, alice, "personal") is None
 
     page = await client.get("/feed", headers=bob.headers)
@@ -74,9 +77,9 @@ async def test_feed_shows_friends_posts_only(client: httpx.AsyncClient, database
     assert page.status_code == 200
     assert_matches(page, "getFeed")
     items = page.json()["items"]
-    assert [p["id"] for p in items] == [routine, proof]
-    assert items[0]["kind"] == "routine" and items[0]["quest_title"] is None
-    assert items[0]["photos"] == [] and items[0]["caption"] is None
+    assert [p["id"] for p in items] == [text_only, proof]
+    assert items[0]["kind"] == "proof" and items[0]["quest_title"] == "Только текст"
+    assert items[0]["photos"] == [] and items[0]["caption"] == "Было холодно"
     assert items[1]["quest_title"] == "Пробежка у моря" and items[1]["caption"] == "Было холодно"
     assert items[1]["author"]["first_name"] == "Алиса"
     [photo] = items[1]["photos"]
@@ -89,7 +92,7 @@ async def test_feed_shows_friends_posts_only(client: httpx.AsyncClient, database
 
 async def test_feed_pagination(client: httpx.AsyncClient, database: Database) -> None:
     alice = await sign_in(client, 1001, "Алиса")
-    ids = [await post(client, database, alice, "routine") for _ in range(3)]
+    ids = [await post(client, database, alice, "friends", photo=False) for _ in range(3)]
 
     first = (await client.get("/feed?limit=2", headers=alice.headers)).json()
     second = (
