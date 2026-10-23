@@ -100,3 +100,16 @@ export function nativeLoginCode(): string | undefined {
 export function closeApp(): void {
   webApp()?.close()
 }
+
+/** Path the Android app claims with App Links; Telegram opens the app itself (deploy/Caddyfile serves a fallback page). */
+export const NATIVE_RETURN_PATH = '/app/signed-in'
+
+/** After a confirmed native sign-in: switch to the Android app, then close the Mini App. Other platforms have no app yet. */
+export function returnToNativeApp(): void {
+  const app = webApp()
+  if (app?.platform === 'android') {
+    app.openLink(`${window.location.origin}${NATIVE_RETURN_PATH}`)
+    // Give Telegram a moment to hand the link to the system before the Mini App goes away.
+    window.setTimeout(() => app.close(), 300)
+  } else closeApp()
+}

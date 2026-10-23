@@ -2,11 +2,11 @@ import { vi } from 'vitest'
 import type { TelegramWebApp } from '../telegram/webapp'
 
 /** Installs a fake `window.Telegram.WebApp`; returns it for assertions. */
-export function fakeTelegram(initData: string, startParam?: string): TelegramWebApp {
+export function fakeTelegram(initData: string, startParam?: string, platform = 'ios'): TelegramWebApp {
   const app: TelegramWebApp = {
     initData,
     initDataUnsafe: startParam ? { start_param: startParam } : {},
-    platform: 'ios',
+    platform,
     ready: vi.fn(),
     expand: vi.fn(),
     setHeaderColor: vi.fn(),
