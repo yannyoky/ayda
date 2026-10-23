@@ -71,7 +71,7 @@ Same core loop as the Mini App in a native app that works in Russia without Tele
 
 Co-op quests made of parts with their own assignees: a meetup organized from a chat, and cooking with a shopping list handed to a friend.
 
-- #120 Shared plans design: ADR for co-op quests with parts
+- #120 Shared plans design: ADR 0010 for co-op quests with parts
 - #121 Research venue sources: bars, cafes, restaurants with reviews and average bill
 - #122 Research recipe sources and a curated recipe catalog
 - #123 Backend: co-op quests with parts, assignees, checklists and hand-off
