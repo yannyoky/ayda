@@ -537,3 +537,20 @@ export function useAnswerHandoff() {
     onError: (_error, { coopId }) => client.invalidateQueries({ queryKey: coopKey(coopId) }),
   })
 }
+
+// ---- meetup from a chat (M5) ----
+
+export function useSuggestMeetup(conversationId: string) {
+  return useMutation({
+    mutationFn: () => unwrap(api.POST('/conversations/{conversation_id}/meetup', { params: { path: { conversation_id: conversationId } } })),
+  })
+}
+
+export function usePickMeetup(conversationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['MeetupPick']) =>
+      unwrap(api.POST('/conversations/{conversation_id}/meetup/pick', { params: { path: { conversation_id: conversationId } }, body })),
+    onSuccess: (coop) => storeCoop(client, coop),
+  })
+}

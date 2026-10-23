@@ -429,6 +429,24 @@ export const handlers = [
       return HttpResponse.json(result, { status: 201 })
     }),
   ),
+  http.post<{ id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/conversations/:id/meetup`,
+    authed(({ params }) => {
+      const c = db.findConversation(params.id)
+      return c ? HttpResponse.json(db.suggestMeetup(c)) : problem(404, 'Чат не найден')
+    }),
+  ),
+  http.post<{ id: string }, Schemas['MeetupPick'], DefaultBodyType>(
+    `${API}/conversations/:id/meetup/pick`,
+    authed(async ({ params, request }) => {
+      const c = db.findConversation(params.id)
+      if (!c) return problem(404, 'Чат не найден')
+      const result = db.pickMeetup(c, await request.json())
+      if (result === 'not_found') return problem(404, 'Такого места нет', 'https://ayda.app/errors/venue-not-found')
+      if (result === 'invalid') return problem(422, 'Выбери место или онлайн-занятие', 'https://ayda.app/errors/validation-failed')
+      return HttpResponse.json(result, { status: 201 })
+    }),
+  ),
   http.get(`${API}/coops`, authed(() => HttpResponse.json({ items: db.listCoops() }))),
   http.get<{ coop_id: string }, DefaultBodyType, DefaultBodyType>(
     `${API}/coops/:coop_id`,
