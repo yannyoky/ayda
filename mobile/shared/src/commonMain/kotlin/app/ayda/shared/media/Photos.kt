@@ -4,6 +4,7 @@ import app.ayda.api.models.CreateUploadRequest
 import app.ayda.shared.ApiProblem
 import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
+import app.ayda.shared.ErrorTexts
 import app.ayda.shared.apiCall
 import io.ktor.client.request.headers
 import io.ktor.client.request.put
@@ -37,7 +38,7 @@ suspend fun AydaClient.uploadPhoto(jpeg: ByteArray): ApiResult<String> {
         if (response.status.isSuccess()) {
             ApiResult.Ok(slot.mediaId)
         } else {
-            ApiResult.Failed(ApiProblem(response.status.value, "upload-failed", ""))
+            ApiResult.Failed(ApiProblem(response.status.value, "upload-failed", ErrorTexts.UPLOAD))
         }
     } catch (e: CancellationException) {
         throw e
