@@ -54,7 +54,7 @@ private fun Meal.label(): String =
     )
 
 @Composable
-private fun Allergen.label(): String =
+internal fun Allergen.label(): String =
     stringResource(
         when (this) {
             Allergen.gluten -> R.string.recipes_allergen_gluten

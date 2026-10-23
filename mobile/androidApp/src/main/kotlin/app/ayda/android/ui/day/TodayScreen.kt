@@ -18,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -71,6 +73,7 @@ fun TodayScreen(
     onOpenCoop: (String) -> Unit,
     onInviteCoop: (DayQuest) -> Unit,
     onCook: () -> Unit,
+    onAssistant: (DayQuest?) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
@@ -112,9 +115,19 @@ fun TodayScreen(
             shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(containerColor = colors.surface, contentColor = colors.ink),
         ) { Text(stringResource(R.string.recipes_button), style = MaterialTheme.typography.titleMedium) }
-        if (state.showCheckinForm) CheckinForm(state, model) else CheckinDone(day, model)
+        if (state.showCheckinForm) {
+            CheckinForm(
+                state,
+                model,
+            )
+        } else {
+            CheckinDone(day, model, onChat = { onAssistant(null) })
+        }
         StatsRow(day)
-        QuestsCard(state, day, onPick, onComplete, model::openOwnQuest) { CoopButton(it, onOpenCoop, onInviteCoop) }
+        QuestsCard(state, day, onPick, onComplete, model::openOwnQuest) {
+            DiscussButton(it) { onAssistant(it) }
+            CoopButton(it, onOpenCoop, onInviteCoop)
+        }
     }
     if (state.ownQuest != null) OwnQuestSheet(state, model)
 }
@@ -243,39 +256,80 @@ private fun CheckinForm(
 private fun CheckinDone(
     day: Day,
     model: TodayViewModel,
+    onChat: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
     val checkin = day.checkin ?: return
-    Row(
+    Column(
         Modifier.fillMaxWidth().background(colors.plate, MaterialTheme.shapes.large).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(
-            Modifier.size(44.dp).background(colors.plate2, MaterialTheme.shapes.small),
-            contentAlignment = Alignment.Center,
-        ) { AydaIcon(R.drawable.ic_check, colors.accent) }
-        Column(Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.today_checkin_done, checkin.mood.label().lowercase(Russian)),
-                style = MaterialTheme.typography.titleMedium,
-                color = colors.onPlate,
-            )
-            if (checkin.text.isNotBlank()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                Modifier.size(44.dp).background(colors.plate2, MaterialTheme.shapes.small),
+                contentAlignment = Alignment.Center,
+            ) { AydaIcon(R.drawable.ic_check, colors.accent) }
+            Column(Modifier.weight(1f)) {
                 Text(
-                    checkin.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onPlate.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    stringResource(R.string.today_checkin_done, checkin.mood.label().lowercase(Russian)),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.onPlate,
                 )
+                if (checkin.text.isNotBlank()) {
+                    Text(
+                        checkin.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onPlate.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
+            Button(
+                onClick = model::editCheckin,
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(containerColor = colors.plate2, contentColor = colors.onPlate),
+            ) { Text(stringResource(R.string.today_checkin_redo), style = MaterialTheme.typography.labelLarge) }
         }
+        // ADR 0013: the check-in goes on as a chat with the assistant
         Button(
-            onClick = model::editCheckin,
+            onClick = onChat,
+            modifier = Modifier.fillMaxWidth().height(44.dp),
             shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(containerColor = colors.plate2, contentColor = colors.onPlate),
-        ) { Text(stringResource(R.string.today_checkin_redo), style = MaterialTheme.typography.labelLarge) }
+        ) {
+            AydaIcon(R.drawable.ic_chat, colors.onPlate, size = 18)
+            Text(
+                stringResource(R.string.assistant_open),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+    }
+}
+
+/** Opens the quest's own topic in the assistant chat; for quests still to do. */
+@Composable
+private fun DiscussButton(
+    quest: DayQuest,
+    onClick: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    if (quest.state != QuestState.taken) return
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(40.dp).clip(MaterialTheme.shapes.small).background(colors.bg),
+    ) {
+        AydaIcon(
+            R.drawable.ic_chat,
+            colors.ink,
+            size = 18,
+            contentDescription = stringResource(R.string.assistant_discuss_quest, quest.title),
+        )
     }
 }
 

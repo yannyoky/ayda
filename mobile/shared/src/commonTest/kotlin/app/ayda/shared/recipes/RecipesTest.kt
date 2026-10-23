@@ -170,4 +170,16 @@ class RecipesTest {
             assertEquals(RecipeStep.Filters, model.state.value.step)
             assertEquals(Meal.dinner, model.state.value.meal)
         }
+
+    @Test
+    fun aRecipeFromTheAssistantGoesBackToTheFilters() =
+        runTest(dispatcher) {
+            val model = RecipesViewModel(client())
+            model.choose("pancakes")
+            advanceUntilIdle()
+            assertEquals(RecipeStep.Plan, model.state.value.step)
+
+            model.back()
+            assertEquals(RecipeStep.Filters, model.state.value.step)
+        }
 }
