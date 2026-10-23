@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +26,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +74,12 @@ fun TodayScreen(
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
+    LaunchedEffect(state.openPicker) {
+        if (state.openPicker) {
+            model.pickerOpened()
+            onPick()
+        }
+    }
     // A day ends at 04:00 local time, so coming back to the app may mean a new day.
     LifecycleResumeEffect(model) {
         model.refresh()
@@ -167,6 +175,7 @@ private fun CheckinForm(
         OutlinedTextField(
             value = state.checkinText,
             onValueChange = model::onCheckinTextChange,
+            readOnly = state.busy,
             placeholder = { Text(stringResource(R.string.today_checkin_placeholder)) },
             minLines = 3,
             shape = MaterialTheme.shapes.medium,
@@ -209,6 +218,16 @@ private fun CheckinForm(
             color = colors.onPlate.copy(alpha = 0.7f),
         )
         state.error?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = colors.onPlate) }
+        if (state.busy) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator(color = colors.accent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                Text(
+                    stringResource(R.string.today_checkin_busy),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.onPlate,
+                )
+            }
+        }
         PrimaryButton(
             stringResource(R.string.today_checkin_submit),
             onClick = model::submitCheckin,

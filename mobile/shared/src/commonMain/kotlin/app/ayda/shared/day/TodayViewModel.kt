@@ -66,6 +66,8 @@ data class TodayState(
     val notice: Notice? = null,
     val busy: Boolean = false,
     val error: String? = null,
+    /** Set after a check-in with nothing taken yet: the next step is the picker. */
+    val openPicker: Boolean = false,
 ) {
     val quests: List<DayQuest> get() = day?.quests.orEmpty()
     val offered: List<DayQuest> get() = quests.filter { it.state == QuestState.offered }
@@ -119,6 +121,9 @@ class TodayViewModel(
         }
     }
 
+    /** The screen opened the picker after a check-in. */
+    fun pickerOpened() = mutableState.update { it.copy(openPicker = false) }
+
     fun cancelCheckinEdit() = mutableState.update { it.copy(editingCheckin = false, error = null) }
 
     fun onCheckinTextChange(value: String) = mutableState.update { it.copy(checkinText = value.take(CHECKIN_MAX)) }
@@ -131,7 +136,9 @@ class TodayViewModel(
             val input = CheckinInput(mood = state.value.mood, text = state.value.checkinText.trim())
             val submitted = apiCall { client.day.submitCheckin(input) }
             if (submitted is ApiResult.Ok) {
-                mutableState.update { it.copy(editingCheckin = false) }
+                mutableState.update {
+                    it.copy(editingCheckin = false, openPicker = submitted.value.limits.taken == 0)
+                }
                 show(submitted.value)
             } else {
                 mutableState.update { it.copy(error = submitted.errorText()) }

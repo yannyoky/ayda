@@ -79,7 +79,12 @@ export function PickScreen() {
         </p>
       )}
 
-      {offered.length === 0 ? (
+      {day.pool_status === 'generating' && offered.length === 0 ? (
+        <p role="status" className="m-0 flex items-center gap-3 rounded-card bg-surface p-4 text-[15px] font-semibold text-muted">
+          <span aria-hidden="true" className="size-3 animate-pulse rounded-full bg-accent" />
+          {t.today.generating}
+        </p>
+      ) : offered.length === 0 ? (
         <p className="m-0 rounded-card bg-surface p-4 text-[15px] font-semibold text-muted">{t.pick.empty}</p>
       ) : (
         <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">

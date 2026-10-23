@@ -16,6 +16,7 @@ export const ru = {
     checkinPlaceholder: 'Работа до 18, надо дописать отчёт, вечером свободен',
     checkinHint: 'Можно оставить пустым: соберём квесты по профилю',
     checkinSubmit: 'Собрать квесты',
+    checkinBusy: 'Читаю план, смотрю погоду и события…',
     checkinDone: (mood: string) => `Чек-ин готов · ${mood}`,
     checkinRedo: 'Изменить',
     checkinPrivate: 'Текст видишь только ты',

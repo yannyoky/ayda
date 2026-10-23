@@ -146,6 +146,7 @@ export const handlers = [
     authed(async ({ request }) => {
       const body = await request.json()
       if ((body.text ?? '').length > 1000) return problem(422, 'Не больше 1000 символов')
+      if (db.checkinDelayMs > 0) await delay(db.checkinDelayMs)
       db.submitCheckin(body)
       return HttpResponse.json(db.day(), { status: 202 })
     }),
