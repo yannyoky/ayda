@@ -342,15 +342,35 @@ def osm_url(venue: Venue) -> str:
     return f"https://www.openstreetmap.org/{venue.osm_type}/{venue.osm_id}"
 
 
-def place_snapshot(candidate: Candidate) -> dict[str, Any]:
-    """The venue as stored in a co-op's `place` (ADR 0010)."""
-    venue = candidate.venue
+def _snapshot(venue: Venue, lat: float, lon: float) -> dict[str, Any]:
     return {
         "name": venue.name,
         "address": venue.address,
-        "lat": round(candidate.lat, 6),
-        "lon": round(candidate.lon, 6),
+        "lat": round(lat, 6),
+        "lon": round(lon, 6),
         "link": osm_url(venue),
         "source": "osm",
         "source_id": f"{venue.osm_type}/{venue.osm_id}",
     }
+
+
+def place_snapshot(candidate: Candidate) -> dict[str, Any]:
+    """The venue as stored in a co-op's `place` (ADR 0010)."""
+    return _snapshot(candidate.venue, candidate.lat, candidate.lon)
+
+
+async def venue_place(session: AsyncSession, venue_id: int) -> tuple[Venue, dict[str, Any]] | None:
+    """A venue by id with its place snapshot, or None."""
+    venue = await session.get(Venue, venue_id)
+    if venue is None:
+        return None
+    row = (
+        await session.execute(
+            text(
+                "SELECT ST_Y(location::geometry), ST_X(location::geometry)"
+                " FROM events.venues WHERE id = :id"
+            ),
+            {"id": venue_id},
+        )
+    ).one()
+    return venue, _snapshot(venue, float(row[0]), float(row[1]))

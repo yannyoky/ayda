@@ -12,7 +12,7 @@ from ayda.modules.assistant.providers import LLMProvider, ProviderError, extract
 
 log = logging.getLogger(__name__)
 
-Purpose = Literal["parse_checkin", "rank_pool"]
+Purpose = Literal["parse_checkin", "rank_pool", "plan_meetup"]
 
 
 class InvalidAnswer(ValueError):

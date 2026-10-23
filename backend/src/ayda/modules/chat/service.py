@@ -254,6 +254,19 @@ async def last_messages(
     return {m.conversation_id: m for m in rows}
 
 
+async def recent_messages(
+    session: AsyncSession, conversation_id: uuid.UUID, limit: int
+) -> list[Message]:
+    """The last `limit` messages that are not deleted, oldest first."""
+    rows = await session.scalars(
+        select(Message)
+        .where(Message.conversation_id == conversation_id, Message.deleted_at.is_(None))
+        .order_by(Message.id.desc())
+        .limit(limit)
+    )
+    return list(reversed(list(rows)))
+
+
 async def unread_counts(
     session: AsyncSession, user_id: uuid.UUID, conversation_ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, int]:

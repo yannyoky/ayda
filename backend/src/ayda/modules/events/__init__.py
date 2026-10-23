@@ -37,6 +37,7 @@ from ayda.modules.events.venues import (
     parse_venues,
     place_snapshot,
     save_venues,
+    venue_place,
 )
 from ayda.modules.events.venues import candidates as venue_candidates
 from ayda.modules.events.weather import Weather, WeatherClient
@@ -78,4 +79,5 @@ __all__ = [
     "search_cities",
     "upcoming_near",
     "venue_candidates",
+    "venue_place",
 ]

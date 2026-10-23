@@ -30,6 +30,7 @@ class EventType(StrEnum):
     COOP_PART_COMPLETED = "coop_part_completed"
     COOP_PART_HANDED_OFF = "coop_part_handed_off"
     COOP_HANDOFF_ANSWERED = "coop_handoff_answered"
+    MEETUP_SUGGESTED = "meetup_suggested"
     SIGNED_IN = "signed_in"
 
 
