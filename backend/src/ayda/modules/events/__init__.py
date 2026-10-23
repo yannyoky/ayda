@@ -26,7 +26,9 @@ from ayda.modules.events.sources import (
 )
 from ayda.modules.events.venues import (
     ATTRIBUTION,
+    FOOD_KINDS,
     KINDS,
+    WALK_KINDS,
     Candidate,
     OverpassSource,
     VenueData,
@@ -44,7 +46,9 @@ from ayda.modules.events.weather import Weather, WeatherClient
 
 __all__ = [
     "ATTRIBUTION",
+    "FOOD_KINDS",
     "KINDS",
+    "WALK_KINDS",
     "Candidate",
     "City",
     "CityPoint",

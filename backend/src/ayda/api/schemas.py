@@ -613,6 +613,7 @@ class AssistantCard(BaseModel):
     places: list[AssistantPlace] = Field(default_factory=lambda: [])
     recipes: list[RecipeCard] = Field(default_factory=lambda: [])
     quest: DayQuest | None = None
+    note: str | None = None
     attribution: str | None = None
 
 

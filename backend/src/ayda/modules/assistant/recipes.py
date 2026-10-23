@@ -4,6 +4,7 @@ The LLM never sees amounts or allergens: it only picks ids from `candidates`.
 """
 
 import math
+import re
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from functools import cache
@@ -204,3 +205,84 @@ def format_line(line: Line) -> str:
         "pinch": "щепотка",
     }
     return f"{line.name}: {amount} {labels[line.unit]}"
+
+
+# --- what to cook from what is at home (M6, ADR 0013) ------------------------------------
+
+_WORD = re.compile(r"[a-zа-я]+")
+# Everyday words the catalog names differently: a word start and the ingredient ids it means.
+_ALIASES = {
+    "картошк": "potato",
+    "картофан": "potato",
+    "куриц": "chicken_fillet chicken_legs",
+    "курочк": "chicken_fillet chicken_legs",
+    "гриб": "mushrooms",
+    "курятин": "chicken_fillet chicken_legs",
+    "фарш": "ground_beef",
+    "макарон": "pasta",
+    "спагетти": "pasta",
+    "томат": "tomato",
+    "яйц": "eggs",
+    "кабачк": "zucchini",
+}
+
+
+def _words(value: str) -> list[str]:
+    return _WORD.findall(value.lower().replace("ё", "е"))
+
+
+def _same(a: str, b: str) -> bool:
+    """Two forms of one word: a long shared start, so `помидор` meets `помидоры`."""
+    shared = 0
+    for x, y in zip(a, b, strict=False):
+        if x != y:
+            break
+        shared += 1
+    shortest = min(len(a), len(b))
+    return shared >= 3 and shared >= shortest - 1
+
+
+def match_ingredients(rb: RecipeBook, terms: Iterable[str]) -> list[str]:
+    """Catalog ingredient ids named in free text, in catalog order; unknown words are ignored."""
+    words = [w for term in terms for w in _words(term) if len(w) >= 3]
+    found: set[str] = set()
+    for word in words:
+        for stem, ids in _ALIASES.items():
+            if word.startswith(stem):
+                found.update(ids.split())
+    for ing in rb.ingredients.values():
+        names = [w for w in _words(ing.name) if len(w) >= 3]
+        if any(_same(word, name) for word in words for name in names):
+            found.add(ing.id)
+    return [i for i in rb.ingredients if i in found]
+
+
+@dataclass(frozen=True, slots=True)
+class Dish:
+    recipe: Recipe
+    have: int
+    need: int
+
+
+def dishes_from(
+    rb: RecipeBook, have: Collection[str], meal: Meal | None = None, limit: int = 3
+) -> list[Dish]:
+    """Recipes ranked by how many of their main ingredients are already at home, then by the
+    share of them (staples such as salt and oil are taken for granted). Without named
+    ingredients: the quickest recipes."""
+    owned = set(have)
+    found: list[Dish] = []
+    for recipe in rb.recipes.values():
+        if meal is not None and recipe.meal != meal:
+            continue
+        main = {
+            i.ingredient
+            for i in recipe.ingredients
+            if not i.optional and not rb.ingredients[i.ingredient].staple
+        }
+        matched = len(main & owned)
+        if owned and matched == 0:
+            continue
+        found.append(Dish(recipe, matched, len(main)))
+    found.sort(key=lambda d: (-d.have, -(d.have / max(d.need, 1)), d.recipe.minutes, d.recipe.id))
+    return found[:limit]

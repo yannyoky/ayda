@@ -332,8 +332,12 @@ def _chat_check(answer: ChatAnswer) -> None:
         action.title and action.category and action.duration_min
     ):
         raise InvalidAnswer("incomplete quest")
-    if action.title and any(word in action.title.lower() for word in CHAT_BANNED):
-        raise InvalidAnswer("banned topic")
+    if action.title and (
+        any(word in action.title.lower() for word in CHAT_BANNED)
+        or _LINK.search(action.title)
+        or _PHONE.search(action.title)
+    ):
+        raise InvalidAnswer("banned topic or facts in the quest title")
 
 
 async def chat_reply(

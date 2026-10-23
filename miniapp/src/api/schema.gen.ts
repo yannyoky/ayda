@@ -1745,8 +1745,10 @@ export interface components {
             places: components["schemas"]["AssistantPlace"][];
             /** @description Open one with `getRecipe`; the cooking plan of M5 takes it from there. */
             recipes: components["schemas"]["RecipeCard"][];
-            /** @description An offered quest of today the user can take. */
+            /** @description The quest as it was offered; take it with `takeQuest`, its current state is in the day (`getToday`). */
             quest: components["schemas"]["DayQuest"] | null;
+            /** @description Why the card is empty or what to keep in mind, e.g. no city in the profile. */
+            note: string | null;
             /** @description Data credit to show under the card, e.g. for OpenStreetMap. */
             attribution: string | null;
         };
