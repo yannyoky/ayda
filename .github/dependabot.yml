@@ -23,6 +23,10 @@ updates:
     directory: /miniapp
     schedule:
       interval: weekly
+    ignore:
+      # Types follow the Node major we run (22), not the latest one
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
     groups:
       miniapp-minor:
         update-types: [minor, patch]
