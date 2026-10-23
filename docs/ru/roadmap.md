@@ -72,7 +72,7 @@ MVP выходит в три вехи. Каждая веха - эпик-issue с
 Совместные квесты из частей со своими исполнителями: встреча, организованная из чата, и готовка со списком покупок, переданным другу.
 
 - #120 Shared plans design: ADR 0010 for co-op quests with parts
-- #121 Research venue sources: bars, cafes, restaurants with reviews and average bill
+- #121 Research venue sources: bars, cafes, restaurants with reviews and average bill (ADR 0011)
 - #122 Research recipe sources and a curated recipe catalog
 - #123 Backend: co-op quests with parts, assignees, checklists and hand-off
 - #124 Assistant: "Айда, организуй" meetup from a chat
