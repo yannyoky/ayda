@@ -33,6 +33,7 @@ class EventType(StrEnum):
     MEETUP_SUGGESTED = "meetup_suggested"
     RECIPES_SUGGESTED = "recipes_suggested"
     RECIPE_PLANNED = "recipe_planned"
+    ASSISTANT_MESSAGE = "assistant_message"
     SIGNED_IN = "signed_in"
 
 

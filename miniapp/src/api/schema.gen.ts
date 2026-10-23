@@ -471,7 +471,8 @@ export interface paths {
         /**
          * Submit or replace today's morning check-in (US-05, US-06)
          * @description Starts building the quest pool. A repeated check-in replaces the previous one and
-         *     rebuilds quests that were not taken yet; taken and completed quests stay.
+         *     rebuilds quests that were not taken yet; taken and completed quests stay. The text and
+         *     the assistant's answer also open today's chat with the assistant (ADR 0013).
          *     The check-in text is visible only to its author and never logged.
          */
         put: operations["submitCheckin"];
@@ -665,6 +666,34 @@ export interface paths {
          *     `offerHandoff`. When nothing needs buying, the result is a `same` co-op.
          */
         post: operations["planRecipe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assistant/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today's chat with the assistant, oldest first (M6, ADR 0013)
+         * @description Without `quest_id` this is the day topic, which starts with the check-in; with it, the
+         *     topic of that quest of today. The chat ends with the day and is deleted after it.
+         */
+        get: operations["listAssistantMessages"];
+        put?: never;
+        /**
+         * Write to the assistant and get its answer
+         * @description The request waits for the answer (up to about 12 s). The assistant gets only the last
+         *     messages of the topic, mood, goals, weather and the quest, never the name or city; the
+         *     text is not logged. Without a working assistant, code answers obvious requests itself
+         *     (`source` is `code`). At most 40 messages a day (`assistant-limit`, 429).
+         */
+        post: operations["sendAssistantMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1682,6 +1711,71 @@ export interface components {
             allergens?: components["schemas"]["Allergen"][];
             /** @default false */
             vegetarian: boolean;
+        };
+        AssistantMessageInput: {
+            text: string;
+            /**
+             * Format: uuid
+             * @description A quest of today; its topic instead of the day topic.
+             */
+            quest_id?: string | null;
+        };
+        AssistantPlace: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            kind: "restaurant" | "cafe" | "bar" | "pub" | "fast_food" | "park" | "garden" | "embankment" | "viewpoint" | "square";
+            address: string | null;
+            /** @description From the city center. */
+            distance_m: number;
+            /** @description Null when the hours are unknown or the place has none. */
+            open_now: boolean | null;
+            /** Format: uri */
+            osm_url: string;
+            /** Format: uri */
+            gis_url: string;
+            /** Format: uri */
+            yandex_url: string;
+        };
+        /** @description Facts the assistant asked code for. Only the field of `kind` is filled. */
+        AssistantCard: {
+            /** @enum {string} */
+            kind: "places" | "dishes" | "quest";
+            places: components["schemas"]["AssistantPlace"][];
+            /** @description Open one with `getRecipe`; the cooking plan of M5 takes it from there. */
+            recipes: components["schemas"]["RecipeCard"][];
+            /** @description An offered quest of today the user can take. */
+            quest: components["schemas"]["DayQuest"] | null;
+            /** @description Data credit to show under the card, e.g. for OpenStreetMap. */
+            attribution: string | null;
+        };
+        AssistantMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            text: string;
+            /** Format: uuid */
+            quest_id: string | null;
+            /**
+             * @description Who wrote an assistant message; null for the user's own.
+             * @enum {string|null}
+             */
+            source: "llm" | "code" | null;
+            cards: components["schemas"]["AssistantCard"][];
+            /** Format: date-time */
+            created_at: string;
+        };
+        AssistantThread: {
+            items: components["schemas"]["AssistantMessage"][];
+            /** @description How many more messages the user can send today. */
+            messages_left: number;
+        };
+        AssistantExchange: {
+            sent: components["schemas"]["AssistantMessage"];
+            reply: components["schemas"]["AssistantMessage"];
+            messages_left: number;
         };
         RecipeCard: {
             id: string;
@@ -3003,6 +3097,58 @@ export interface operations {
                 };
             };
             422: components["responses"]["Problem"];
+        };
+    };
+    listAssistantMessages: {
+        parameters: {
+            query?: {
+                quest_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The topic */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThread"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    sendAssistantMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantMessageInput"];
+            };
+        };
+        responses: {
+            /** @description The sent message and the answer */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantExchange"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
         };
     };
     createCoop: {

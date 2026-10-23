@@ -170,6 +170,8 @@ M5 (ADR 0010) adds co-ops made of parts: **quests.coops** gets `kind` (`same` \|
 
 **assistant.llm_calls**: id, purpose (`parse_checkin` \| `rank_pool`), provider, model, latency_ms, ok bool, error_kind text null, created_at. No prompt or answer text, ever.
 
+**assistant.messages** (ADR 0013): id, user_id, local_date, quest_id null (null = the day topic), role (`user` \| `assistant`), text, source (`llm` \| `code`), cards jsonb, created_at. The day chat with the assistant; the first row is the check-in. Rows are deleted once the local day is over.
+
 ### social
 
 **social.invites**: code text PK (random, 10+ chars), inviter_id, created_at, expires_at (created_at + 7 days).
@@ -239,17 +241,18 @@ Partitioning by month can be added when the table grows; not needed for the MVP.
 | Raw geolocation | nowhere | used once to find the nearest city |
 | Own habits | habits.user_habits | until deleted by the user or account deletion |
 | Check-in text | quests.checkins.text | 30 days, then set to null |
+| Assistant chat text | assistant.messages | deleted after the local day |
 | Photos | S3 in Russia | until the proof or account is deleted; EXIF removed |
 | Comments, messages | social.comments, chat.messages | until deleted or account deletion |
 | Behavior events | analytics.events | kept, anonymized on account deletion |
 
 ### Where the data lives (152-FZ)
 
-Every store with personal data runs on servers in Russia: PostgreSQL on the Russian VPS, photos in an S3-compatible object storage of a Russian provider (bucket private, access only through presigned URLs valid 15 minutes for upload and 1 hour for reading), and backups of both in the same jurisdiction. Logs stay on the VPS and pass through a redaction filter (`ayda.core.logging`) that removes initData, tokens, presigned URL signatures, coordinates and free-text fields. The only cross-border transfer is the check-in text and an anonymized profile sent to the LLM providers of ADR 0005; the consent says so.
+Every store with personal data runs on servers in Russia: PostgreSQL on the Russian VPS, photos in an S3-compatible object storage of a Russian provider (bucket private, access only through presigned URLs valid 15 minutes for upload and 1 hour for reading), and backups of both in the same jurisdiction. Logs stay on the VPS and pass through a redaction filter (`ayda.core.logging`) that removes initData, tokens, presigned URL signatures, coordinates and free-text fields. The only cross-border transfer is the check-in text, the last assistant chat messages and an anonymized profile sent to the LLM providers of ADR 0005 (chat: ADR 0013); the consent says so.
 
 ### Account deletion and retention
 
-`DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, goals, habits, check-ins, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships and photos are deleted; photo files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null.
+`DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, goals, habits, check-ins, assistant chat messages, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships and photos are deleted; photo files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null, and an hourly job deletes assistant chat messages of finished days.
 
 ### Backups and error tracking
 

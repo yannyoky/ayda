@@ -78,6 +78,9 @@ def build_worker(
     async def purge_checkin_texts(session: AsyncSession, now: datetime) -> None:
         await privacy.purge_old_checkin_texts(session, now)
 
+    async def purge_assistant_chats(session: AsyncSession, now: datetime) -> None:
+        await privacy.purge_old_assistant_chats(session, now)
+
     async def run_backup(session: AsyncSession, payload: dict[str, Any]) -> None:
         await backup.create_backup(settings)
 
@@ -131,6 +134,7 @@ def build_worker(
         Periodic("digests", 300, schedule_digests),
         Periodic("weekly", 60, schedule_weekly),
         Periodic("checkins.purge_texts", 3600, purge_checkin_texts),
+        Periodic("assistant.purge_chats", 3600, purge_assistant_chats),
     ]
     return Worker(db.sessionmaker, handlers, periodic)
 

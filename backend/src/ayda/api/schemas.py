@@ -578,3 +578,60 @@ class RecipePlanInput(BaseModel):
         default_factory=lambda: [], max_length=60
     )
     starts_at: datetime | None = None
+
+
+class AssistantMessageInput(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+    quest_id: uuid.UUID | None = None
+
+
+class AssistantPlace(BaseModel):
+    id: int
+    name: str
+    kind: Literal[
+        "restaurant",
+        "cafe",
+        "bar",
+        "pub",
+        "fast_food",
+        "park",
+        "garden",
+        "embankment",
+        "viewpoint",
+        "square",
+    ]
+    address: str | None
+    distance_m: int
+    open_now: bool | None
+    osm_url: str
+    gis_url: str
+    yandex_url: str
+
+
+class AssistantCard(BaseModel):
+    kind: Literal["places", "dishes", "quest"]
+    places: list[AssistantPlace] = Field(default_factory=lambda: [])
+    recipes: list[RecipeCard] = Field(default_factory=lambda: [])
+    quest: DayQuest | None = None
+    attribution: str | None = None
+
+
+class AssistantMessage(BaseModel):
+    id: uuid.UUID
+    role: Literal["user", "assistant"]
+    text: str
+    quest_id: uuid.UUID | None
+    source: Literal["llm", "code"] | None
+    cards: list[AssistantCard]
+    created_at: datetime
+
+
+class AssistantThread(BaseModel):
+    items: list[AssistantMessage]
+    messages_left: int
+
+
+class AssistantExchange(BaseModel):
+    sent: AssistantMessage
+    reply: AssistantMessage
+    messages_left: int
