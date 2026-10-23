@@ -50,7 +50,9 @@ from ayda.modules.quests.selection import (
 )
 
 POOL_DEADLINE_S = 9.0
-PARSE_DEADLINE_S = 4.0
+# Cloudflare Workers AI answers a check-in in 5-7 s (measured 2026-10-23); ranking may then
+# fall back to code, which is cheaper than losing the user's own tasks.
+PARSE_DEADLINE_S = 7.0
 MAX_TASK_QUESTS = 5
 DAY_MINUTES = 15 * 60  # 08:00-23:00
 TASK_WHY = "Это из твоего плана на сегодня."
@@ -85,12 +87,36 @@ def guess_category(title: str) -> Category:
     return "project"
 
 
+# A check-in is often one sentence: "нужно поработать, погулять с собакой и приготовить ужин".
+# Split it on line breaks, sentence ends, commas, semicolons and joining words.
+_SPLIT = re.compile(
+    r"\n|[;!?]|\.(?:\s|$)|,|\s(?:и|а|а потом|потом|затем|после этого|а также|а ещё|а еще)\s",
+    re.IGNORECASE,
+)
+# Lead-in words that are not part of the task itself.
+_FILLER = frozenset(
+    {
+        *("сегодня", "утром", "днём", "днем", "вечером", "ещё", "еще", "также", "потом"),
+        *("затем", "а", "и", "но", "возможно", "наверное", "может", "мне", "я", "нужно"),
+        *("надо", "хочу", "хотелось", "бы", "планирую", "собираюсь", "придётся", "придется"),
+        *("должен", "должна", "постараюсь", "попробую", "будет", "обязательно", "сначала"),
+    }
+)
+
+
+def _task_title(fragment: str) -> str:
+    words = fragment.strip(" \t-*•.").split()
+    while words and words[0].lower().strip(",:") in _FILLER:
+        words.pop(0)
+    return " ".join(words).strip(" \t-*•.:")
+
+
 def parse_without_llm(text: str) -> assistant.ParsedCheckin:
-    """Each line becomes a task; the time after 18:00 counts as free."""
+    """Each part of the plan becomes a task; the time after 18:00 counts as free."""
     tasks: list[assistant.ParsedTask] = []
-    for line in text.splitlines():
-        title = line.strip(" \t-*•.").strip()
-        if not title:
+    for fragment in _SPLIT.split(text):
+        title = _task_title(fragment)
+        if len(title) < 3:
             continue
         match = _TIME.search(title)
         at = f"{int(match[1]):02d}:{match[2]}" if match else None

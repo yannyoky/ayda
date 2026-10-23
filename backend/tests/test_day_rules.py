@@ -179,7 +179,25 @@ def test_checkin_without_llm_turns_lines_into_tasks() -> None:
     assert parsed.tasks[0].at == "15:00"
     assert parsed.free_evening
     assert parse_without_llm("").tasks == []
+    assert parse_without_llm("  \n , и ").tasks == []
     assert guess_category("Прочитать главу книги") == "learning"
+
+
+def test_checkin_sentence_without_llm_splits_into_tasks() -> None:
+    parsed = parse_without_llm(
+        "Сегодня нужно поработать над приложением ayda, погулять с собакой, возможно придётся "
+        "сходить в магазин и нужно приготовить ужин. Вечером созвон с другом в 20:30"
+    )
+
+    assert [t.title for t in parsed.tasks] == [
+        "поработать над приложением ayda",
+        "погулять с собакой",
+        "сходить в магазин",
+        "приготовить ужин",
+        "созвон с другом в 20:30",
+    ]
+    assert [t.category for t in parsed.tasks] == ["project", "walk", "home", "home", "social"]
+    assert parsed.tasks[-1].at == "20:30"
 
 
 def test_busy_day_limits_quest_length() -> None:
