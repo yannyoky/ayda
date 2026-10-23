@@ -709,6 +709,7 @@ export class MockDb {
     const lowered = text.toLowerCase()
     const card = (fields: Partial<Schemas['AssistantCard']> & Pick<Schemas['AssistantCard'], 'kind'>): Schemas['AssistantCard'] => ({
       places: [],
+      events: [],
       recipes: [],
       quest: null,
       note: null,
@@ -720,6 +721,20 @@ export class MockDb {
     if (/приготов|рецепт|меню|из продукт/.test(lowered)) {
       reply = 'Вот что можно приготовить.'
       cards = [card({ kind: 'dishes', recipes: sampleRecipes.slice(0, 3).map((r) => ({ ...r.card, why: 'Есть дома: 2 из 3' })), note: 'Аллергены указаны по рецепту. Состав покупных продуктов проверяй сам.' })]
+    } else if (/афиш|концерт|событи|мероприят|выставк/.test(lowered)) {
+      reply = 'Вот что будет в афише.'
+      const at = (h: number) => new Date(Date.now() + h * 3600_000).toISOString()
+      const base = { ends_at: null, address: null, category: 'city' as const, source: 'timepad' as const }
+      cards = [
+        card({
+          kind: 'events',
+          events: [
+            { ...base, id: 1, title: 'Джазовый вечер', starts_at: at(26), venue: 'Дом искусств', city: 'Калининград', distance_km: 0, is_free: false, price_min: 500, url: 'https://example.com/jazz' },
+            { ...base, id: 2, title: 'Ярмарка мёда', starts_at: at(50), venue: 'Площадь Победы', city: 'Светлогорск', distance_km: 35, is_free: true, price_min: null, url: 'https://example.com/fair' },
+          ],
+          attribution: 'Афиша: Timepad и KudaGo',
+        }),
+      ]
     } else if (/гуля|прогул|парк|мест/.test(lowered)) {
       reply = 'Вот где можно погулять.'
       cards = [card({ kind: 'places', places: sampleWalkPlaces.map((p, i) => mockPlace(p, i + 10)), attribution: '© OpenStreetMap contributors' })]

@@ -622,9 +622,26 @@ class AssistantPlace(BaseModel):
     yandex_url: str
 
 
+class AssistantEvent(BaseModel):
+    id: int
+    title: str
+    starts_at: datetime
+    ends_at: datetime | None
+    venue: str | None
+    address: str | None
+    city: str
+    distance_km: float
+    category: Category
+    is_free: bool
+    price_min: int | None
+    url: str
+    source: str
+
+
 class AssistantCard(BaseModel):
-    kind: Literal["places", "dishes", "quest"]
+    kind: Literal["places", "events", "dishes", "quest"]
     places: list[AssistantPlace] = Field(default_factory=lambda: [])
+    events: list[AssistantEvent] = Field(default_factory=lambda: [])
     recipes: list[RecipeCard] = Field(default_factory=lambda: [])
     quest: DayQuest | None = None
     note: str | None = None

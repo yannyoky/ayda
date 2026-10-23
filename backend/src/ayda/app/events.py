@@ -1,11 +1,15 @@
-"""Local events (US-19, ADR 0008): the nightly listings load and event quests for the pool.
+"""Local events (US-19, ADR 0008 and 0015): the nightly listings load, event quests for the
+pool and the interest score that orders events for the pool and the assistant's search.
 
 Code alone picks event quests: events in the user's city first, then elsewhere in their
-region, starting at least an hour from now and before the quest day ends.
+region, starting at least an hour from now and before the quest day ends; among those the
+ones closest to what the user wrote and to their goals go first.
 """
 
 import random
-from collections.abc import Sequence
+import re
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -30,6 +34,74 @@ USER_AGENT = "Ayda/0.3 (Telegram Mini App; events once a day)"
 
 WHY_FREE = "Бесплатно и сегодня: хороший повод выбраться."
 WHY_HOME = "Событие сегодня в твоём городе."
+
+
+# Event categories that serve each goal (codes from the habits goal catalog).
+GOAL_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "more_movement": ("sport", "walk"),
+    "less_screen": ("social", "city", "sport"),
+    "see_friends": ("social",),
+    "explore_city": ("city", "walk"),
+    "learn": ("learning",),
+    "own_project": ("learning",),
+    "rest_well": ("city", "rest"),
+    "calm_mind": ("walk", "rest"),
+}
+_WORD = re.compile(r"[а-яёa-z0-9-]{3,}")
+# Words that say nothing about what kind of event the user wants.
+_STOP = frozenset((
+    "сегодня", "завтра", "вечер", "вечером", "утром", "днём", "днем", "выходные", "выходных",
+    "неделе", "неделю", "хочу", "хочется", "куда", "сходить", "где", "какие", "какой", "какое",
+    "что", "есть", "будет", "будут", "можно", "найди", "покажи", "подскажи", "интересное",
+    "интересного", "интересные", "афиша", "афишу", "афише", "событие", "события", "событий",
+    "мероприятие", "мероприятия", "мероприятий", "рядом", "городе", "области", "работа",
+    "работаю", "дела", "дом", "дома", "после", "потом", "надо", "нужно", "ещё", "еще", "очень",
+    "просто", "сделать", "хотел", "хотела",
+))  # fmt: skip
+
+
+def stems(text: str, limit: int = 8) -> tuple[str, ...]:
+    """Word stems for matching titles: lower case, ё as е, endings cut, filler words out."""
+    out: list[str] = []
+    for word in _WORD.findall(text.lower().replace("ё", "е")):
+        if word in _STOP or word.isdigit():
+            continue
+        stem = word[: max(4, len(word) - 2)]
+        if stem not in out:
+            out.append(stem)
+    return tuple(out[:limit])
+
+
+@dataclass(frozen=True)
+class Interest:
+    """What the user is into right now: words they asked for (strong), words of their
+    check-in (weak), a category and their goals."""
+
+    asked: tuple[str, ...] = ()
+    mentioned: tuple[str, ...] = ()
+    category: str | None = None
+    goals: tuple[str, ...] = ()
+
+    def categories(self) -> set[str]:
+        return {c for g in self.goals for c in GOAL_CATEGORIES.get(g, ())}
+
+
+def _hits(title: str, words: Iterable[str]) -> int:
+    lowered = title.lower().replace("ё", "е")
+    return sum(1 for w in words if w in lowered)
+
+
+def interest_score(listing: events.Listing, interest: Interest) -> float:
+    """How well an event fits the user; place and time are weighed by the caller."""
+    score = 3.0 * _hits(listing.title, interest.asked)
+    score += min(_hits(listing.title, interest.mentioned), 3)
+    if interest.category and listing.category == interest.category:
+        score += 2
+    if listing.category in interest.categories():
+        score += 1
+    if listing.is_free:
+        score += 0.5
+    return score
 
 
 def default_sources(settings: Settings, http: httpx.AsyncClient) -> list[events.EventSource]:
@@ -170,8 +242,10 @@ async def event_candidates(
     max_duration: int,
     exclude: set[int],
     now: datetime,
+    interest: Interest | None = None,
 ) -> list[NewQuest]:
-    """Allowed events for today, best first, one per title."""
+    """Allowed events for today, one per title: the best fit for `interest` first, then by
+    place (own city, then nearest) and time."""
     if user.city_id is None:
         return []
     listings = await events.upcoming_near(
@@ -185,15 +259,18 @@ async def event_candidates(
             continue
         seen.add(key)
         allowed.append(listing)
+    if interest is not None:
+        allowed.sort(key=lambda x: -interest_score(x, interest))  # stable: keeps place order
     return await _as_quests(session, allowed, user.city_id)
 
 
 def pick_for_pool(candidates: Sequence[NewQuest], seed: str) -> list[NewQuest]:
-    """Up to 2 events from the best 6, in their order; varies from day to day."""
-    top = list(candidates[:6])
+    """The best event, then one of the next 4; the second varies from day to day."""
+    if not candidates:
+        return []
+    rest = list(candidates[1:5])
     rng = random.Random(seed)
-    chosen = sorted(rng.sample(range(len(top)), min(EVENTS_IN_POOL, len(top))))
-    return [top[i] for i in chosen]
+    return [candidates[0], *rng.sample(rest, min(EVENTS_IN_POOL - 1, len(rest)))]
 
 
 def event_picker(session: AsyncSession, user: auth.User, now: datetime) -> quests.EventPicker:

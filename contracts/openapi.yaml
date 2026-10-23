@@ -3093,15 +3093,23 @@ components:
     AssistantCard:
       type: object
       description: Facts the assistant asked code for. Only the field of `kind` is filled.
-      required: [kind, places, recipes, quest, note, attribution]
+      required: [kind, places, events, recipes, quest, note, attribution]
       properties:
         kind:
           type: string
-          enum: [places, dishes, quest]
+          enum: [places, events, dishes, quest]
         places:
           type: array
           items:
             $ref: '#/components/schemas/AssistantPlace'
+        events:
+          type: array
+          description: >-
+            Up to 5 listings of the user's region (or of a town in it the user named), the best
+            fit for the request and the user's goals first (ADR 0015).
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/AssistantEvent'
         recipes:
           type: array
           description: Open one with `getRecipe`; the cooking plan of M5 takes it from there.
@@ -3120,6 +3128,45 @@ components:
         attribution:
           type: [string, 'null']
           description: Data credit to show under the card, e.g. for OpenStreetMap.
+
+    AssistantEvent:
+      type: object
+      description: An event from the listings (Timepad, KudaGo); every field comes from code.
+      required: [id, title, starts_at, ends_at, venue, address, city, distance_km, category, is_free, price_min, url, source]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: [string, 'null']
+          format: date-time
+        venue:
+          type: [string, 'null']
+        address:
+          type: [string, 'null']
+        city:
+          type: string
+          description: Town of the event.
+        distance_km:
+          type: number
+          description: From the center of the searched town.
+        category:
+          $ref: '#/components/schemas/Category'
+        is_free:
+          type: boolean
+        price_min:
+          type: [integer, 'null']
+          description: Cheapest ticket in rubles, when known.
+        url:
+          type: string
+          description: The event page at its source.
+        source:
+          type: string
+          enum: [timepad, kudago]
 
     AssistantMessage:
       type: object

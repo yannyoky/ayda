@@ -12,13 +12,13 @@ from ayda.modules.events.sources import CityRef, EventSource
 
 log = logging.getLogger(__name__)
 
-WINDOW = timedelta(days=3)
+WINDOW = timedelta(days=7)
 
 
 async def ingest(
     session: AsyncSession, sources: Sequence[EventSource], cities: Sequence[CityRef], now: datetime
 ) -> dict[str, int]:
-    """Load the next 3 days of events; a failing source or city does not stop the others.
+    """Load the next 7 days of events; a failing source or city does not stop the others.
     Returns the number of listings saved per source; logs counts only."""
     saved = dict.fromkeys((s.name for s in sources), 0)
     failed = dict.fromkeys((s.name for s in sources), 0)

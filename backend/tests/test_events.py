@@ -23,6 +23,8 @@ from tests.test_day import TZ, checkin, forecast, offered, onboarded, use_tools
 KALININGRAD = 435
 SOVETSK = 438  # same region (39)
 MOSCOW = 1069
+SVETLOGORSK = 456
+PRIMORSK = 455  # the smallest town of the region
 
 TODAY = datetime.now(ZoneInfo(TZ)).date()
 NOW = datetime.combine(TODAY, time(10, 0), ZoneInfo(TZ)).astimezone(UTC)
@@ -124,6 +126,27 @@ async def test_event_quests_join_the_pool(
     payload = shown_event.payload
     assert len(payload["event_ids"]) == 2
     assert {by_id[i] for i in payload["event_candidate_ids"]} == ALLOWED
+
+
+async def test_the_check_in_brings_the_event_that_fits_it_first(
+    app: FastAPI, client: httpx.AsyncClient, database: Database, fixed_now: datetime
+) -> None:
+    use_tools(app, [], forecast())
+    await seed(
+        database,
+        [
+            listing("fair", timedelta(hours=3), title="Ярмарка мёда"),
+            listing("sea", timedelta(hours=4), title="Лекция о море"),
+            listing("jazz", timedelta(hours=4), city_id=SOVETSK, title="Джазовый вечер"),
+        ],
+    )
+    user = await onboarded(client)
+
+    day = await checkin(client, user, "Хочется послушать джаз")
+
+    event_quests = [q for q in offered(day) if q["source"] == "event"]
+    assert event_quests[0]["title"] == "Джазовый вечер"
+    assert len(event_quests) == 2
 
 
 async def test_no_events_for_a_user_without_listings_nearby(
@@ -243,13 +266,14 @@ class FakeSource:
         self.cities.append(city.name)
         if self.fail:
             raise httpx.ConnectError("down")
-        assert until - since == timedelta(days=3)
+        assert until - since == timedelta(days=7)
         return [listing(f"{city.id}-1", timedelta(hours=3), city.id, city.region_code)]
 
 
 async def test_ingest_loads_user_cities_and_region_centers(
-    client: httpx.AsyncClient, database: Database
+    client: httpx.AsyncClient, database: Database, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr("ayda.modules.events.listings.REGION_TOWNS", 1)
     await onboarded(client)  # Kaliningrad
     other = await sign_in(client, 2002)
     await client.patch("/me/profile", json={"city_id": SOVETSK}, headers=other.headers)
@@ -269,10 +293,13 @@ async def test_ingest_loads_user_cities_and_region_centers(
     assert set(await listing_ids(database)) == {f"{KALININGRAD}-1", f"{SOVETSK}-1"}
 
 
-async def test_region_center_is_loaded_for_a_small_town(database: Database) -> None:
+async def test_the_biggest_towns_of_the_region_are_loaded(database: Database) -> None:
     async with database.sessionmaker() as session:
-        cities = await events.cities_to_load(session, [SOVETSK])
-    assert [c.id for c in cities] == [KALININGRAD, SOVETSK]
+        cities = await events.cities_to_load(session, [SOVETSK, PRIMORSK])
+    names = [c.name for c in cities]
+    # 15 biggest towns of the Kaliningrad region plus the users' own small town.
+    assert len(names) == 16 and {"Калининград", "Советск", "Светлогорск", "Приморск"} <= set(names)
+    assert {c.region_code for c in cities} == {"39"}
 
 
 async def test_ingest_is_scheduled_once_a_day_after_its_time(

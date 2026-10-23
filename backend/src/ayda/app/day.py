@@ -321,6 +321,13 @@ async def submit_checkin(
         conditions.max_duration_min,
         await quests.excluded_event_ids(session, user.id, day),
         now,
+        local_events.Interest(
+            mentioned=local_events.stems(
+                " ".join([text, *(h.text for h in own_habits if h.direction == "more")]),
+                limit=12,
+            ),
+            goals=tuple(goals),
+        ),
     )
     event_picks = local_events.pick_for_pool(event_options, seed=f"{user.id}:{day}:events")
     catalog_size = POOL_SIZE - len(event_picks)

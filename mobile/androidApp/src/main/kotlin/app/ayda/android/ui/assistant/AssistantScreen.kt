@@ -47,14 +47,19 @@ import app.ayda.android.R
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.chat.small
 import app.ayda.android.ui.day.AydaIcon
+import app.ayda.android.ui.day.Russian
 import app.ayda.android.ui.recipes.label
 import app.ayda.api.models.AssistantCard
+import app.ayda.api.models.AssistantEvent
 import app.ayda.api.models.AssistantMessage
 import app.ayda.api.models.AssistantPlace
 import app.ayda.api.models.DayQuest
 import app.ayda.api.models.QuestState
 import app.ayda.api.models.RecipeCard
 import app.ayda.shared.assistant.AssistantViewModel
+import java.text.NumberFormat
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private val bubbleMine = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)
 private val bubbleTheirs = RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp)
@@ -291,6 +296,7 @@ private fun CardView(
             )
         }
         card.places.forEach { PlaceView(it) }
+        card.events.forEach { EventView(it) }
         card.recipes.forEach { RecipeView(it, onCook) }
         card.quest?.let { quest ->
             val current = questStates[quest.id] ?: quest.state
@@ -328,6 +334,44 @@ private fun PlaceView(place: AssistantPlace) {
                 stringResource(R.string.assistant_on_yandex),
             ) { runCatching { uriHandler.openUri(place.yandexUrl) } }
         }
+    }
+}
+
+private val eventWhen = DateTimeFormatter.ofPattern("EEE, d MMMM, HH:mm", Russian)
+
+@Composable
+private fun EventView(event: AssistantEvent) {
+    val colors = LocalAydaColors.current
+    val uriHandler = LocalUriHandler.current
+    val starts =
+        java.time.Instant
+            .ofEpochMilli(event.startsAt.toEpochMilliseconds())
+            .atZone(ZoneId.systemDefault())
+    val price =
+        when {
+            event.isFree -> stringResource(R.string.event_free)
+            event.priceMin != null ->
+                stringResource(R.string.event_from, NumberFormat.getIntegerInstance(Russian).format(event.priceMin))
+            else -> null
+        }
+    val far =
+        if (event.distanceKm < 1) {
+            stringResource(R.string.assistant_event_here)
+        } else {
+            stringResource(R.string.assistant_event_far, event.distanceKm.toInt())
+        }
+    val meta = listOfNotNull(event.venue, event.city, far, price).joinToString(" · ")
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(colors.surface, MaterialTheme.shapes.large)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(event.title, style = MaterialTheme.typography.titleMedium)
+        Text(eventWhen.format(starts), style = MaterialTheme.typography.bodyMedium)
+        Text(meta, style = small(), color = colors.muted)
+        MapLink(stringResource(R.string.assistant_event_open)) { runCatching { uriHandler.openUri(event.url) } }
     }
 }
 
