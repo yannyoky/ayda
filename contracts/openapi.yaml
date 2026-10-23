@@ -1048,6 +1048,48 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
 
+  /recipes/{recipe_id}/quest:
+    post:
+      tags: [recipes]
+      operationId: cookRecipeQuest
+      summary: Cook a recipe on your own
+      description: |
+        Adds an own quest for today, taken right away: "Готовим: <recipe>", with the recipe,
+        its allergens and what to buy in `description`. Quests are solo by default; any quest,
+        this one too, can be made a shared one with the usual invite (ADR 0014). For a plan
+        with a friend that splits shopping and cooking use `planRecipe`.
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeQuestInput'
+      responses:
+        '201':
+          description: Created and taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DayQuest'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The daily limit of taken quests is reached
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+
   /recipes/{recipe_id}/plan:
     post:
       tags: [recipes]
@@ -3206,6 +3248,22 @@ components:
         note:
           type: string
           description: Must be shown with the allergens.
+
+    RecipeQuestInput:
+      type: object
+      properties:
+        servings:
+          type: integer
+          minimum: 1
+          maximum: 8
+          default: 2
+        at_home:
+          type: array
+          maxItems: 60
+          items:
+            type: string
+            maxLength: 40
+          description: Ingredient ids of the recipe the caller already has.
 
     RecipePlanInput:
       type: object

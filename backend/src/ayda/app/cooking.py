@@ -14,14 +14,18 @@ from ayda.api.schemas import (
     Coop,
     CoopCreateInput,
     CoopPartInput,
+    DayQuest,
+    OwnQuestInput,
     RecipeCard,
     RecipeDetail,
     RecipeLine,
     RecipeOffer,
     RecipePlanInput,
+    RecipeQuestInput,
     RecipeSuggestInput,
 )
 from ayda.app import coop as coop_app
+from ayda.app import day as day_app
 from ayda.app.day import DayTools
 from ayda.core.problems import Problem
 from ayda.core.realtime import Realtime
@@ -222,6 +226,56 @@ async def plan(
             "recipe_id": recipe.id,
             "servings": body.servings,
             "to_buy": len(need),
+        },
+        occurred_at=now,
+    )
+    await session.commit()
+    return created
+
+
+async def solo(
+    session: AsyncSession,
+    user: auth.User,
+    recipe_id: str,
+    body: RecipeQuestInput,
+    now: datetime,
+) -> DayQuest:
+    """A recipe as an ordinary own quest for today. Any quest can be made a shared one later
+    with the usual invite, so cooking is not tied to a partner."""
+    rb = recipes.book()
+    recipe = _find(recipe_id)
+    unknown = [i for i in body.at_home if i not in {x.ingredient for x in recipe.ingredients}]
+    if unknown:
+        raise Problem(422, "validation-failed", detail="Это не ингредиент рецепта")
+    lines = recipes.scale(recipe, rb, body.servings)
+    need = recipes.shopping_list(lines, body.at_home)
+    found_allergens = recipes.allergens(recipe, rb.ingredients)
+    description = f"Рецепт «{recipe.title}», порций: {body.servings}."
+    if found_allergens:
+        description += " Аллергены: " + ", ".join(ALLERGENS_RU[a] for a in found_allergens) + "."
+    if need:
+        description += " Купить: " + "; ".join(recipes.format_line(ln) for ln in need) + "."
+    created = await day_app.add_own_quest(
+        session,
+        user,
+        OwnQuestInput(
+            title=f"Готовим: {recipe.title}"[:120],
+            category="home",
+            duration_min=min(480, recipe.minutes + (SHOPPING_MINUTES if need else 0)),
+        ),
+        now,
+        description=description,
+    )
+    await analytics.record(
+        session,
+        EventType.RECIPE_PLANNED,
+        user.id,
+        {
+            "quest_id": created.id,
+            "recipe_id": recipe.id,
+            "servings": body.servings,
+            "to_buy": len(need),
+            "solo": True,
         },
         occurred_at=now,
     )

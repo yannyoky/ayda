@@ -671,6 +671,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipes/{recipe_id}/quest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cook a recipe on your own
+         * @description Adds an own quest for today, taken right away: "Готовим: <recipe>", with the recipe,
+         *     its allergens and what to buy in `description`. Quests are solo by default; any quest,
+         *     this one too, can be made a shared one with the usual invite (ADR 0014). For a plan
+         *     with a friend that splits shopping and cooking use `planRecipe`.
+         */
+        post: operations["cookRecipeQuest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipes/{recipe_id}/plan": {
         parameters: {
             query?: never;
@@ -1849,6 +1872,12 @@ export interface components {
             steps: string[];
             /** @description Must be shown with the allergens. */
             note: string;
+        };
+        RecipeQuestInput: {
+            /** @default 2 */
+            servings: number;
+            /** @description Ingredient ids of the recipe the caller already has. */
+            at_home?: string[];
         };
         RecipePlanInput: {
             /** Format: uuid */
@@ -3113,6 +3142,44 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    cookRecipeQuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipe_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeQuestInput"];
+            };
+        };
+        responses: {
+            /** @description Created and taken */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DayQuest"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description The daily limit of taken quests is reached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             422: components["responses"]["Problem"];
         };
     };
