@@ -36,6 +36,16 @@ Pull requests touching `deploy/` or `infra/` validate the Compose file and build
    Venues for meetups (M5, ADR 0011) come from public OpenStreetMap instances and need no key either; `docker compose -f docker-compose.prod.yml logs worker | grep venues:` shows how many cities were loaded. Check that the Russian VPS reaches `overpass-api.de`; if not, list another public instance in `VENUES_OVERPASS_URLS`.
 11. **Invite links and the Android app** (optional until the app is released): put the SHA-256 fingerprint of the app's signing certificate into `ANDROID_CERT_SHA256` in `.env` (`AA:BB:...`; Caddy serves it at `/.well-known/assetlinks.json`) and run the Deploy workflow. Invites are then `https://<AYDA_DOMAIN>/i/<code>`: they open the app when it is installed and the verified link is trusted by Android, and send everyone else to the bot (`t.me/<bot>?startapp=<code>`). Old `t.me` links keep working.
 
+## Checking external services
+
+`python -m ayda.smoke` calls every external service through the app's own clients with the server's settings and prints one line each: weather (Open-Meteo), listings (Timepad, KudaGo), each Overpass instance in `VENUES_OVERPASS_URLS`, each LLM provider in `LLM_PROVIDERS`, Telegram and S3. Run it on the VPS after the first deploy and whenever places, listings or the assistant stop working:
+
+```sh
+cd /opt/ayda && docker compose -f docker-compose.prod.yml exec api python -m ayda.smoke
+```
+
+`FAIL` names the service and the error type (never keys or response bodies); `SKIP` means it is not configured. The exit code is 1 if anything failed. The same checks run weekly from GitHub (workflow Live checks, `pytest -m live`), but GitHub runners are outside Russia, so only the run on the VPS shows what production can reach.
+
 ## Backups
 
 The worker uploads a `pg_dump` to `BACKUP_BUCKET` every day after 03:30 Moscow time and keeps 14 days (`docs/architecture.md`, "Backups and error tracking"). A failed backup is retried; when it gives up, the error shows up in GlitchTip.
