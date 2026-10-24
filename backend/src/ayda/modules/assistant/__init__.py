@@ -14,6 +14,7 @@ from ayda.modules.assistant.providers import (
     providers_from_settings,
 )
 from ayda.modules.assistant.tasks import (
+    MAX_ACTIONS,
     Candidate,
     ChatAction,
     ChatAnswer,
@@ -37,6 +38,7 @@ from ayda.modules.assistant.tasks import (
 
 __all__ = [
     "DEFAULT_CHAIN",
+    "MAX_ACTIONS",
     "PRESETS",
     "Assistant",
     "AssistantResult",

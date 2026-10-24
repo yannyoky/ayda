@@ -118,14 +118,22 @@ def meal_in(text: str) -> recipes.Meal | None:
 
 
 def code_answer(text: str) -> assistant.ChatAnswer:
-    """The answer when no LLM is available: a known request gets its action."""
+    """The answer when no LLM is available: a known request gets its action, two requests
+    in one message ("погулять, а потом в кафе") get both."""
     lowered = text.lower()
+    actions: list[assistant.ChatAction] = []
+    replies: list[str] = []
     for words, action, reply in _INTENTS:
+        if len(actions) == assistant.MAX_ACTIONS:
+            break
         if any(word in lowered for word in words):
             if action.type == "suggest_dishes":
                 action = action.model_copy(update={"meal": meal_in(text)})
-            return assistant.ChatAnswer(reply=reply, action=action)
-    return assistant.ChatAnswer(reply=REPLY_UNAVAILABLE)
+            actions.append(action)
+            replies.append(reply)
+    if not actions:
+        return assistant.ChatAnswer(reply=REPLY_UNAVAILABLE)
+    return assistant.ChatAnswer(reply=" ".join(replies), actions=actions)
 
 
 # --- actions: code builds every fact on a card ------------------------------------------
@@ -461,7 +469,12 @@ async def send(
     context = await _context(session, user, day, quest)
     result = await assistant.chat_reply(tools.assistant, context, history, LLM_DEADLINE_S)
     answer, source = (result.value, "llm") if result else (code_answer(text), "code")
-    cards = await run_action(session, user, day, answer.action, text, now)
+    actions = answer.all_actions()
+    cards = [
+        card
+        for action in actions
+        for card in await run_action(session, user, day, action, text, now)
+    ]
     stored: list[dict[str, Any]] = [c.model_dump(mode="json") for c in cards]
 
     reply = await assistant.chat.add_message(
@@ -483,7 +496,7 @@ async def send(
         {
             "topic": "quest" if quest else "day",
             "day_quest_id": quest.id if quest else None,
-            "action": answer.action.type if answer.action else None,
+            "action": actions[0].type if actions else None,
             "cards": len(cards),
             "items": sum(_items(c) for c in cards),
             "source": source,

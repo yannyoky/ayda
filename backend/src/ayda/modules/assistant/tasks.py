@@ -255,7 +255,7 @@ CHAT_SYSTEM = """You are Айда, the assistant of a Russian app of daily quest
 talk with one user during their day: help them plan it, give advice and ideas how to make a quest
 more interesting. Answer in Russian, addressed to the user as 'ты', warm and short (at most 4
 sentences). Return ONLY a JSON object:
-  {"reply": "<your answer, max 600 chars>", "action": null or one action}
+  {"reply": "<your answer, max 600 chars>", "actions": [up to 2 actions, usually 0 or 1]}
 Actions ask the app's code for facts; you never write the facts yourself:
   {"type": "find_places", "kind": "walk" | "food" | "drinks"}: places near the user for a walk
       (parks, embankments, viewpoints), to eat (cafes, restaurants) or for a drink (bars, pubs);
@@ -272,6 +272,7 @@ Actions ask the app's code for facts; you never write the facts yourself:
       "duration_min": 5-240}: a new quest for today the user may take.
 Use an action only when the user asks for places, events, dishes or a new quest, or clearly
 needs one; then say in the reply that you picked them (the app shows them under your answer).
+Use two actions only when the user asks for two things at once, e.g. a walk and then a cafe.
 Never write addresses, links, phone numbers, prices or names of places, events or dishes you
 were not given. Never mention money, gambling, alcohol brands, diets or body weight; do not
 judge habits.
@@ -302,9 +303,22 @@ class ChatAction(BaseModel):
     duration_min: int | None = Field(default=None, ge=5, le=240)
 
 
+MAX_ACTIONS = 2
+
+
 class ChatAnswer(BaseModel):
     reply: str = Field(min_length=1, max_length=600)
+    actions: list[ChatAction] = Field(default_factory=lambda: [], max_length=MAX_ACTIONS)
+    # The older one-action shape, still accepted: models sometimes answer with it.
     action: ChatAction | None = None
+
+    def all_actions(self) -> list[ChatAction]:
+        """The actions to run, the single `action` first, without repeats."""
+        out: list[ChatAction] = []
+        for action in [*([self.action] if self.action else []), *self.actions]:
+            if action not in out:
+                out.append(action)
+        return out[:MAX_ACTIONS]
 
 
 @dataclass(frozen=True)
@@ -333,9 +347,11 @@ def _chat_check(answer: ChatAnswer) -> None:
     lowered = reply.lower()
     if any(word in lowered for word in CHAT_BANNED):
         raise InvalidAnswer("banned topic")
-    action = answer.action
-    if action is None:
-        return
+    for action in answer.all_actions():
+        _check_action(action)
+
+
+def _check_action(action: ChatAction) -> None:
     if action.type == "find_places" and action.kind is None:
         raise InvalidAnswer("places without a kind")
     if action.type == "suggest_quest" and not (
