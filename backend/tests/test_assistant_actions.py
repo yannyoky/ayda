@@ -1,6 +1,7 @@
 """Assistant chat actions (M6, ADR 0013): places to walk or eat, dishes from what is at
 home, a new quest. The LLM only asks; code builds every fact on a card."""
 
+import json
 import uuid
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -119,6 +120,30 @@ async def test_places_for_a_walk_come_from_code(
     food = (await send(client, user, "Где поужинать?")).json()["reply"]
     assert food["source"] == "code"
     assert {p["kind"] for p in food["cards"][0]["places"]} <= {"restaurant", "cafe", "fast_food"}
+
+
+async def test_two_actions_in_one_answer_give_two_cards(
+    app: FastAPI, client: httpx.AsyncClient, database: Database
+) -> None:
+    await map_loaded(database)
+    user = await checked_in(app, client)
+    walk = {"type": "find_places", "kind": "walk"}
+    food = {"type": "find_places", "kind": "food"}
+    reply = json.dumps({"reply": "Сначала прогулка, потом кафе.", "actions": [walk, food, walk]})
+    with_three = FakeProvider(answers=[reply])
+    use_tools(app, [with_three], forecast())
+    # Three actions are over the limit: the answer is rejected and code answers instead.
+    response = await send(client, user, "Хочу погулять, а потом поужинать")
+    assert response.json()["reply"]["source"] == "code"
+
+    reply = json.dumps({"reply": "Сначала прогулка, потом кафе.", "actions": [walk, food]})
+    use_tools(app, [FakeProvider(answers=[reply])], forecast())
+    response = await send(client, user, "Хочу погулять, а потом поужинать")
+    assert_matches(response, "sendAssistantMessage")
+    cards = response.json()["reply"]["cards"]
+    assert [c["kind"] for c in cards] == ["places", "places"]
+    assert {p["kind"] for p in cards[0]["places"]} <= {"park", "viewpoint", "embankment"}
+    assert {p["kind"] for p in cards[1]["places"]} <= {"restaurant", "cafe", "fast_food"}
 
 
 async def test_no_city_or_no_places_is_said_on_the_card(

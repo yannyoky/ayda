@@ -16,6 +16,7 @@ import app.ayda.api.models.Session
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.authProvider
 import io.ktor.client.plugins.auth.providers.BearerAuthProvider
@@ -59,6 +60,13 @@ class AydaClient(
         HttpClient(engine) {
             expectSuccess = false
             install(ContentNegotiation) { json(ApiJson) }
+            // OkHttp gives up reading after 10 s by default, and an assistant answer may take the
+            // server up to 12 s of model time plus its own work.
+            install(HttpTimeout) {
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 30_000
+                requestTimeoutMillis = 30_000
+            }
             install(Auth) {
                 bearer {
                     loadTokens { tokens.load()?.toBearer() }

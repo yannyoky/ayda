@@ -146,14 +146,21 @@ async def test_a_broken_answer_falls_back_to_code(app: FastAPI, client: httpx.As
 
 def test_code_understands_the_obvious_requests() -> None:
     def action(text: str) -> tuple[str | None, str | None]:
-        found = assistant_chat.code_answer(text).action
-        return (found.type, found.kind) if found else (None, None)
+        found = assistant_chat.code_answer(text).all_actions()
+        return (found[0].type, found[0].kind) if found else (None, None)
 
     assert action("Что приготовить из курицы и риса?") == ("suggest_dishes", None)
     assert action("Хочу в бар вечером") == ("find_places", "drinks")
     assert action("Где можно погулять?") == ("find_places", "walk")
     assert action("Посоветуй кафе") == ("find_places", "food")
     assert action("Как дела?") == (None, None)
+
+    both = assistant_chat.code_answer("Хочу погулять, а потом в кафе")
+    assert [(a.type, a.kind) for a in both.all_actions()] == [
+        ("find_places", "food"),
+        ("find_places", "walk"),
+    ]
+    assert both.reply == "Вот места, где можно поесть. Вот где можно погулять."
 
 
 async def test_the_daily_limit(
