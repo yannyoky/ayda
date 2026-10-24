@@ -63,7 +63,10 @@ import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-/** The morning half of the loop (US-05..US-08): check-in, points, streak and the day's quests. */
+/**
+ * The morning half of the loop (US-05..US-08): the check-in and the day's quests. Streak and
+ * points live on the friends tab, so this screen keeps its room for the day itself.
+ */
 @Composable
 fun TodayScreen(
     model: TodayViewModel,
@@ -117,7 +120,6 @@ fun TodayScreen(
         } else {
             CheckinDone(day, model, onChat = { onAssistant(null) })
         }
-        StatsRow(day)
         QuestsCard(state, day, onPick, onComplete, model::openOwnQuest) {
             DiscussButton(it) { onAssistant(it) }
             CoopButton(it, onOpenCoop, onInviteCoop)
@@ -154,24 +156,13 @@ private fun Header(
     me: Me,
 ) {
     val colors = LocalAydaColors.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            day?.let {
-                val date = java.time.LocalDate.parse(it.localDate.toString())
-                Text(
-                    dayTitle.format(date).replaceFirstChar(Char::titlecase),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.muted,
-                )
-            }
-            Text(
-                if (me.firstName.isBlank()) {
-                    stringResource(R.string.hello)
-                } else {
-                    stringResource(R.string.hello_name, me.firstName)
-                },
-                style = MaterialTheme.typography.headlineLarge,
-            )
+    // A neutral header: the date, then where and what the weather is, no greeting.
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+        val date = day?.let { java.time.LocalDate.parse(it.localDate.toString()) } ?: java.time.LocalDate.now()
+        Text(dayTitle.format(date).replaceFirstChar(Char::titlecase), style = MaterialTheme.typography.headlineLarge)
+        val place = listOfNotNull(me.city?.name, day?.weather?.text()).joinToString(" · ")
+        if (place.isNotEmpty()) {
+            Text(place, style = MaterialTheme.typography.labelLarge, color = colors.muted)
         }
     }
 }
@@ -347,8 +338,9 @@ private fun DiscussButton(
     }
 }
 
+/** Streak and points, shown on the friends tab next to the ladder. */
 @Composable
-private fun StatsRow(day: Day) {
+fun StatsRow(day: Day) {
     val colors = LocalAydaColors.current
     val streak = day.streak.currentDays
     Row(Modifier.fillMaxWidth().height(136.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -439,10 +431,6 @@ private fun QuestsCard(
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.muted,
             )
-        }
-        val weather = day.weather
-        if (weather != null && day.poolStatus != PoolStatus.none) {
-            Text(weather.text(), style = MaterialTheme.typography.bodyMedium, color = colors.muted)
         }
         when (day.poolStatus) {
             PoolStatus.generating -> Muted(stringResource(R.string.today_generating))

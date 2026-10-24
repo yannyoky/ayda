@@ -21,7 +21,6 @@ export const ru = {
   },
   today: {
     topEvents: 'Топ рядом',
-    greeting: (name: string) => `Привет, ${name}`,
     checkinTitle: 'Какой у тебя день?',
     checkinPlaceholder: 'Работа до 18, надо дописать отчёт, вечером свободен',
     checkinHint: 'Можно оставить пустым: соберём квесты по профилю',

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -28,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -206,7 +208,10 @@ fun AssistantScreen(
     }
 }
 
-/** Laid out bottom-up, so the newest message stays in view. */
+/**
+ * Laid out bottom-up. A lazy list keeps the item it showed in place when one is added below,
+ * so the list scrolls down itself whenever the newest entry changes.
+ */
 @Composable
 private fun Messages(
     model: AssistantViewModel,
@@ -214,8 +219,12 @@ private fun Messages(
     onCook: (String) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
+    val list = rememberLazyListState()
+    val newest = if (state.typing) "typing" else state.messages.lastOrNull()?.id
+    LaunchedEffect(newest) { if (newest != null) list.animateScrollToItem(0) }
     LazyColumn(
         Modifier.fillMaxSize(),
+        state = list,
         reverseLayout = true,
         contentPadding = PaddingValues(16.dp, 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

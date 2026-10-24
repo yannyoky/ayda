@@ -11,10 +11,11 @@ async function checkIn(user: ReturnType<typeof userEvent.setup>, text: string, m
 }
 
 describe('Today: check-in and pool (US-05, US-06)', () => {
-  it('shows streak and weekly points', async () => {
+  it('shows the date, the city and no greeting or stats', async () => {
     renderApp()
-    expect(await screen.findByRole('region', { name: 'Серия' })).toHaveTextContent('12дней')
-    expect(screen.getByRole('region', { name: 'За неделю' })).toHaveTextContent('185')
+    expect(await screen.findByText(/^Калининград/)).toBeInTheDocument()
+    expect(screen.queryByText(/Привет/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Серия' })).not.toBeInTheDocument()
   })
 
   it('shows the top events nearby', async () => {

@@ -12,13 +12,15 @@ import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.config import Settings
-from ayda.core.jobs import enqueue
+from ayda.core.jobs import Job, enqueue
 from ayda.modules import auth, events, habits, quests
 from ayda.modules.quests.day_service import NewQuest
 
@@ -182,17 +184,19 @@ def venue_http() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=120.0, headers={"User-Agent": USER_AGENT})
 
 
-async def request_venue_load(session: AsyncSession, city_id: int, now: datetime) -> bool:
+async def request_venue_load(
+    session: AsyncSession, city_id: int, now: datetime
+) -> Literal["loading", "failed"]:
     """Queue a load now for a city that has none yet, instead of waiting for the night; once
-    a day per city, and the job loads every city that is due."""
-    day = now.date().isoformat()
-    return await enqueue(
-        session,
-        VENUES_JOB,
-        {"day": day, "city_id": city_id},
-        dedupe_key=f"{VENUES_JOB}:asked:{city_id}:{day}",
-        max_attempts=3,
-    )
+    an hour per city, and the job loads every city that is due. "failed" means this hour's
+    load already ran and the map did not answer, so the user is not told to wait."""
+    hour = now.strftime("%Y-%m-%dT%H")
+    key = f"{VENUES_JOB}:asked:{city_id}:{hour}"
+    payload = {"day": now.date().isoformat(), "city_id": city_id}
+    if await enqueue(session, VENUES_JOB, payload, dedupe_key=key, max_attempts=3):
+        return "loading"
+    status = await session.scalar(select(Job.status).where(Job.dedupe_key == key))
+    return "loading" if status in ("queued", "running") else "failed"
 
 
 def venue_source(settings: Settings, http: httpx.AsyncClient) -> events.OverpassSource | None:

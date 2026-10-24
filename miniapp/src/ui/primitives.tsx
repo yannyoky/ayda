@@ -1,11 +1,22 @@
 import type { ReactNode } from 'react'
 
-export function ScreenHeader({ eyebrow, title, action }: { eyebrow?: string; title: string; action?: ReactNode }) {
+export function ScreenHeader({
+  eyebrow,
+  title,
+  subtitle,
+  action,
+}: {
+  eyebrow?: string
+  title: string
+  subtitle?: string
+  action?: ReactNode
+}) {
   return (
     <header className="flex items-center justify-between gap-3 px-1">
       <div className="flex min-w-0 flex-col gap-0.5">
         {eyebrow && <span className="text-[13px] font-semibold text-muted">{eyebrow}</span>}
         <h1 className="m-0 font-display text-[26px] font-bold tracking-[-0.5px]">{title}</h1>
+        {subtitle && <span className="text-[13px] font-semibold text-muted">{subtitle}</span>}
       </div>
       {action}
     </header>

@@ -45,7 +45,9 @@ import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.day.AydaIcon
 import app.ayda.android.ui.day.Russian
+import app.ayda.android.ui.day.StatsRow
 import app.ayda.api.apis.SocialApi.WeekGetLadder
+import app.ayda.api.models.Day
 import app.ayda.api.models.Friend
 import app.ayda.api.models.LadderEntry
 import app.ayda.api.models.UserSummary
@@ -60,6 +62,8 @@ private val dayMonth = DateTimeFormatter.ofPattern("d MMMM", Russian)
 @Composable
 fun FriendsScreen(
     model: FriendsViewModel,
+    /** Today's streak and points, moved here from the Today screen. */
+    day: Day?,
     onWrite: (Friend) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -91,6 +95,7 @@ fun FriendsScreen(
             }
             Text(stringResource(R.string.friends_title), style = MaterialTheme.typography.headlineLarge)
         }
+        day?.let { StatsRow(it) }
         WeekSwitch(state.week, model::selectWeek)
         state.error?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
         val ladder = state.ladder
