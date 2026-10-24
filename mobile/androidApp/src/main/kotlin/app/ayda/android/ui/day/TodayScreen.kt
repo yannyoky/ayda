@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -446,11 +447,12 @@ private fun QuestsCard(
             Muted(stringResource(R.string.today_none_taken))
         }
         if (state.left > 0) {
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Stacked, not side by side: with a large system font the two labels don't fit in a row.
+            Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.offered.isNotEmpty()) {
                     Button(
                         onClick = onPick,
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         shape = MaterialTheme.shapes.medium,
                         colors =
                             ButtonDefaults.buttonColors(
@@ -476,7 +478,7 @@ private fun QuestsCard(
                 }
                 Button(
                     onClick = onOwn,
-                    modifier = (if (state.offered.isEmpty()) Modifier.weight(1f) else Modifier).height(48.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     shape = MaterialTheme.shapes.medium,
                     colors = ButtonDefaults.buttonColors(containerColor = colors.bg, contentColor = colors.ink),
                 ) {
