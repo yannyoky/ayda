@@ -34,6 +34,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelTest {
@@ -82,6 +83,13 @@ class ChatViewModelTest {
             call == "POST /conversations/c1/read" -> respond("", HttpStatusCode.NoContent)
             call == "DELETE /conversations/c1/messages/3" -> respond("", HttpStatusCode.NoContent)
             call == "DELETE /conversations/c1" -> respond("", HttpStatusCode.NoContent)
+            call == "PATCH /conversations/c1/messages/3" ->
+                json(
+                    message(3, author = "me", text = "в 8").removeSuffix("}") +
+                        ""","edited_at":"2026-10-17T20:05:00Z"}""",
+                )
+            call == "PATCH /conversations/c1/messages/2" ->
+                problem(HttpStatusCode.Conflict, "edit-window-over", "Поздно")
             else -> error("unexpected $call")
         }
     }
@@ -204,6 +212,37 @@ class ChatViewModelTest {
                 model.state.value.pending
                     .isEmpty(),
             )
+        }
+
+    @Test
+    fun anOwnMessageIsEditedInTheComposer() =
+        runTest(dispatcher) {
+            val model = model()
+            advanceUntilIdle()
+            val (second, third) = model.state.value.messages
+            model.startEdit(third)
+            assertEquals("m3", model.state.value.text)
+            model.onTextChange("в 8")
+            model.send()
+            advanceUntilIdle()
+            assertNull(model.state.value.editing)
+            assertEquals(
+                "в 8",
+                model.state.value.messages
+                    .last()
+                    .text,
+            )
+            assertTrue(calls.any { it.startsWith("PATCH /conversations/c1/messages/3") && "\"text\":\"в 8\"" in it })
+            assertFalse(calls.any { it.startsWith("POST /conversations/c1/messages") })
+
+            model.startEdit(second)
+            model.onTextChange("поздно")
+            model.send()
+            advanceUntilIdle()
+            assertTrue(model.state.value.editTooLate)
+            assertTrue(model.canEdit(second, second.createdAt + 23.hours))
+            assertFalse(model.canEdit(second, second.createdAt + 25.hours))
+            model.viewModelScope.cancel()
         }
 
     @Test

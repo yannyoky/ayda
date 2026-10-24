@@ -15,6 +15,8 @@ from ayda.core.ids import uuid7
 from ayda.modules.chat.models import Conversation, Member, Message
 
 MAX_MESSAGES_PER_MINUTE = 30
+# The author can change a message this long after sending it (ADR 0019).
+EDIT_WINDOW = timedelta(hours=24)
 
 
 class CursorError(ValueError):
@@ -221,6 +223,21 @@ async def get_message(
     if message is None or message.conversation_id != conversation_id or message.deleted_at:
         return None
     return message
+
+
+class EditWindowError(Exception):
+    pass
+
+
+async def edit_message(session: AsyncSession, message: Message, text: str, now: datetime) -> bool:
+    """Change the text within 24 hours of sending; False when the text is the same."""
+    if now - message.created_at > EDIT_WINDOW:
+        raise EditWindowError
+    if text == message.text:
+        return False
+    message.text = text
+    message.edited_at = now
+    return True
 
 
 async def delete_message(session: AsyncSession, message: Message, now: datetime) -> None:

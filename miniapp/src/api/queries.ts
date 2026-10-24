@@ -427,6 +427,24 @@ export function useSendMessage(conversationId: string) {
   })
 }
 
+/** The author changes the text within 24 hours (ADR 0019). */
+export function useEditMessage(conversationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ message_id, text }: { message_id: number; text: string }) =>
+      unwrap(
+        api.PATCH('/conversations/{conversation_id}/messages/{message_id}', {
+          params: { path: { conversation_id: conversationId, message_id } },
+          body: { text },
+        }),
+      ),
+    onSuccess: (message) => {
+      upsertMessage(client, message)
+      void client.invalidateQueries({ queryKey: conversationsKey })
+    },
+  })
+}
+
 export function useDeleteMessage(conversationId: string) {
   const client = useQueryClient()
   return useMutation({

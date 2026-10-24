@@ -316,3 +316,37 @@ async def test_a_chat_deleted_for_me_comes_back_with_only_new_messages(
     stranger = await sign_in(client, 3003, "Ева")
     missing = await client.delete(f"/conversations/{conversation['id']}", headers=stranger.headers)
     assert missing.status_code == 404
+
+
+async def test_edit_own_message_within_a_day(
+    client: httpx.AsyncClient, realtime: FakeRealtime, database: Database
+) -> None:
+    alice, bob = await pair(client)
+    conversation = await open_dm(client, alice, bob)
+    message = (await send(client, alice, conversation["id"], "встретимся в 7")).json()
+    assert message["edited_at"] is None
+    url = f"/conversations/{conversation['id']}/messages/{message['id']}"
+
+    edited = await client.patch(url, json={"text": " в 8 "}, headers=alice.headers)
+    assert edited.status_code == 200, edited.text
+    assert_matches(edited, "editMessage")
+    assert edited.json()["text"] == "в 8" and edited.json()["edited_at"]
+    assert realtime.sent[-1][1]["type"] == "message.updated"
+    assert realtime.sent[-1][1]["message"]["text"] == "в 8"
+    history = await client.get(f"/conversations/{conversation['id']}/messages", headers=bob.headers)
+    assert history.json()["items"][0]["text"] == "в 8"
+
+    foreign = await client.patch(url, json={"text": "взлом"}, headers=bob.headers)
+    assert foreign.status_code == 403
+    assert (await client.patch(url, json={"text": "  "}, headers=alice.headers)).status_code == 422
+
+    async with database.sessionmaker() as session:
+        await session.execute(
+            update(chat.Message)
+            .where(chat.Message.id == message["id"])
+            .values(created_at=datetime.now(UTC) - timedelta(hours=25))
+        )
+        await session.commit()
+    late = await client.patch(url, json={"text": "в 9"}, headers=alice.headers)
+    assert late.status_code == 409
+    assert_matches(late, "editMessage")

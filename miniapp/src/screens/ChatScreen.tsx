@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
-import { useConversation, useDeleteMessage, useHideConversation, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
+import { useConversation, useDeleteMessage, useEditMessage, useHideConversation, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
 import { MeetupSheet } from '../features/chat/MeetupSheet'
 import { t } from '../i18n'
 import { useRealtimeStatus } from '../realtime/realtime'
@@ -19,6 +19,7 @@ interface Pending {
 
 const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
 const COOP_CHAT_TTL_MS = 30 * 24 * 3600 * 1000
+const EDIT_WINDOW_MS = 24 * 3600 * 1000
 const dayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
 
 /** US-17: one chat. Messages arrive over Centrifugo, or by polling when realtime is off. */
@@ -33,6 +34,8 @@ export function ChatScreen() {
   const messages = useMessages(id, { poll: realtime !== 'live' })
   const send = useSendMessage(id)
   const remove = useDeleteMessage(id)
+  const edit = useEditMessage(id)
+  const [editing, setEditing] = useState<Schemas['Message'] | null>(null)
   const markRead = useMarkRead(id)
   const hide = useHideConversation(id)
   const [openedAt] = useState(() => Date.now())
@@ -79,10 +82,32 @@ export function ChatScreen() {
     )
   }
 
+  function startEdit(m: Schemas['Message']) {
+    setSelected(null)
+    setEditing(m)
+    setText(m.text)
+  }
+
+  function cancelEdit() {
+    setEditing(null)
+    setText('')
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault()
     const value = text.trim()
     if (!value) return
+    if (editing) {
+      const target = editing
+      setEditing(null)
+      setText('')
+      if (value === target.text) return
+      edit.mutate(
+        { message_id: target.id, text: value },
+        { onError: (err) => setNotice(err instanceof ApiError && err.status === 409 ? t.chats.editTooLate : t.chats.failed) },
+      )
+      return
+    }
     setText('')
     setNotice(null)
     deliver({ client_id: crypto.randomUUID(), text: value, failed: false })
@@ -162,14 +187,22 @@ export function ChatScreen() {
                 >
                   {m.text}
                   <span className={`ml-2 inline-block text-[11px] font-semibold ${mine ? 'text-on-plate/60' : 'text-muted'}`}>
+                    {m.edited_at && `${t.chats.edited} `}
                     {timeFormat.format(new Date(m.created_at))}
                   </span>
                 </button>
                 {mine && selected === m.id && (
-                  <button type="button" onClick={() => deleteMessage(m)} className="mt-1 flex h-9 items-center gap-1.5 rounded-field bg-surface px-3 text-sm font-bold">
-                    <Icon name="trash" size={16} />
-                    {t.chats.delete}
-                  </button>
+                  <span className="mt-1 flex gap-1.5">
+                    {openedAt - Date.parse(m.created_at) < EDIT_WINDOW_MS && (
+                      <button type="button" onClick={() => startEdit(m)} className="flex h-9 items-center rounded-field bg-surface px-3 text-sm font-bold">
+                        {t.chats.edit}
+                      </button>
+                    )}
+                    <button type="button" onClick={() => deleteMessage(m)} className="flex h-9 items-center gap-1.5 rounded-field bg-surface px-3 text-sm font-bold">
+                      <Icon name="trash" size={16} />
+                      {t.chats.delete}
+                    </button>
+                  </span>
                 )}
               </li>
             )
@@ -196,6 +229,14 @@ export function ChatScreen() {
           {notice}
         </p>
       )}
+      {editing && (
+        <p className="m-0 flex items-center justify-between gap-2 px-4 pb-1 text-xs font-bold text-muted">
+          <span className="truncate">{t.chats.editing}</span>
+          <button type="button" onClick={cancelEdit} aria-label={t.chats.cancelEdit} className="flex size-8 items-center justify-center rounded-full bg-surface">
+            <Icon name="close" size={14} />
+          </button>
+        </p>
+      )}
       {chat.can_send ? (
         <form onSubmit={submit} className="flex gap-2 px-4 pt-1 pb-[max(16px,env(safe-area-inset-bottom))]">
           <label htmlFor={inputId} className="sr-only">
@@ -212,7 +253,7 @@ export function ChatScreen() {
           />
           <button
             type="submit"
-            aria-label={t.chats.send}
+            aria-label={editing ? t.chats.save : t.chats.send}
             disabled={!text.trim()}
             className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-40"
           >

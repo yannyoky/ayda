@@ -49,4 +49,5 @@ class Message(Base):
     client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     text: Mapped[str] = mapped_column(String(2000))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

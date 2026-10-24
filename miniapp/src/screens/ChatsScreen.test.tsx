@@ -55,6 +55,22 @@ describe('Chats (US-17)', () => {
     expect(db.messages(chat, null, 30).items.map((m) => m.text)).toEqual(['Ты где?'])
   })
 
+  it('edits an own message', async () => {
+    const user = userEvent.setup()
+    const chat = db.conversations[0]!
+    db.addMessage(chat, db.me.id, 'Встретимся в 7')
+    renderApp(`/chats/${chat.id}`)
+    await user.click(await screen.findByRole('button', { name: /Встретимся в 7/ }))
+    await user.click(screen.getByRole('button', { name: 'Изменить' }))
+    const input = screen.getByRole('textbox', { name: 'Сообщение' })
+    expect(input).toHaveValue('Встретимся в 7')
+    await user.clear(input)
+    await user.type(input, 'Встретимся в 8')
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(await screen.findByRole('button', { name: /Встретимся в 8.*изменено/ })).toBeInTheDocument()
+    expect(chat.messages.at(-1)!.text).toBe('Встретимся в 8')
+  })
+
   it('deletes an own message', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)

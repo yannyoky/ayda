@@ -7,6 +7,7 @@ import app.ayda.api.models.CoopUpdatedEvent
 import app.ayda.api.models.Message
 import app.ayda.api.models.MessageCreatedEvent
 import app.ayda.api.models.MessageDeletedEvent
+import app.ayda.api.models.MessageUpdatedEvent
 import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
 import app.ayda.shared.apiCall
@@ -33,6 +34,11 @@ enum class RealtimeStatus { Off, Connecting, Live }
 /** One event from the user's personal channel (`RealtimeEvent` in the contract, ADR 0007). */
 sealed interface LiveEvent {
     data class MessageCreated(
+        val message: Message,
+    ) : LiveEvent
+
+    /** The author edited the message (ADR 0019). */
+    data class MessageUpdated(
         val message: Message,
     ) : LiveEvent
 
@@ -218,6 +224,10 @@ class Realtime(
                     "message.created" ->
                         LiveEvent.MessageCreated(
                             json.decodeFromJsonElement(MessageCreatedEvent.serializer(), obj).message,
+                        )
+                    "message.updated" ->
+                        LiveEvent.MessageUpdated(
+                            json.decodeFromJsonElement(MessageUpdatedEvent.serializer(), obj).message,
                         )
                     "message.deleted" ->
                         json.decodeFromJsonElement(MessageDeletedEvent.serializer(), obj).let {

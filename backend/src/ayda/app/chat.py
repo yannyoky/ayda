@@ -21,6 +21,7 @@ from ayda.modules.analytics import EventType
 
 MESSAGE_CREATED = "chat.message_created"
 MESSAGE_DELETED = "chat.message_deleted"
+MESSAGE_UPDATED = "chat.message_updated"
 CONVERSATION_READ = "chat.conversation_read"
 NOTIFY_KIND = "chat.message"
 # The bot waits a minute (the message may be read in the app by then) and sends at most
@@ -44,6 +45,7 @@ def message_schema(message: chat.Message, author: UserSummary) -> Message:
         text=message.text,
         created_at=message.created_at,
         client_id=message.client_id,
+        edited_at=message.edited_at,
     )
 
 
@@ -200,6 +202,34 @@ async def send_message(
     return message_schema(message, user_summary(user, user.id)), created
 
 
+async def edit_message(
+    session: AsyncSession,
+    realtime: Realtime,
+    user: auth.User,
+    conversation_id: uuid.UUID,
+    message_id: int,
+    text: str,
+    now: datetime,
+) -> Message:
+    """The author changes a message within 24 hours; members get it over realtime."""
+    await get_conversation(session, user.id, conversation_id)
+    message = await chat.get_message(session, conversation_id, message_id)
+    if message is None:
+        raise Problem(404, "message-not-found", detail="Сообщение не найдено")
+    if message.author_id != user.id:
+        raise Problem(403, "not-your-message", detail="Изменить можно только своё сообщение")
+    try:
+        changed = await chat.edit_message(session, message, text, now)
+    except chat.EditWindowError:
+        raise Problem(
+            409, "edit-window-over", detail="Сообщение можно изменить только в первые сутки"
+        ) from None
+    await session.commit()
+    if changed:
+        await publish(session, realtime, MESSAGE_UPDATED, {"message_id": message.id})
+    return message_schema(message, user_summary(user, user.id))
+
+
 async def delete_message(
     session: AsyncSession,
     realtime: Realtime,
@@ -283,6 +313,13 @@ async def _message_created(session: AsyncSession, params: Mapping[str, Any]) -> 
     )
 
 
+async def _message_updated(session: AsyncSession, params: Mapping[str, Any]) -> Delivery | None:
+    delivery = await _message_created(session, params)
+    if delivery is None:
+        return None
+    return Delivery(delivery.user_ids, {**delivery.event, "type": "message.updated"})
+
+
 async def _message_deleted(session: AsyncSession, params: Mapping[str, Any]) -> Delivery | None:
     conversation_id = uuid.UUID(str(params["conversation_id"]))
     return Delivery(
@@ -310,6 +347,7 @@ async def _conversation_read(session: AsyncSession, params: Mapping[str, Any]) -
 
 BUILDERS[MESSAGE_CREATED] = _message_created
 BUILDERS[MESSAGE_DELETED] = _message_deleted
+BUILDERS[MESSAGE_UPDATED] = _message_updated
 BUILDERS[CONVERSATION_READ] = _conversation_read
 
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.ayda.api.models.Conversation
 import app.ayda.api.models.MarkConversationReadRequest
 import app.ayda.api.models.Message
+import app.ayda.api.models.MessageEdit
 import app.ayda.api.models.MessageInput
 import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
@@ -18,7 +19,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -40,6 +44,10 @@ data class ChatState(
     val text: String = "",
     /** The own message whose actions are shown. */
     val selected: Long? = null,
+    /** The own message being edited in the composer (ADR 0019). */
+    val editing: Message? = null,
+    /** An edit came too late: more than 24 hours since sending (409). */
+    val editTooLate: Boolean = false,
     /** The message the user is asked to confirm deleting. */
     val deleting: Message? = null,
     /** The user is asked to confirm "Удалить у себя". */
@@ -79,6 +87,8 @@ class ChatViewModel(
                             upsert(event.message)
                             markRead()
                         }
+                    is LiveEvent.MessageUpdated ->
+                        if (event.message.conversationId == conversationId) upsert(event.message)
                     is LiveEvent.MessageDeleted ->
                         if (event.conversationId == conversationId) remove(event.messageId)
                     LiveEvent.Resync -> refresh()
@@ -117,6 +127,10 @@ class ChatViewModel(
     fun send() {
         val text = state.value.text.trim()
         if (text.isEmpty() || state.value.conversation?.canSend != true) return
+        state.value.editing?.let { target ->
+            saveEdit(target, text)
+            return
+        }
         mutableState.update { it.copy(text = "", tooFast = false) }
         deliver(PendingMessage(newClientId(), text))
     }
@@ -137,6 +151,34 @@ class ChatViewModel(
                     },
             )
         }
+
+    /** Whether an own message can still be edited: up to 24 hours after sending. */
+    fun canEdit(
+        message: Message,
+        now: Instant = Clock.System.now(),
+    ): Boolean = now - message.createdAt < EDIT_WINDOW
+
+    fun startEdit(message: Message) =
+        mutableState.update { it.copy(editing = message, text = message.text, selected = null, editTooLate = false) }
+
+    fun cancelEdit() = mutableState.update { it.copy(editing = null, text = "") }
+
+    private fun saveEdit(
+        target: Message,
+        text: String,
+    ) {
+        mutableState.update { it.copy(editing = null, text = "") }
+        if (text == target.text) return
+        viewModelScope.launch {
+            val edited = apiCall { client.chat.editMessage(conversationId, target.id, MessageEdit(text)) }
+            when {
+                edited is ApiResult.Ok -> upsert(edited.value)
+                edited is ApiResult.Failed && edited.problem.status == 409 ->
+                    mutableState.update { it.copy(editTooLate = true) }
+                else -> mutableState.update { it.copy(error = edited.errorText()) }
+            }
+        }
+    }
 
     fun askDelete(message: Message) = mutableState.update { it.copy(deleting = message, selected = null) }
 
@@ -284,6 +326,7 @@ class ChatViewModel(
     companion object {
         const val PAGE = 30
         const val MAX_LENGTH = 2000
+        val EDIT_WINDOW = 24.hours
         val POLL = 5.seconds
 
         @OptIn(ExperimentalUuidApi::class)
