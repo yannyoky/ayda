@@ -145,7 +145,8 @@ class CompleteViewModelTest {
             assertFalse(model.state.value.canAddPhoto)
             model.addPhoto(byteArrayOf(1))
             model.addCircle(byteArrayOf(9))
-            assertTrue(model.state.value.photos.isEmpty())
+            val state = model.state.value
+            assertTrue(state.photos.isEmpty())
 
             model.submit()
             advanceUntilIdle()
