@@ -112,6 +112,67 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # End-to-end: the built Mini App in Chromium against the real backend and database
+  # (miniapp/e2e). No LLM key, so the pool comes from code and the run is deterministic.
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.miniapp == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgis/postgis:16-3.6
+        env:
+          POSTGRES_USER: ayda
+          POSTGRES_PASSWORD: ayda
+          POSTGRES_DB: ayda_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ayda -d ayda_e2e"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      ENVIRONMENT: test
+      DATABASE_URL: postgresql+asyncpg://ayda:ayda@localhost:5432/ayda_e2e
+      # Test-only token; the Playwright Telegram stub signs initData with the same one.
+      TELEGRAM_BOT_TOKEN: '123456:E2E-TOKEN'
+      E2E_BOT_TOKEN: '123456:E2E-TOKEN'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.13'
+      - name: Start the backend
+        working-directory: backend
+        run: |
+          uv sync --locked --no-dev
+          uv run --no-dev alembic upgrade head
+          nohup uv run --no-dev uvicorn ayda.main:app --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://localhost:8000/api/v1/health && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/api.log"; exit 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: miniapp/package-lock.json
+      - working-directory: miniapp
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run e2e
+      - if: failure()
+        run: cat "$RUNNER_TEMP/api.log"
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            miniapp/playwright-report
+            miniapp/test-results
+          retention-days: 7
+
   mobile:
     needs: changes
     if: needs.changes.outputs.mobile == 'true'

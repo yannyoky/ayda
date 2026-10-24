@@ -32,6 +32,25 @@ npm test           # vitest + Testing Library
 npm run build
 ```
 
+## End-to-end tests
+
+`e2e/` drives the built app in Chromium (Playwright, phone viewport) against the real backend and database, not the mock: Telegram sign-in → consent → onboarding → check-in → take a quest → complete it → the post in the feed. `e2e/telegram.ts` replaces Telegram's bridge script with a stub carrying initData signed by a test bot token, so the backend's real signature check runs. CI job `e2e` starts the backend without an LLM key, so the pool comes from code.
+
+Locally: PostgreSQL with PostGIS (`docker compose up -d postgres` from the repository root) and the backend on port 8000 with the same test token, then:
+
+```sh
+# backend/
+createdb -h localhost -U ayda ayda_e2e   # once
+export DATABASE_URL=postgresql+asyncpg://ayda:ayda@localhost:5432/ayda_e2e TELEGRAM_BOT_TOKEN=123456:E2E-TOKEN ENVIRONMENT=test
+uv run alembic upgrade head && uv run uvicorn ayda.main:app --port 8000
+
+# miniapp/
+npx playwright install chromium   # once
+npm run e2e                       # builds the app and serves it with vite preview on :4173
+```
+
+Each run signs in as a new Telegram user, so the database does not need resetting.
+
 ## API client
 
 `src/api/schema.gen.ts` is generated from `contracts/openapi.yaml` (ADR 0004) and never edited by hand:
