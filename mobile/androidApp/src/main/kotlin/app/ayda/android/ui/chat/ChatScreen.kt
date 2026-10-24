@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -60,6 +61,8 @@ import app.ayda.android.ui.QuietButton
 import app.ayda.android.ui.day.AydaIcon
 import app.ayda.android.ui.day.Russian
 import app.ayda.android.ui.social.Avatar
+import app.ayda.api.models.Attachment
+import app.ayda.api.models.ChatUploadInput
 import app.ayda.api.models.ConversationKind
 import app.ayda.api.models.Message
 import app.ayda.shared.chat.ChatViewModel
@@ -329,34 +332,34 @@ private fun Bubble(
                 modifier = Modifier.padding(horizontal = 12.dp),
             )
         }
-        Row(
-            Modifier
-                .widthIn(max = 300.dp)
-                .clip(shape)
-                .background(if (mine) colors.plate else colors.surface)
-                .then(if (mine) Modifier.clickable(role = Role.Button, onClick = onSelect) else Modifier)
-                .padding(14.dp, 8.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val attachment = message.attachment
-            if (attachment != null) {
-                Box(Modifier.weight(1f, fill = false)) { VoiceBubbleContent(attachment, mine, onExpired) }
-            } else {
-                Text(
-                    message.text,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (mine) colors.onPlate else colors.ink,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-            }
-            val time =
-                if (message.editedAt != null) {
-                    stringResource(R.string.chats_edited, message.time())
-                } else {
-                    message.time()
+        val circle = message.attachment?.takeIf { it.kind == Attachment.Kind.video_note }
+        if (circle != null) {
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (mine) {
+                    Text(
+                        message.time(),
+                        style = small(),
+                        color = colors.muted,
+                        modifier = Modifier.clickable(role = Role.Button, onClick = onSelect),
+                    )
                 }
-            Text(time, style = small(), color = if (mine) colors.onPlate.copy(alpha = 0.6f) else colors.muted)
+                VideoNoteContent(circle, onExpired)
+                if (!mine) Text(message.time(), style = small(), color = colors.muted)
+            }
+        } else {
+            Row(
+                Modifier
+                    .widthIn(max = 300.dp)
+                    .clip(shape)
+                    .background(if (mine) colors.plate else colors.surface)
+                    .then(if (mine) Modifier.clickable(role = Role.Button, onClick = onSelect) else Modifier)
+                    .padding(14.dp, 8.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) { BubbleBody(message, mine, onExpired) }
         }
         if (mine && selected) {
             Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -367,6 +370,33 @@ private fun Bubble(
             }
         }
     }
+}
+
+@Composable
+private fun RowScope.BubbleBody(
+    message: Message,
+    mine: Boolean,
+    onExpired: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    val attachment = message.attachment
+    if (attachment != null) {
+        Box(Modifier.weight(1f, fill = false)) { VoiceBubbleContent(attachment, mine, onExpired) }
+    } else {
+        Text(
+            message.text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (mine) colors.onPlate else colors.ink,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+    }
+    val time =
+        if (message.editedAt != null) {
+            stringResource(R.string.chats_edited, message.time())
+        } else {
+            message.time()
+        }
+    Text(time, style = small(), color = if (mine) colors.onPlate.copy(alpha = 0.6f) else colors.muted)
 }
 
 @Composable
@@ -397,7 +427,12 @@ private fun Pending(
 ) {
     val colors = LocalAydaColors.current
     val label = stringResource(if (message.failed) R.string.chats_failed else R.string.chats_sending)
-    val text = if (message.voice != null) "🎤 " + stringResource(R.string.chats_voice) else message.text
+    val text =
+        when (message.recording?.kind) {
+            ChatUploadInput.Kind.voice -> "🎤 " + stringResource(R.string.chats_voice)
+            ChatUploadInput.Kind.video_note -> "⭕ " + stringResource(R.string.chats_circle)
+            null -> message.text
+        }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
         Text(
             text,
@@ -438,30 +473,71 @@ private fun Composer(model: ChatViewModel) {
     val colors = LocalAydaColors.current
     val context = LocalContext.current
     val recorder = remember { VoiceRecorder(context) }
+    val circles = remember { CircleRecorder(context) }
     var recording by remember { mutableStateOf(false) }
+    // A circle is being recorded; null when not, else whether the sound is recorded too.
+    var circleAudio by remember { mutableStateOf<Boolean?>(null) }
     var seconds by remember { mutableIntStateOf(0) }
     var micDenied by remember { mutableStateOf(false) }
+    var cameraDenied by remember { mutableStateOf(false) }
     DisposableEffect(Unit) { onDispose { recorder.cancel() } }
 
     fun startRecording() {
         micDenied = false
+        cameraDenied = false
         recording = recorder.start()
         seconds = 0
     }
 
+    fun startCircle(withAudio: Boolean) {
+        micDenied = false
+        cameraDenied = false
+        seconds = 0
+        circleAudio = withAudio
+    }
+
     fun finishRecording() {
+        if (circleAudio != null) {
+            circles.stop()
+            return
+        }
         recording = false
-        recorder.stop()?.let(model::sendVoice)
+        recorder.stop()?.let { model.sendRecording(ChatUploadInput.Kind.voice, it) }
+    }
+
+    fun cancelRecording() {
+        if (circleAudio != null) {
+            circles.cancel()
+            circleAudio = null
+            return
+        }
+        recording = false
+        recorder.cancel()
     }
     val askMic =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) startRecording() else micDenied = true
         }
-    LaunchedEffect(recording) {
-        while (recording) {
+    val askCamera =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+            if (granted[Manifest.permission.CAMERA] == true) {
+                startCircle(withAudio = granted[Manifest.permission.RECORD_AUDIO] == true)
+            } else {
+                cameraDenied = true
+            }
+        }
+    val active = recording || circleAudio != null
+    LaunchedEffect(active) {
+        while (active) {
             delay(1000)
             seconds += 1
-            if (seconds >= MAX_VOICE_SECONDS) finishRecording()
+            if (recording && seconds >= MAX_VOICE_SECONDS) finishRecording()
+        }
+    }
+    circleAudio?.let { withAudio ->
+        CircleCamera(circles, withAudio) { bytes ->
+            circleAudio = null
+            bytes?.let { model.sendRecording(ChatUploadInput.Kind.video_note, it) }
         }
     }
 
@@ -487,9 +563,9 @@ private fun Composer(model: ChatViewModel) {
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
-    if (micDenied) {
+    if (micDenied || cameraDenied) {
         Text(
-            stringResource(R.string.chats_mic_denied),
+            stringResource(if (cameraDenied) R.string.chats_camera_denied else R.string.chats_mic_denied),
             style = small(),
             color = colors.muted,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -500,11 +576,13 @@ private fun Composer(model: ChatViewModel) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (recording) {
-            ComposerButton(R.drawable.ic_close, stringResource(R.string.chats_cancel_recording), accent = false) {
-                recording = false
-                recorder.cancel()
-            }
+        if (active) {
+            ComposerButton(
+                R.drawable.ic_close,
+                stringResource(R.string.chats_cancel_recording),
+                accent = false,
+                onClick = ::cancelRecording,
+            )
             Text(
                 stringResource(R.string.chats_recording, formatSeconds(seconds)),
                 style = MaterialTheme.typography.titleMedium,
@@ -517,7 +595,15 @@ private fun Composer(model: ChatViewModel) {
             )
             ComposerButton(
                 R.drawable.ic_arrow,
-                stringResource(R.string.chats_stop_and_send),
+                stringResource(
+                    if (circleAudio !=
+                        null
+                    ) {
+                        R.string.chats_stop_and_send_circle
+                    } else {
+                        R.string.chats_stop_and_send
+                    },
+                ),
                 onClick = ::finishRecording,
             )
             return@Row
@@ -531,6 +617,16 @@ private fun Composer(model: ChatViewModel) {
             modifier = Modifier.weight(1f),
         )
         if (state.editing == null && state.text.isBlank()) {
+            ComposerButton(R.drawable.ic_camera, stringResource(R.string.chats_record_circle), accent = false) {
+                val has = { permission: String ->
+                    ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+                }
+                if (has(Manifest.permission.CAMERA) && has(Manifest.permission.RECORD_AUDIO)) {
+                    startCircle(withAudio = true)
+                } else {
+                    askCamera.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+                }
+            }
             ComposerButton(R.drawable.ic_mic, stringResource(R.string.chats_record)) {
                 val granted =
                     ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==

@@ -58,7 +58,7 @@ def attachment_schema(attachment: chat.Attachment) -> Attachment:
     status = "processing" if attachment.status == "pending" else attachment.status
     storage = MEDIA.storage
     return Attachment(
-        kind="voice",
+        kind=attachment.kind,  # pyright: ignore[reportArgumentType]
         status=status,  # pyright: ignore[reportArgumentType]
         duration_ms=attachment.duration_ms,
         url=chat.attachments.play_url(storage, attachment) if storage else None,
@@ -223,7 +223,7 @@ async def send_message(
             )
         except chat.attachments.AttachmentError:
             raise Problem(
-                422, "attachment-invalid", detail="Голосовое не найдено или уже отправлено"
+                422, "attachment-invalid", detail="Файл не найден или уже отправлен"
             ) from None
     try:
         message, created = await chat.add_message(
@@ -269,11 +269,12 @@ async def create_upload(
     storage: Storage,
     user: auth.User,
     conversation_id: uuid.UUID,
+    kind: str,
     content_type: str,
     size_bytes: int,
     now: datetime,
 ) -> chat.attachments.AttachmentSlot:
-    """A presigned slot for a voice message in a chat the user can write to."""
+    """A presigned slot for a voice message or a circle in a chat the user can write to."""
     conversation, _ = await get_conversation(session, user.id, conversation_id)
     members = (await chat.member_ids(session, [conversation.id]))[conversation.id]
     others = [u for u in members if u != user.id]
@@ -283,10 +284,14 @@ async def create_upload(
         raise Problem(403, "chat-closed", detail="Этот чат закрыт для новых сообщений")
     try:
         slot = await chat.attachments.create_upload(
-            session, storage, conversation.id, user.id, content_type, size_bytes, now
+            session, storage, conversation.id, user.id, kind, content_type, size_bytes, now
         )
+    except chat.attachments.UnsupportedUpload:
+        raise Problem(
+            422, "upload-unsupported", detail="Такой файл не подходит для этого сообщения"
+        ) from None
     except chat.attachments.AttachmentLimitError:
-        raise Problem(429, "too-many-uploads", detail="Слишком много голосовых за сутки") from None
+        raise Problem(429, "too-many-uploads", detail="Слишком много загрузок за сутки") from None
     await session.commit()
     return slot
 
@@ -304,6 +309,15 @@ async def process_attachment(
 async def delete_unsent_uploads(session: AsyncSession, now: datetime) -> None:
     """Periodic: voice uploads never sent within a day are deleted with their files."""
     await _delete_files(session, await chat.attachments.remove_unsent(session, now))
+
+
+async def expire_video_notes(session: AsyncSession, realtime: Realtime, now: datetime) -> None:
+    """Periodic: circles lose their file 30 days after sending; members see that at once."""
+    keys, message_ids = await chat.attachments.expire_video_notes(session, now)
+    await _delete_files(session, keys)
+    await session.commit()
+    for message_id in message_ids:
+        await publish(session, realtime, MESSAGE_UPDATED, {"message_id": message_id})
 
 
 async def _delete_files(session: AsyncSession, keys: Sequence[str]) -> None:
@@ -328,7 +342,7 @@ async def edit_message(
     if message.author_id != user.id:
         raise Problem(403, "not-your-message", detail="Изменить можно только своё сообщение")
     if await chat.attachments.for_messages(session, [message.id]):
-        raise Problem(422, "not-editable", detail="Голосовое сообщение нельзя изменить")
+        raise Problem(422, "not-editable", detail="Голосовое или кружок нельзя изменить")
     try:
         changed = await chat.edit_message(session, message, text, now)
     except chat.EditWindowError:

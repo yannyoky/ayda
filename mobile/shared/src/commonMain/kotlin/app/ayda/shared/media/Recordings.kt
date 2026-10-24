@@ -12,20 +12,26 @@ import io.ktor.client.request.setBody
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 
-/** The contract's limit for one recording. */
+/** The contract's limits: 10 MB of voice, 50 MB of a circle. */
 const val MAX_VOICE_BYTES = 10 * 1024 * 1024
+const val MAX_VIDEO_NOTE_BYTES = 50 * 1024 * 1024
 
 /**
- * ADR 0019: gets a presigned slot in the chat and PUTs the recording (AAC in MP4) straight to
- * storage. Returns the id to send as `attachment_id`; the server re-encodes the recording and
- * drops its metadata before anyone can play it.
+ * ADR 0019: gets a presigned slot in the chat and PUTs the recording (MP4: AAC for voice,
+ * H.264 + AAC for a circle) straight to storage. Returns the id to send as `attachment_id`;
+ * the server re-encodes the recording and drops its metadata before anyone can play it.
  */
-suspend fun AydaClient.uploadVoice(
+suspend fun AydaClient.uploadRecording(
     conversationId: String,
+    kind: ChatUploadInput.Kind,
     recording: ByteArray,
 ): ApiResult<String> {
-    val request =
-        ChatUploadInput(ChatUploadInput.Kind.voice, ChatUploadInput.ContentType.audioSlashMp4, recording.size)
+    val type =
+        when (kind) {
+            ChatUploadInput.Kind.voice -> ChatUploadInput.ContentType.audioSlashMp4
+            ChatUploadInput.Kind.video_note -> ChatUploadInput.ContentType.videoSlashMp4
+        }
+    val request = ChatUploadInput(kind, type, recording.size)
     val slot =
         when (val created = apiCall { chat.createChatUpload(conversationId, request) }) {
             is ApiResult.Ok -> created.value

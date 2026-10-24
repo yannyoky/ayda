@@ -41,6 +41,7 @@ import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.social.Avatar
 import app.ayda.android.ui.social.formatAgo
+import app.ayda.api.models.Attachment
 import app.ayda.api.models.Conversation
 import app.ayda.api.models.UserSummary
 import app.ayda.shared.chat.ChatsViewModel
@@ -136,7 +137,12 @@ private fun ChatRow(
 ) {
     val colors = LocalAydaColors.current
     val last = chat.lastMessage
-    val text = if (last?.attachment != null) "🎤 " + stringResource(R.string.chats_voice) else last?.text.orEmpty()
+    val text =
+        when (last?.attachment?.kind) {
+            Attachment.Kind.voice -> "🎤 " + stringResource(R.string.chats_voice)
+            Attachment.Kind.video_note -> "⭕ " + stringResource(R.string.chats_circle)
+            null -> last?.text.orEmpty()
+        }
     val preview =
         when {
             last == null -> stringResource(R.string.chats_no_messages)

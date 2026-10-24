@@ -2,6 +2,7 @@ package app.ayda.shared.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.ayda.api.models.ChatUploadInput
 import app.ayda.api.models.Conversation
 import app.ayda.api.models.MarkConversationReadRequest
 import app.ayda.api.models.Message
@@ -11,7 +12,7 @@ import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
 import app.ayda.shared.apiCall
 import app.ayda.shared.errorText
-import app.ayda.shared.media.uploadVoice
+import app.ayda.shared.media.uploadRecording
 import app.ayda.shared.realtime.LiveEvent
 import app.ayda.shared.realtime.Realtime
 import app.ayda.shared.realtime.pollWhileOffline
@@ -27,8 +28,9 @@ import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-/** A voice recording (AAC in MP4) on its way to the chat. Not a data class: it holds bytes. */
-class VoiceClip(
+/** A voice message or a circle (MP4) on its way to the chat. Not a data class: it holds bytes. */
+class Recording(
+    val kind: ChatUploadInput.Kind,
     val bytes: ByteArray,
 )
 
@@ -38,7 +40,7 @@ data class PendingMessage(
     val text: String,
     val failed: Boolean = false,
     /** A recording to upload first; kept until the message is saved, so a retry resends it. */
-    val voice: VoiceClip? = null,
+    val recording: Recording? = null,
     /** Set once the recording is uploaded, so a retry does not upload it again. */
     val attachmentId: String? = null,
 )
@@ -145,11 +147,14 @@ class ChatViewModel(
         deliver(PendingMessage(newClientId(), text))
     }
 
-    /** ADR 0019: sends a recorded voice message; the server re-encodes it before anyone plays it. */
-    fun sendVoice(recording: ByteArray) {
-        if (recording.isEmpty() || state.value.conversation?.canSend != true) return
+    /** ADR 0019: sends a voice message or a circle; the server re-encodes it before anyone plays it. */
+    fun sendRecording(
+        kind: ChatUploadInput.Kind,
+        bytes: ByteArray,
+    ) {
+        if (bytes.isEmpty() || state.value.conversation?.canSend != true) return
         mutableState.update { it.copy(tooFast = false) }
-        deliver(PendingMessage(newClientId(), "", voice = VoiceClip(recording)))
+        deliver(PendingMessage(newClientId(), "", recording = Recording(kind, bytes)))
     }
 
     /** Sends a failed message again with the same client id, so the server never saves it twice. */
@@ -239,8 +244,9 @@ class ChatViewModel(
         }
         viewModelScope.launch {
             var attachmentId = message.attachmentId
-            if (message.voice != null && attachmentId == null) {
-                when (val uploaded = client.uploadVoice(conversationId, message.voice.bytes)) {
+            val recording = message.recording
+            if (recording != null && attachmentId == null) {
+                when (val uploaded = client.uploadRecording(conversationId, recording.kind, recording.bytes)) {
                     is ApiResult.Ok -> {
                         attachmentId = uploaded.value
                         mutableState.update { s ->

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Schemas } from '../../api/client'
 import { t } from '../../i18n'
 import { Icon } from '../../ui/Icon'
-import { formatSeconds } from './useVoiceRecorder'
+import { formatSeconds } from './useRecorder'
 
 interface Props {
   attachment: Schemas['Attachment']

@@ -90,6 +90,9 @@ def build_worker(
     async def delete_unsent_attachments(session: AsyncSession, now: datetime) -> None:
         await chat.delete_unsent_uploads(session, now)
 
+    async def expire_video_notes(session: AsyncSession, now: datetime) -> None:
+        await chat.expire_video_notes(session, publisher, now)
+
     async def purge_coop_chats(session: AsyncSession, now: datetime) -> None:
         await chat.purge_ended_coop_chats(session, now)
 
@@ -150,6 +153,7 @@ def build_worker(
         Periodic("assistant.purge_chats", 3600, purge_assistant_chats),
         Periodic("chat.purge_coops", 3600, purge_coop_chats),
         Periodic("chat.delete_unsent", 3600, delete_unsent_attachments),
+        Periodic("chat.expire_video_notes", 3600, expire_video_notes),
     ]
     return Worker(db.sessionmaker, handlers, periodic)
 

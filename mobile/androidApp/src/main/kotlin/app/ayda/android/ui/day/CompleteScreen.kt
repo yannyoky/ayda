@@ -1,6 +1,8 @@
 package app.ayda.android.ui.day
 
+import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -48,6 +50,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
@@ -220,6 +223,29 @@ private fun PhotoSection(
             }
         }
 
+    fun shoot() {
+        val dir = File(context.cacheDir, "camera").apply { mkdirs() }
+        val file = File(dir, "shot-${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.photos", file)
+        shot = uri.toString()
+        try {
+            camera.launch(uri)
+        } catch (_: ActivityNotFoundException) {
+            shot = null
+            model.photoFailed()
+        } catch (_: SecurityException) {
+            shot = null
+            model.photoFailed()
+        }
+    }
+
+    // The app declares CAMERA for chat circles, so the camera app may only be opened once the
+    // permission is granted.
+    val askCamera =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) shoot() else model.photoFailed()
+        }
+
     Column(
         Modifier.fillMaxWidth().background(colors.surface, MaterialTheme.shapes.large).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -236,16 +262,10 @@ private fun PhotoSection(
                     gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }
                 PhotoButton(stringResource(R.string.complete_camera)) {
-                    val dir = File(context.cacheDir, "camera").apply { mkdirs() }
-                    val file = File(dir, "shot-${System.currentTimeMillis()}.jpg")
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.photos", file)
-                    shot = uri.toString()
-                    try {
-                        camera.launch(uri)
-                    } catch (_: ActivityNotFoundException) {
-                        shot = null
-                        model.photoFailed()
-                    }
+                    val granted =
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                            PackageManager.PERMISSION_GRANTED
+                    if (granted) shoot() else askCamera.launch(Manifest.permission.CAMERA)
                 }
             }
         }

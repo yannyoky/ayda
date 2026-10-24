@@ -352,8 +352,8 @@ class RealtimeToken(BaseModel):
 
 
 class Attachment(BaseModel):
-    kind: Literal["voice"]
-    status: Literal["processing", "ready", "failed"]
+    kind: Literal["voice", "video_note"]
+    status: Literal["processing", "ready", "failed", "expired"]
     duration_ms: int | None
     url: str | None
 
@@ -389,9 +389,20 @@ class MessageInput(BaseModel):
 
 
 class ChatUploadInput(BaseModel):
-    kind: Literal["voice"]
-    content_type: Literal["audio/webm", "audio/ogg", "audio/mp4", "audio/aac", "audio/mpeg"]
-    size_bytes: int = Field(ge=1, le=10 * 1024 * 1024)
+    """Voice up to 10 MB, a circle up to 50 MB; the type must fit the kind."""
+
+    kind: Literal["voice", "video_note"]
+    content_type: Literal[
+        "audio/webm",
+        "audio/ogg",
+        "audio/mp4",
+        "audio/aac",
+        "audio/mpeg",
+        "video/webm",
+        "video/mp4",
+        "video/quicktime",
+    ]
+    size_bytes: int = Field(ge=1, le=50 * 1024 * 1024)
 
 
 class MessageEdit(BaseModel):

@@ -2,6 +2,7 @@ import json
 import subprocess
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,7 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
+from ayda.app import chat as chat_app
 from ayda.core.config import Settings
 from ayda.core.db import Database
 from ayda.core.jobs import Job
@@ -56,12 +58,31 @@ def probe(path: Path) -> dict[str, Any]:
     return json.loads(out)
 
 
+def circle(folder: Path, seconds: int = 3) -> bytes:
+    """A landscape VP8 + Opus WebM, as Chrome's MediaRecorder makes from a webcam."""
+    path = folder / "circle.webm"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y",
+         "-f", "lavfi", "-i", f"testsrc=size=640x360:rate=30:duration={seconds}",
+         "-f", "lavfi", "-i", f"sine=frequency=330:duration={seconds}",
+         "-c:v", "libvpx", "-b:v", "1M", "-c:a", "libopus",
+         "-metadata", "location=+55.75+037.61/", str(path)],
+        check=True,
+    )  # fmt: skip
+    return path.read_bytes()
+
+
 async def upload(
-    client: httpx.AsyncClient, user: SignedIn, conversation_id: str, data: bytes
+    client: httpx.AsyncClient,
+    user: SignedIn,
+    conversation_id: str,
+    data: bytes,
+    kind: str = "voice",
+    content_type: str = "audio/webm",
 ) -> str:
     response = await client.post(
         f"/conversations/{conversation_id}/uploads",
-        json={"kind": "voice", "content_type": "audio/webm", "size_bytes": len(data)},
+        json={"kind": kind, "content_type": content_type, "size_bytes": len(data)},
         headers=user.headers,
     )
     assert response.status_code == 201, response.text
@@ -173,13 +194,19 @@ async def test_voice_uploads_are_checked(
         headers=alice.headers,
     )
     not_hers = await send_voice(client, bob, conversation, broken)
-    video = await client.post(
+    video_as_voice = await client.post(
         f"/conversations/{conversation}/uploads",
         json={"kind": "voice", "content_type": "video/mp4", "size_bytes": 10},
         headers=alice.headers,
     )
+    big_voice = await client.post(
+        f"/conversations/{conversation}/uploads",
+        json={"kind": "voice", "content_type": "audio/mp4", "size_bytes": 20 * 1024 * 1024},
+        headers=alice.headers,
+    )
     assert both.status_code == neither.status_code == not_hers.status_code == 422
-    assert video.status_code == 422
+    assert video_as_voice.status_code == big_voice.status_code == 422
+    assert_matches(video_as_voice, "createChatUpload")
 
     assert (await send_voice(client, alice, conversation, broken)).status_code == 201
     again = await send_voice(client, alice, conversation, broken)
@@ -196,3 +223,52 @@ async def test_voice_uploads_are_checked(
         headers=alice.headers,
     )
     assert stranger_chat.status_code == 404
+
+
+async def test_a_circle_is_square_and_its_file_goes_after_30_days(
+    voice_app: tuple[httpx.AsyncClient, FakeRealtime],
+    s3_settings: Settings,
+    database: Database,
+    tmp_path: Path,
+) -> None:
+    client, fake = voice_app
+    alice, bob = await pair(client)
+    conversation = (await open_dm(client, alice, bob))["id"]
+    attachment_id = await upload(
+        client, alice, conversation, circle(tmp_path), "video_note", "video/webm"
+    )
+    sent = await send_voice(client, alice, conversation, attachment_id)
+    assert sent.status_code == 201, sent.text
+    assert sent.json()["attachment"]["kind"] == "video_note"
+
+    await run_jobs(s3_settings, database, fake)
+
+    [updated] = [e for _, e in fake.sent if e["type"] == "message.updated"]
+    video = updated["message"]["attachment"]
+    assert video["status"] == "ready" and 2900 <= video["duration_ms"] <= 3100
+    async with httpx.AsyncClient(trust_env=False) as s3:
+        played = await s3.get(video["url"])
+    (tmp_path / "out.mp4").write_bytes(played.content)
+    info = probe(tmp_path / "out.mp4")
+    streams = {s["codec_type"]: s for s in info["streams"]}
+    assert streams["video"]["codec_name"] == "h264"
+    assert (streams["video"]["width"], streams["video"]["height"]) == (480, 480)
+    assert streams["audio"]["codec_name"] == "aac"
+    assert "location" not in info["format"].get("tags", {})
+
+    fake.sent.clear()
+    async with database.sessionmaker() as session:
+        await chat_app.expire_video_notes(session, fake, datetime.now(UTC) + timedelta(days=29))
+    assert fake.sent == []
+    async with database.sessionmaker() as session:
+        await chat_app.expire_video_notes(session, fake, datetime.now(UTC) + timedelta(days=31))
+    [expired] = [e for _, e in fake.sent if e["type"] == "message.updated"]
+    assert expired["message"]["attachment"] == {
+        "kind": "video_note",
+        "status": "expired",
+        "duration_ms": video["duration_ms"],
+        "url": None,
+    }
+    async with database.sessionmaker() as session:
+        jobs = list(await session.scalars(select(Job).where(Job.kind == "media.delete_files")))
+        assert any(f"chat/video/{attachment_id}.mp4" in j.payload["keys"] for j in jobs)

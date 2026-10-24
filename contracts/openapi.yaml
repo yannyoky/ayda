@@ -2112,11 +2112,14 @@ paths:
     post:
       tags: [chat]
       operationId: createChatUpload
-      summary: Get a presigned URL to upload a voice message to S3 (ADR 0019)
+      summary: Get a presigned URL to upload a voice message or a video circle to S3 (ADR 0019)
       description: |
         Upload the recording with a `PUT` to `upload_url` and the given headers before
         `expires_at`, then send a message with `attachment_id` set to `media_id`. The worker
-        re-encodes it to AAC in M4A (at most 5 minutes) and deletes the original.
+        re-encodes voice to AAC in M4A (at most 5 minutes) and a circle to a square 480x480
+        H.264 MP4 (at most 60 seconds), and deletes the original. A circle's file is deleted
+        30 days after sending. Voice takes `audio/*` up to 10 MB, a circle `video/*` up to
+        50 MB; anything else is 422.
       parameters:
         - $ref: '#/components/parameters/ConversationId'
       requestBody:
@@ -3826,7 +3829,7 @@ components:
         attachment_id:
           type: string
           format: uuid
-          description: A voice message uploaded with createChatUpload (`media_id`).
+          description: A voice message or a circle uploaded with createChatUpload (`media_id`).
 
     ChatUploadInput:
       type: object
@@ -3834,14 +3837,14 @@ components:
       properties:
         kind:
           type: string
-          enum: [voice]
+          enum: [voice, video_note]
         content_type:
           type: string
-          enum: [audio/webm, audio/ogg, audio/mp4, audio/aac, audio/mpeg]
+          enum: [audio/webm, audio/ogg, audio/mp4, audio/aac, audio/mpeg, video/webm, video/mp4, video/quicktime]
         size_bytes:
           type: integer
           minimum: 1
-          maximum: 10485760
+          maximum: 52428800
 
     Attachment:
       type: object
@@ -3849,17 +3852,19 @@ components:
       properties:
         kind:
           type: string
-          enum: [voice]
+          enum: [voice, video_note]
+          description: '`video_note` is a round video ("кружок"), square 480x480.'
         status:
           type: string
-          enum: [processing, ready, failed]
+          enum: [processing, ready, failed, expired]
+          description: '`expired`: a circle older than 30 days; its file is deleted.'
         duration_ms:
           type: [integer, 'null']
           description: Known once the recording is processed.
         url:
           type: [string, 'null']
           format: uri
-          description: A short-lived link to play the re-encoded file (AAC in M4A), when ready.
+          description: A short-lived link to play the re-encoded file (M4A or MP4), when ready.
 
     Message:
       type: object
@@ -3890,7 +3895,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Attachment'
             - type: 'null'
-          description: A voice message; its `text` is empty.
+          description: A voice message or a video circle; its `text` is empty.
 
     MessageEdit:
       type: object
