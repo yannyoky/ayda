@@ -26,6 +26,8 @@ Tests need PostgreSQL with PostGIS; realtime integration tests also need Centrif
 uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run lint-imports && uv run pytest
 ```
 
+Live checks of the external services (weather, listings, maps, LLM, Telegram, S3) are not part of that run; they need the network and keys. `uv run python -m ayda.smoke` prints one line per service, `uv run pytest -m live` runs the same checks as tests (see docs/deploy.md).
+
 ## Migrations
 
 Hand-written Alembic migrations in `migrations/versions/`, one PostgreSQL schema per module.

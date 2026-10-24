@@ -61,6 +61,9 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+# Live checks of external services run only on request: `pytest -m live`.
+addopts = "-m 'not live'"
+markers = ["live: calls real external services (network and keys needed)"]
 
 [tool.importlinter]
 root_package = "ayda"
