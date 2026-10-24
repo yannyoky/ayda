@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.modules.social.friends import are_friends
-from ayda.modules.social.media import photo_key, upload_key
+from ayda.modules.social.media import media_keys
 from ayda.modules.social.models import Comment, Like, Media, Post
 
 MAX_COMMENTS_PER_HOUR = 60
@@ -123,13 +123,25 @@ async def post_photos(
         return out
     rows = await session.scalars(
         select(Media)
-        .where(Media.post_id.in_(post_ids), Media.status == "ready")
+        .where(Media.post_id.in_(post_ids), Media.kind == "photo", Media.status == "ready")
         .order_by(Media.created_at, Media.id)
     )
     for media in rows:
         assert media.post_id is not None
         out.setdefault(media.post_id, []).append(media)
     return out
+
+
+async def post_videos(
+    session: AsyncSession, post_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, Media]:
+    """The video or circle of each post, in any state."""
+    if not post_ids:
+        return {}
+    rows = await session.scalars(
+        select(Media).where(Media.post_id.in_(post_ids), Media.kind != "photo")
+    )
+    return {m.post_id: m for m in rows if m.post_id is not None}
 
 
 async def like(session: AsyncSession, post: Post, user_id: uuid.UUID, now: datetime) -> bool:
@@ -197,7 +209,7 @@ async def delete_post(session: AsyncSession, post: Post, now: datetime) -> list[
     """Hide the post and delete its photo rows; returns the storage keys for the caller to
     delete with DELETE_FILES_JOB (retried by the worker). Points are not touched."""
     media = list(await session.scalars(select(Media).where(Media.post_id == post.id)))
-    keys = [k for m in media for k in {m.storage_key, upload_key(m.id), photo_key(m.id)}]
+    keys = sorted({k for m in media for k in media_keys(m)})
     for item in media:
         await session.delete(item)
     post.deleted_at = now

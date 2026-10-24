@@ -577,9 +577,9 @@ export interface paths {
         put?: never;
         /**
          * Mark a taken quest done with a visibility level (US-09, US-15)
-         * @description `friends` visibility creates a proof in the feed, with 0-3 uploaded photos in `ready`
-         *     or `processing` state (a text-only proof is fine); `personal` creates nothing in the
-         *     feed. `routine` is no longer accepted (422). Allowed until the quest's `expires_at`.
+         * @description `friends` visibility creates a proof in the feed, with 0-3 uploaded photos, or one
+         *     video, or one circle (a text-only proof is fine; a video can't go with photos: 422
+         *     `invalid-media`); `personal` creates nothing in the feed. `routine` is no longer accepted (422). Allowed until the quest's `expires_at`.
          */
         post: operations["completeQuest"];
         delete?: never;
@@ -996,9 +996,13 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Get a presigned URL to upload one photo to S3 (US-10)
+         * Get a presigned URL to upload one photo, video or circle to S3 (US-10)
          * @description Upload the file with a `PUT` to `upload_url` and the given headers before `expires_at`,
          *     then pass `media_id` to completeQuest. EXIF is stripped before anyone can see the photo.
+         *     A `video` (up to 60 s) or a `video_note` (a circle, cropped to a 480x480 square) is
+         *     re-encoded to MP4 without metadata, and its file is deleted 30 days later (ADR 0019).
+         *     A photo takes `image/*` up to 10 MB, a video or circle `video/*` up to 50 MB;
+         *     anything else is 422 `upload-unsupported`.
          */
         post: operations["createUpload"];
         delete?: never;
@@ -1644,7 +1648,10 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
             /** @description Only for `friends` visibility. */
             caption?: string;
-            /** @description Optional (0-3) for `friends` visibility, must be empty otherwise. */
+            /**
+             * @description Optional for `friends` visibility (0-3 photos, or one video or circle), must be
+             *     empty otherwise.
+             */
             media_ids?: string[];
         };
         Completion: {
@@ -1697,6 +1704,28 @@ export interface components {
             width: number;
             height: number;
         };
+        PostVideo: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description `video_note` is a circle: a square video shown round.
+             * @enum {string}
+             */
+            kind: "video" | "video_note";
+            /**
+             * @description `expired`: the file was deleted 30 days after upload; the post stays.
+             * @enum {string}
+             */
+            status: "processing" | "ready" | "failed" | "expired";
+            /**
+             * Format: uri
+             * @description Short-lived signed URL to the MP4, only when `ready`.
+             */
+            url: string | null;
+            duration_ms: number | null;
+            width: number | null;
+            height: number | null;
+        };
         Post: {
             /** Format: uuid */
             id: string;
@@ -1710,6 +1739,8 @@ export interface components {
             category: components["schemas"]["Category"];
             caption?: string | null;
             photos: components["schemas"]["Photo"][];
+            /** @description The proof's video or circle, if any (never together with photos). */
+            video?: components["schemas"]["PostVideo"] | null;
             /** Format: date */
             local_date: string;
             /** Format: date-time */
@@ -3948,8 +3979,13 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default photo
+                     * @enum {string}
+                     */
+                    kind?: "photo" | "video" | "video_note";
                     /** @enum {string} */
-                    content_type: "image/jpeg" | "image/png" | "image/heic" | "image/webp";
+                    content_type: "image/jpeg" | "image/png" | "image/heic" | "image/webp" | "video/webm" | "video/mp4" | "video/quicktime";
                     size_bytes: number;
                 };
             };

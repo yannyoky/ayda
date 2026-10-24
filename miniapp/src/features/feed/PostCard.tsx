@@ -1,5 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query'
 import type { Schemas } from '../../api/client'
 import { useDeletePost, useToggleLike } from '../../api/queries'
+import { VideoNote } from '../chat/VideoNote'
 import { formatAgo, t } from '../../i18n'
 import { haptic } from '../../telegram/webapp'
 import { Avatar } from '../../ui/Avatar'
@@ -31,6 +33,7 @@ export function PostCard({ post, mine, onComments }: { post: Schemas['Post']; mi
       ) : (
         <>
           {post.photos.length > 0 && <Photos photos={post.photos} />}
+          {post.video && <PostVideo video={post.video} />}
           {post.caption && <p className="m-0 px-1 text-[15px] leading-snug font-medium">{post.caption}</p>}
         </>
       )}
@@ -74,6 +77,37 @@ export function PostCard({ post, mine, onComments }: { post: Schemas['Post']; mi
         )}
       </footer>
     </article>
+  )
+}
+
+/** A proof's video or circle (ADR 0019). The play link is short-lived, so a failed load
+ *  refetches the feed; the file itself is gone after 30 days. */
+function PostVideo({ video }: { video: Schemas['PostVideo'] }) {
+  const client = useQueryClient()
+  const refresh = () => void client.invalidateQueries({ queryKey: ['feed'] })
+  if (video.kind === 'video_note') {
+    return (
+      <div className="flex justify-center">
+        <VideoNote attachment={video} onExpired={refresh} />
+      </div>
+    )
+  }
+  if (video.status !== 'ready' || !video.url) {
+    const text = video.status === 'expired' ? t.feed.videoExpired : video.status === 'failed' ? t.feed.videoFailed : t.feed.videoProcessing
+    return <span className="flex aspect-video items-center justify-center rounded-[20px] bg-bg p-6 text-center text-sm font-bold text-muted">{text}</span>
+  }
+  return (
+    <video
+      src={video.url}
+      controls
+      playsInline
+      preload="metadata"
+      aria-label={t.feed.video}
+      width={video.width ?? undefined}
+      height={video.height ?? undefined}
+      onError={refresh}
+      className="max-h-[480px] w-full rounded-[20px] bg-plate"
+    />
   )
 }
 

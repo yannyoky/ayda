@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ayda.app import chat, coop, notifications, privacy, realtime, reminders
 from ayda.app import events as local_events
 from ayda.bot.sender import AiogramSender
-from ayda.core import backup
+from ayda.core import backup, jobs
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
 from ayda.core.errors import init_error_tracking
@@ -69,6 +69,11 @@ def build_worker(
 
     async def delete_unattached_media(session: AsyncSession, now: datetime) -> None:
         await social.delete_unattached(session, storage, now)
+
+    async def expire_proof_videos(session: AsyncSession, now: datetime) -> None:
+        keys = await social.expire_videos(session, now)
+        if keys:
+            await jobs.enqueue(session, social.DELETE_FILES_JOB, {"keys": keys})
 
     async def delete_files(session: AsyncSession, payload: dict[str, Any]) -> None:
         await storage.delete([str(k) for k in payload["keys"]])
@@ -154,6 +159,7 @@ def build_worker(
         Periodic("chat.purge_coops", 3600, purge_coop_chats),
         Periodic("chat.delete_unsent", 3600, delete_unsent_attachments),
         Periodic("chat.expire_video_notes", 3600, expire_video_notes),
+        Periodic("media.expire_videos", 3600, expire_proof_videos),
     ]
     return Worker(db.sessionmaker, handlers, periodic)
 

@@ -31,18 +31,21 @@ class Post(Base):
 
 
 class Media(Base):
-    """A photo. `storage_key` is the upload while pending and the cleaned copy once ready."""
+    """A photo, video or circle (`kind`). `storage_key` is the upload while pending, the
+    cleaned copy once ready and empty once a video expired."""
 
     __tablename__ = "media"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     post_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(Post.id))
+    kind: Mapped[str] = mapped_column(Text, default="photo")
     storage_key: Mapped[str] = mapped_column(Text)
     content_type: Mapped[str] = mapped_column(Text)
     size_bytes: Mapped[int] = mapped_column(Integer)
     width: Mapped[int | None] = mapped_column(SmallInteger)
     height: Mapped[int | None] = mapped_column(SmallInteger)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

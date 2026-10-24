@@ -3,14 +3,14 @@ import uuid
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.modules.social.media import photo_key, upload_key
+from ayda.modules.social.media import media_keys
 from ayda.modules.social.models import Comment, Friendship, Invite, Like, Media, Post
 
 
 async def erase_user(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
     """Delete everything the user wrote or uploaded; returns storage keys to delete."""
     media = list(await session.scalars(select(Media).where(Media.owner_id == user_id)))
-    keys = [k for m in media for k in {m.storage_key, upload_key(m.id), photo_key(m.id)}]
+    keys = sorted({k for m in media for k in media_keys(m)})
     await session.execute(delete(Media).where(Media.owner_id == user_id))
     await session.execute(delete(Comment).where(Comment.author_id == user_id))
     await session.execute(delete(Like).where(Like.user_id == user_id))

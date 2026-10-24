@@ -2,6 +2,7 @@ package app.ayda.android.ui.social
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -40,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -48,11 +51,13 @@ import app.ayda.android.R
 import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
+import app.ayda.android.ui.chat.PlayableVideo
 import app.ayda.android.ui.day.AydaIcon
 import app.ayda.android.ui.day.label
 import app.ayda.api.models.Me
 import app.ayda.api.models.Photo
 import app.ayda.api.models.Post
+import app.ayda.api.models.PostVideo
 import app.ayda.shared.social.CommentsState
 import app.ayda.shared.social.FeedViewModel
 import coil3.compose.AsyncImage
@@ -111,6 +116,7 @@ fun FeedScreen(
                 onLike = { model.toggleLike(post.id) },
                 onComments = { model.openComments(post.id) },
                 onDelete = { model.askDelete(post) },
+                onVideoExpired = model::refresh,
             )
         }
         if (state.hasMore) {
@@ -147,6 +153,7 @@ private fun PostCard(
     onLike: () -> Unit,
     onComments: () -> Unit,
     onDelete: () -> Unit,
+    onVideoExpired: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
     val routine = post.kind == Post.Kind.routine
@@ -190,6 +197,7 @@ private fun PostCard(
             }
         } else {
             if (post.photos.isNotEmpty()) Photos(post.photos)
+            post.video?.let { ProofVideo(it, onVideoExpired) }
             post.caption?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 4.dp))
             }
@@ -255,6 +263,56 @@ private fun CountButton(
         Spacer(Modifier.width(6.dp))
         Text("$count", style = MaterialTheme.typography.titleMedium)
     }
+}
+
+/** A proof's video or circle (ADR 0019); the file is deleted 30 days after upload. */
+@Composable
+private fun ProofVideo(
+    video: PostVideo,
+    onExpired: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    val note = video.kind == PostVideo.Kind.video_note
+    val url = video.url
+    if (video.status != PostVideo.Status.ready || url == null) {
+        val text =
+            when (video.status) {
+                PostVideo.Status.expired -> if (note) R.string.chats_circle_expired else R.string.feed_video_expired
+                PostVideo.Status.failed -> if (note) R.string.chats_circle_failed else R.string.feed_video_failed
+                else -> if (note) R.string.chats_circle_processing else R.string.feed_video_processing
+            }
+        Text(
+            stringResource(text),
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.muted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().background(colors.bg, RoundedCornerShape(20.dp)).padding(24.dp),
+        )
+        return
+    }
+    if (note) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            PlayableVideo(
+                url,
+                video.durationMs,
+                CircleShape,
+                stringResource(R.string.chats_circle_play),
+                onExpired,
+                modifier = Modifier.size(220.dp),
+            )
+        }
+        return
+    }
+    val width = video.width ?: 16
+    val height = video.height ?: 9
+    PlayableVideo(
+        url,
+        video.durationMs,
+        RoundedCornerShape(20.dp),
+        stringResource(R.string.feed_video_play),
+        onExpired,
+        modifier = Modifier.fillMaxWidth().aspectRatio((width.toFloat() / height).coerceIn(0.56f, 1.8f)),
+    )
 }
 
 @Composable

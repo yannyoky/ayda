@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.ayda.api.models.CompleteQuestInput
 import app.ayda.api.models.Completion
+import app.ayda.api.models.CreateUploadRequest
 import app.ayda.api.models.Day
 import app.ayda.api.models.DayQuest
 import app.ayda.api.models.QuestState
@@ -13,6 +14,8 @@ import app.ayda.shared.AydaClient
 import app.ayda.shared.apiCall
 import app.ayda.shared.errorText
 import app.ayda.shared.media.MAX_PHOTO_BYTES
+import app.ayda.shared.media.MAX_VIDEO_BYTES
+import app.ayda.shared.media.uploadMedia
 import app.ayda.shared.media.uploadPhoto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +32,14 @@ class PickedPhoto(
     val jpeg: ByteArray,
 )
 
-enum class PhotoError { TooBig, Unreadable }
+/** A video from the phone or a circle recorded on the spot; goes without photos. */
+class PickedClip(
+    val kind: CreateUploadRequest.Kind,
+    val type: CreateUploadRequest.ContentType,
+    val bytes: ByteArray,
+)
+
+enum class PhotoError { TooBig, Unreadable, VideoTooBig, VideoUnsupported }
 
 data class Upload(
     /** 1-based number of the photo being uploaded. */
@@ -41,6 +51,7 @@ data class CompleteState(
     val quest: DayQuest,
     val visibility: Visibility = Visibility.friends,
     val photos: List<PickedPhoto> = emptyList(),
+    val clip: PickedClip? = null,
     val caption: String = "",
     val photoError: PhotoError? = null,
     val uploading: Upload? = null,
@@ -50,14 +61,17 @@ data class CompleteState(
 ) {
     /** A feed post: text, and photos only if the user adds them. */
     val inFeed: Boolean get() = visibility == Visibility.friends
-    val canAddPhoto: Boolean get() = photos.size < CompleteViewModel.MAX_PHOTOS
+    val canAddPhoto: Boolean get() = clip == null && photos.size < CompleteViewModel.MAX_PHOTOS
+
+    /** A video or a circle goes alone: up to 3 photos, or one video, or one circle. */
+    val canAddClip: Boolean get() = clip == null && photos.isEmpty()
     val busy: Boolean get() = submitting || uploading != null
     val ready: Boolean get() = !busy
 }
 
 /**
  * US-09/US-10: marks a taken quest done, lets the user choose who sees it and attach
- * 1-3 photos for friends. [onCompleted] refreshes Today once the server counted it.
+ * 1-3 photos, a video or a circle for friends. [onCompleted] refreshes Today once the server counted it.
  */
 class CompleteViewModel(
     private val client: AydaClient,
@@ -82,6 +96,43 @@ class CompleteViewModel(
             }
         }
 
+    /** A video picked from the phone; `mime` is what the system reports for it. */
+    fun addVideo(
+        bytes: ByteArray,
+        mime: String?,
+    ) {
+        val type = videoType(mime)
+        mutableState.update {
+            when {
+                !it.canAddClip -> it
+                type == null -> it.copy(photoError = PhotoError.VideoUnsupported)
+                bytes.size > MAX_VIDEO_BYTES -> it.copy(photoError = PhotoError.VideoTooBig)
+                else -> it.copy(clip = PickedClip(CreateUploadRequest.Kind.video, type, bytes), photoError = null)
+            }
+        }
+    }
+
+    /** A circle recorded with the front camera, as MP4. */
+    fun addCircle(mp4: ByteArray) =
+        mutableState.update {
+            when {
+                !it.canAddClip -> it
+                mp4.size > MAX_VIDEO_BYTES -> it.copy(photoError = PhotoError.VideoTooBig)
+                else ->
+                    it.copy(
+                        clip =
+                            PickedClip(
+                                CreateUploadRequest.Kind.video_note,
+                                CreateUploadRequest.ContentType.videoSlashMp4,
+                                mp4,
+                            ),
+                        photoError = null,
+                    )
+            }
+        }
+
+    fun removeClip() = mutableState.update { it.copy(clip = null) }
+
     /** The device could not decode or compress the picked file. */
     fun photoFailed() = mutableState.update { it.copy(photoError = PhotoError.Unreadable) }
 
@@ -100,7 +151,14 @@ class CompleteViewModel(
         mutableState.update { it.copy(error = null) }
         viewModelScope.launch {
             val mediaIds = mutableListOf<String>()
-            if (current.inFeed) {
+            val clip = current.clip
+            if (current.inFeed && clip != null) {
+                mutableState.update { it.copy(uploading = Upload(1, 1)) }
+                when (val uploaded = client.uploadMedia(clip.kind, clip.type, clip.bytes)) {
+                    is ApiResult.Ok -> mediaIds += uploaded.value
+                    else -> return@launch fail(uploaded)
+                }
+            } else if (current.inFeed) {
                 for ((index, photo) in current.photos.withIndex()) {
                     mutableState.update { it.copy(uploading = Upload(index + 1, current.photos.size)) }
                     when (val uploaded = client.uploadPhoto(photo.jpeg)) {
@@ -136,6 +194,14 @@ class CompleteViewModel(
     companion object {
         const val MAX_PHOTOS = 3
         const val CAPTION_MAX = 500
+
+        fun videoType(mime: String?): CreateUploadRequest.ContentType? =
+            when (mime?.substringBefore(';')?.trim()?.lowercase()) {
+                "video/mp4" -> CreateUploadRequest.ContentType.videoSlashMp4
+                "video/quicktime" -> CreateUploadRequest.ContentType.videoSlashQuicktime
+                "video/webm" -> CreateUploadRequest.ContentType.videoSlashWebm
+                else -> null
+            }
 
         fun multiplier(visibility: Visibility): Double =
             when (visibility) {
