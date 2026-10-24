@@ -1,6 +1,7 @@
 package app.ayda.shared.chat
 
 import androidx.lifecycle.viewModelScope
+import app.ayda.api.models.Attachment
 import app.ayda.shared.AydaClient
 import app.ayda.shared.InMemoryTokenStore
 import app.ayda.shared.TEST_BASE
@@ -78,9 +79,22 @@ class ChatViewModelTest {
             call == "POST /conversations/c1/messages" -> {
                 if (sendStatus != HttpStatusCode.Created) return problem(sendStatus, "too-many", "Слишком часто")
                 val clientId = Regex("\"client_id\":\"([^\"]+)\"").find(request.bodyText())!!.groupValues[1]
+                if ("attachment_id" in request.bodyText()) {
+                    val voice =
+                        message(10, author = "me", text = "", clientId = clientId).removeSuffix("}") +
+                            ""","attachment":{"kind":"voice","status":"processing","duration_ms":null,"url":null}}"""
+                    return json(voice, HttpStatusCode.Created)
+                }
                 json(message(10, author = "me", text = "Привет", clientId = clientId), HttpStatusCode.Created)
             }
             call == "POST /conversations/c1/read" -> respond("", HttpStatusCode.NoContent)
+            call == "POST /conversations/c1/uploads" ->
+                json(
+                    """{"media_id":"a1","upload_url":"https://s3.test/chat/uploads/a1",""" +
+                        """"headers":{"Content-Type":"audio/mp4"},"expires_at":"2026-10-17T20:15:00Z"}""",
+                    HttpStatusCode.Created,
+                )
+            call == "PUT /chat/uploads/a1" -> respond("", HttpStatusCode.OK)
             call == "DELETE /conversations/c1/messages/3" -> respond("", HttpStatusCode.NoContent)
             call == "DELETE /conversations/c1" -> respond("", HttpStatusCode.NoContent)
             call == "PATCH /conversations/c1/messages/3" ->
@@ -105,6 +119,40 @@ class ChatViewModelTest {
         val client = AydaClient(TEST_BASE, InMemoryTokenStore(), engine)
         return ChatViewModel(client, Realtime(client, transport), "c1", { _, last -> read += last }) { hidden += it }
     }
+
+    @Test
+    fun aVoiceMessageIsUploadedOnceEvenWhenSendingIsRetried() =
+        runTest(dispatcher) {
+            val model = model()
+            advanceUntilIdle()
+            sendStatus = HttpStatusCode.ServiceUnavailable
+            model.sendVoice(byteArrayOf(1, 2, 3))
+            advanceUntilIdle()
+            val failed =
+                model.state.value.pending
+                    .single()
+            assertTrue(failed.failed)
+            assertEquals("a1", failed.attachmentId)
+
+            sendStatus = HttpStatusCode.Created
+            model.retry(failed)
+            advanceUntilIdle()
+            assertEquals(1, calls.count { it.startsWith("POST /conversations/c1/uploads") })
+            assertEquals(1, calls.count { it.startsWith("PUT /chat/uploads/a1") })
+            val sent = calls.last { it.startsWith("POST /conversations/c1/messages") }
+            assertTrue("\"attachment_id\":\"a1\"" in sent && "\"text\"" !in sent, sent)
+            assertTrue(
+                model.state.value.pending
+                    .isEmpty(),
+            )
+            assertEquals(
+                Attachment.Status.processing,
+                model.state.value.messages
+                    .last()
+                    .attachment
+                    ?.status,
+            )
+        }
 
     @Test
     fun historyIsOldestFirstAndPagesBack() =

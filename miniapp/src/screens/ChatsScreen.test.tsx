@@ -71,6 +71,55 @@ describe('Chats (US-17)', () => {
     expect(chat.messages.at(-1)!.text).toBe('Встретимся в 8')
   })
 
+  it('records and sends a voice message', async () => {
+    class FakeRecorder {
+      static isTypeSupported = (type: string) => type === 'audio/webm;codecs=opus'
+      state: RecordingState = 'inactive'
+      mimeType: string
+      ondataavailable: ((e: { data: Blob }) => void) | null = null
+      onstop: (() => void) | null = null
+      constructor(
+        readonly stream: MediaStream,
+        options?: MediaRecorderOptions,
+      ) {
+        this.mimeType = options?.mimeType ?? ''
+      }
+      start() {
+        this.state = 'recording'
+      }
+      stop() {
+        this.state = 'inactive'
+        this.ondataavailable?.({ data: new Blob(['opus'], { type: this.mimeType }) })
+        this.onstop?.()
+      }
+    }
+    const stopTrack = vi.fn()
+    vi.stubGlobal('MediaRecorder', FakeRecorder)
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] }) },
+    })
+    const user = userEvent.setup()
+    const chat = db.conversations[0]!
+    renderApp(`/chats/${chat.id}`)
+
+    // Cancelled: nothing is sent and the microphone is released
+    await user.click(await screen.findByRole('button', { name: 'Записать голосовое' }))
+    expect(await screen.findByRole('timer')).toHaveTextContent('Запись 0:00')
+    await user.click(screen.getByRole('button', { name: 'Отменить запись' }))
+    expect(stopTrack).toHaveBeenCalled()
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Записать голосовое' }))
+    await user.click(await screen.findByRole('button', { name: 'Отправить голосовое' }))
+    expect(await screen.findByRole('button', { name: 'Слушать' })).toBeInTheDocument()
+    const sent = chat.messages.at(-1)!
+    expect(sent.text).toBe('')
+    expect(sent.attachment?.kind).toBe('voice')
+    vi.unstubAllGlobals()
+    Reflect.deleteProperty(navigator, 'mediaDevices')
+  })
+
   it('deletes an own message', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)

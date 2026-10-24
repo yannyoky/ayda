@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from ayda.api.deps import CurrentUser, DbSession
 from ayda.api.realtime import RealtimeDep
 from ayda.api.schemas import (
+    ChatUploadInput,
     Conversation,
     Coop,
     DirectConversationInput,
@@ -18,13 +19,14 @@ from ayda.api.schemas import (
     MessageInput,
     MessagePage,
     ReadInput,
+    UploadSlot,
 )
 from ayda.app import chat as chat_app
 from ayda.app import meetup
 from ayda.app.day import DayTools
-from ayda.app.feed import user_summary
 from ayda.core.problems import Problem
-from ayda.modules import auth, chat
+from ayda.core.storage import Storage
+from ayda.modules import chat
 
 router = APIRouter(tags=["chat"])
 
@@ -75,11 +77,7 @@ async def list_messages(
         )
     except chat.CursorError:
         raise Problem(422, "invalid-cursor", detail="Неверный курсор") from None
-    authors = await auth.get_users(session, list({m.author_id for m in messages}))
-    items = [
-        chat_app.message_schema(m, user_summary(authors.get(m.author_id), m.author_id))
-        for m in messages
-    ]
+    items = await chat_app.message_views(session, messages)
     return MessagePage(items=items, next_cursor=next_cursor)
 
 
@@ -95,11 +93,40 @@ async def send_message(
     response: Response,
 ) -> Message:
     message, created = await chat_app.send_message(
-        session, realtime, user, conversation_id, body.text, body.client_id, datetime.now(UTC)
+        session,
+        realtime,
+        user,
+        conversation_id,
+        body.text,
+        body.client_id,
+        datetime.now(UTC),
+        body.attachment_id,
     )
     if not created:
         response.status_code = 200
     return message
+
+
+@router.post(
+    "/conversations/{conversation_id}/uploads", operation_id="createChatUpload", status_code=201
+)
+async def create_chat_upload(
+    conversation_id: uuid.UUID,
+    body: ChatUploadInput,
+    user: CurrentUser,
+    session: DbSession,
+    request: Request,
+) -> UploadSlot:
+    storage: Storage = request.app.state.storage
+    slot = await chat_app.create_upload(
+        session, storage, user, conversation_id, body.content_type, body.size_bytes, _now()
+    )
+    return UploadSlot(
+        media_id=slot.attachment.id,
+        upload_url=slot.upload_url,
+        headers=slot.headers,
+        expires_at=slot.expires_at,
+    )
 
 
 @router.patch("/conversations/{conversation_id}/messages/{message_id}", operation_id="editMessage")

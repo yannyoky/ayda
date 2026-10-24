@@ -136,11 +136,12 @@ private fun ChatRow(
 ) {
     val colors = LocalAydaColors.current
     val last = chat.lastMessage
+    val text = if (last?.attachment != null) "🎤 " + stringResource(R.string.chats_voice) else last?.text.orEmpty()
     val preview =
         when {
             last == null -> stringResource(R.string.chats_no_messages)
-            last.author.id == meId -> stringResource(R.string.chats_you, last.text)
-            else -> last.text
+            last.author.id == meId -> stringResource(R.string.chats_you, text)
+            else -> text
         }
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),

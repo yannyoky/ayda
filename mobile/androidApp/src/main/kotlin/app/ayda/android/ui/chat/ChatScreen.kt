@@ -1,5 +1,9 @@
 package app.ayda.android.ui.chat
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,18 +34,25 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
 import app.ayda.android.ui.LocalAydaColors
@@ -53,6 +64,7 @@ import app.ayda.api.models.ConversationKind
 import app.ayda.api.models.Message
 import app.ayda.shared.chat.ChatViewModel
 import app.ayda.shared.chat.PendingMessage
+import kotlinx.coroutines.delay
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.time.Clock
@@ -276,7 +288,8 @@ private fun Messages(
                 mine = mine,
                 showAuthor = coop && !mine,
                 selected = state.selected == message.id,
-                canEdit = mine && model.canEdit(message),
+                canEdit = mine && message.attachment == null && model.canEdit(message),
+                onExpired = model::refresh,
                 onSelect = { model.select(message) },
                 onEdit = { model.startEdit(message) },
                 onDelete = { model.askDelete(message) },
@@ -299,6 +312,7 @@ private fun Bubble(
     showAuthor: Boolean,
     selected: Boolean,
     canEdit: Boolean,
+    onExpired: () -> Unit,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -325,12 +339,17 @@ private fun Bubble(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                message.text,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (mine) colors.onPlate else colors.ink,
-                modifier = Modifier.weight(1f, fill = false),
-            )
+            val attachment = message.attachment
+            if (attachment != null) {
+                Box(Modifier.weight(1f, fill = false)) { VoiceBubbleContent(attachment, mine, onExpired) }
+            } else {
+                Text(
+                    message.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (mine) colors.onPlate else colors.ink,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            }
             val time =
                 if (message.editedAt != null) {
                     stringResource(R.string.chats_edited, message.time())
@@ -378,15 +397,16 @@ private fun Pending(
 ) {
     val colors = LocalAydaColors.current
     val label = stringResource(if (message.failed) R.string.chats_failed else R.string.chats_sending)
+    val text = if (message.voice != null) "🎤 " + stringResource(R.string.chats_voice) else message.text
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
         Text(
-            message.text,
+            text,
             style = MaterialTheme.typography.bodyLarge,
             color = if (message.failed) colors.ink else colors.onPlate,
             modifier =
                 Modifier
                     .widthIn(max = 300.dp)
-                    .semantics { contentDescription = "$label: ${message.text}" }
+                    .semantics { contentDescription = "$label: $text" }
                     .clip(RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp))
                     .then(
                         if (message.failed) {
@@ -416,6 +436,35 @@ private fun Pending(
 private fun Composer(model: ChatViewModel) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
+    val context = LocalContext.current
+    val recorder = remember { VoiceRecorder(context) }
+    var recording by remember { mutableStateOf(false) }
+    var seconds by remember { mutableIntStateOf(0) }
+    var micDenied by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) { onDispose { recorder.cancel() } }
+
+    fun startRecording() {
+        micDenied = false
+        recording = recorder.start()
+        seconds = 0
+    }
+
+    fun finishRecording() {
+        recording = false
+        recorder.stop()?.let(model::sendVoice)
+    }
+    val askMic =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) startRecording() else micDenied = true
+        }
+    LaunchedEffect(recording) {
+        while (recording) {
+            delay(1000)
+            seconds += 1
+            if (seconds >= MAX_VOICE_SECONDS) finishRecording()
+        }
+    }
+
     if (state.editing != null) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -438,11 +487,41 @@ private fun Composer(model: ChatViewModel) {
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
+    if (micDenied) {
+        Text(
+            stringResource(R.string.chats_mic_denied),
+            style = small(),
+            color = colors.muted,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
     Row(
         Modifier.fillMaxWidth().padding(16.dp, 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (recording) {
+            ComposerButton(R.drawable.ic_close, stringResource(R.string.chats_cancel_recording), accent = false) {
+                recording = false
+                recorder.cancel()
+            }
+            Text(
+                stringResource(R.string.chats_recording, formatSeconds(seconds)),
+                style = MaterialTheme.typography.titleMedium,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(colors.surface)
+                        .padding(16.dp, 14.dp),
+            )
+            ComposerButton(
+                R.drawable.ic_arrow,
+                stringResource(R.string.chats_stop_and_send),
+                onClick = ::finishRecording,
+            )
+            return@Row
+        }
         OutlinedTextField(
             value = state.text,
             onValueChange = model::onTextChange,
@@ -451,23 +530,43 @@ private fun Composer(model: ChatViewModel) {
             maxLines = 5,
             modifier = Modifier.weight(1f),
         )
-        IconButton(
-            onClick = model::send,
-            enabled = state.canSend,
-            modifier =
-                Modifier
-                    .size(52.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(colors.accent)
-                    .alpha(if (state.canSend) 1f else 0.4f),
-        ) {
-            AydaIcon(
+        if (state.editing == null && state.text.isBlank()) {
+            ComposerButton(R.drawable.ic_mic, stringResource(R.string.chats_record)) {
+                val granted =
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                        PackageManager.PERMISSION_GRANTED
+                if (granted) startRecording() else askMic.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        } else {
+            ComposerButton(
                 R.drawable.ic_arrow,
-                colors.onAccent,
-                size = 20,
-                contentDescription =
-                    stringResource(if (state.editing != null) R.string.chats_save else R.string.chats_send),
+                stringResource(if (state.editing != null) R.string.chats_save else R.string.chats_send),
+                enabled = state.canSend,
+                onClick = model::send,
             )
         }
+    }
+}
+
+@Composable
+private fun ComposerButton(
+    icon: Int,
+    label: String,
+    enabled: Boolean = true,
+    accent: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier =
+            Modifier
+                .size(52.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(if (accent) colors.accent else colors.surface)
+                .alpha(if (enabled) 1f else 0.4f),
+    ) {
+        AydaIcon(icon, if (accent) colors.onAccent else colors.ink, size = 20, contentDescription = label)
     }
 }

@@ -11,6 +11,7 @@ import app.ayda.shared.ApiResult
 import app.ayda.shared.AydaClient
 import app.ayda.shared.apiCall
 import app.ayda.shared.errorText
+import app.ayda.shared.media.uploadVoice
 import app.ayda.shared.realtime.LiveEvent
 import app.ayda.shared.realtime.Realtime
 import app.ayda.shared.realtime.pollWhileOffline
@@ -26,11 +27,20 @@ import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+/** A voice recording (AAC in MP4) on its way to the chat. Not a data class: it holds bytes. */
+class VoiceClip(
+    val bytes: ByteArray,
+)
+
 /** A message the user wrote that the server has not confirmed yet. */
 data class PendingMessage(
     val clientId: String,
     val text: String,
     val failed: Boolean = false,
+    /** A recording to upload first; kept until the message is saved, so a retry resends it. */
+    val voice: VoiceClip? = null,
+    /** Set once the recording is uploaded, so a retry does not upload it again. */
+    val attachmentId: String? = null,
 )
 
 data class ChatState(
@@ -135,6 +145,13 @@ class ChatViewModel(
         deliver(PendingMessage(newClientId(), text))
     }
 
+    /** ADR 0019: sends a recorded voice message; the server re-encodes it before anyone plays it. */
+    fun sendVoice(recording: ByteArray) {
+        if (recording.isEmpty() || state.value.conversation?.canSend != true) return
+        mutableState.update { it.copy(tooFast = false) }
+        deliver(PendingMessage(newClientId(), "", voice = VoiceClip(recording)))
+    }
+
     /** Sends a failed message again with the same client id, so the server never saves it twice. */
     fun retry(message: PendingMessage) = deliver(message)
 
@@ -221,36 +238,58 @@ class ChatViewModel(
             s.copy(pending = s.pending.filterNot { it.clientId == message.clientId } + message.copy(failed = false))
         }
         viewModelScope.launch {
-            when (
-                val sent =
-                    apiCall {
-                        client.chat.sendMessage(
-                            conversationId,
-                            MessageInput(message.text, message.clientId),
-                        )
+            var attachmentId = message.attachmentId
+            if (message.voice != null && attachmentId == null) {
+                when (val uploaded = client.uploadVoice(conversationId, message.voice.bytes)) {
+                    is ApiResult.Ok -> {
+                        attachmentId = uploaded.value
+                        mutableState.update { s ->
+                            s.copy(
+                                pending =
+                                    s.pending.map {
+                                        if (it.clientId ==
+                                            message.clientId
+                                        ) {
+                                            it.copy(attachmentId = uploaded.value)
+                                        } else {
+                                            it
+                                        }
+                                    },
+                            )
+                        }
                     }
-            ) {
-                is ApiResult.Ok -> upsert(sent.value)
-                else -> {
-                    mutableState.update { s ->
-                        s.copy(
-                            pending =
-                                s.pending.map {
-                                    if (it.clientId ==
-                                        message.clientId
-                                    ) {
-                                        it.copy(failed = true)
-                                    } else {
-                                        it
-                                    }
-                                },
-                            tooFast = sent is ApiResult.Failed && sent.problem.status == 429,
-                        )
+                    else -> {
+                        failed(message, uploaded)
+                        return@launch
                     }
-                    // 403: the friendship was removed and the chat is now read-only.
-                    if (sent is ApiResult.Failed && sent.problem.status == 403) loadConversation()
                 }
             }
+            val input =
+                if (attachmentId != null) {
+                    MessageInput(clientId = message.clientId, attachmentId = attachmentId)
+                } else {
+                    MessageInput(clientId = message.clientId, text = message.text)
+                }
+            when (val sent = apiCall { client.chat.sendMessage(conversationId, input) }) {
+                is ApiResult.Ok -> upsert(sent.value)
+                else -> failed(message, sent)
+            }
+        }
+    }
+
+    private fun failed(
+        message: PendingMessage,
+        result: ApiResult<*>,
+    ) {
+        mutableState.update { s ->
+            s.copy(
+                pending = s.pending.map { if (it.clientId == message.clientId) it.copy(failed = true) else it },
+                tooFast = result is ApiResult.Failed && result.problem.status == 429,
+            )
+        }
+        // 403: the friendship was removed and the chat is now read-only.
+        if (result is ApiResult.Failed && result.problem.status == 403) {
+            viewModelScope.launch { loadConversation() }
         }
     }
 

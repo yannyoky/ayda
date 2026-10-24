@@ -58,6 +58,7 @@ def build_worker(
         venues = local_events.venue_source(settings, local_events.venue_http())
     reminders.register(settings)
     chat.register(settings)
+    chat.use_storage(storage)
     coop.register(settings)
 
     async def send_notification(session: AsyncSession, payload: dict[str, Any]) -> None:
@@ -80,6 +81,14 @@ def build_worker(
 
     async def purge_assistant_chats(session: AsyncSession, now: datetime) -> None:
         await privacy.purge_old_assistant_chats(session, now)
+
+    async def process_attachment(session: AsyncSession, payload: dict[str, Any]) -> None:
+        await chat.process_attachment(
+            session, storage, publisher, uuid.UUID(payload["attachment_id"])
+        )
+
+    async def delete_unsent_attachments(session: AsyncSession, now: datetime) -> None:
+        await chat.delete_unsent_uploads(session, now)
 
     async def purge_coop_chats(session: AsyncSession, now: datetime) -> None:
         await chat.purge_ended_coop_chats(session, now)
@@ -106,6 +115,7 @@ def build_worker(
         backup.BACKUP_JOB: run_backup,
         privacy.ERASE_JOB: erase_account,
         social.PROCESS_JOB: process_media,
+        chat.ATTACHMENT_JOB: process_attachment,
         social.DELETE_FILES_JOB: delete_files,
         notifications.SEND_JOB: send_notification,
     }
@@ -139,6 +149,7 @@ def build_worker(
         Periodic("checkins.purge_texts", 3600, purge_checkin_texts),
         Periodic("assistant.purge_chats", 3600, purge_assistant_chats),
         Periodic("chat.purge_coops", 3600, purge_coop_chats),
+        Periodic("chat.delete_unsent", 3600, delete_unsent_attachments),
     ]
     return Worker(db.sessionmaker, handlers, periodic)
 

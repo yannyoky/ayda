@@ -248,6 +248,7 @@ Partitioning by month can be added when the table grows; not needed for the MVP.
 | Assistant chat text | assistant.messages | deleted after the local day |
 | Photos | S3 in Russia | until the proof or account is deleted; EXIF removed |
 | Comments, messages | social.comments, chat.messages | until deleted or account deletion; a co-op chat 30 days after its quest is over (ADR 0019) |
+| Voice messages | S3 in Russia, chat.attachments | same as the message; re-encoded to AAC, metadata removed, the original upload deleted (ADR 0019) |
 | Behavior events | analytics.events | kept, anonymized on account deletion |
 
 ### Where the data lives (152-FZ)
@@ -256,7 +257,7 @@ Every store with personal data runs on servers in Russia: PostgreSQL on the Russ
 
 ### Account deletion and retention
 
-`DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, interests, habits, check-ins, assistant chat messages, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships and photos are deleted; photo files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null, and an hourly job deletes assistant chat messages of finished days.
+`DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, interests, habits, check-ins, assistant chat messages, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships, photos and voice messages are deleted; photo and voice files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null, and an hourly job deletes assistant chat messages of finished days.
 
 ### Backups and error tracking
 

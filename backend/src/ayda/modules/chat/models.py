@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Identity, String, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Identity, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -51,3 +51,27 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Attachment(Base):
+    """A voice message (ADR 0019): uploaded straight to storage, then re-encoded by the
+    worker. The original upload is deleted; only the cleaned copy is ever shown."""
+
+    __tablename__ = "attachments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(Conversation.id, ondelete="CASCADE")
+    )
+    owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    message_id: Mapped[int | None] = mapped_column(
+        ForeignKey(Message.id, ondelete="CASCADE"), unique=True
+    )
+    kind: Mapped[str] = mapped_column(Text)
+    # pending (not sent yet) -> processing -> ready | failed
+    status: Mapped[str] = mapped_column(Text)
+    storage_key: Mapped[str] = mapped_column(Text)
+    content_type: Mapped[str] = mapped_column(Text)
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
