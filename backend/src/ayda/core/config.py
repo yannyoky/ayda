@@ -1,9 +1,9 @@
 import secrets
 from datetime import time
 from functools import lru_cache
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -96,6 +96,15 @@ class Settings(BaseSettings):
     sentry_dsn: SecretStr | None = None
     # Set by the image build (git sha), so errors are grouped by release.
     app_release: str | None = None
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: Any, info: ValidationInfo) -> Any:
+        """`KEY=` in .env means "off" for an optional setting, not an empty key: an empty
+        FCM_SERVICE_ACCOUNT_JSON used to crash the worker on startup."""
+        if value == "" and info.field_name and cls.model_fields[info.field_name].default is None:
+            return None
+        return value
 
     @model_validator(mode="after")
     def _secrets(self) -> Self:
