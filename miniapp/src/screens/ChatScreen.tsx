@@ -109,7 +109,7 @@ export function ChatScreen() {
         <Avatar user={chat.peer ?? { first_name: chat.title }} size={40} />
         <h1 className="m-0 min-w-0 flex-1 truncate font-display text-lg font-bold">{chat.title}</h1>
         {chat.can_send && (
-          <button type="button" onClick={() => setOrganizing(true)} className="h-11 shrink-0 rounded-field bg-surface px-3 text-sm font-extrabold">
+          <button type="button" onClick={() => setOrganizing(true)} className="h-11 shrink-0 rounded-full bg-accent px-4 text-sm font-extrabold text-on-accent">
             {t.meetup.button}
           </button>
         )}

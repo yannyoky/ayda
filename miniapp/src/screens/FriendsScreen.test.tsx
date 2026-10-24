@@ -6,6 +6,12 @@ import { renderApp } from '../test/render'
 import { fakeTelegram } from '../test/telegram'
 
 describe('Friends ladder (US-16)', () => {
+  it('shows my streak and weekly points above the ladder', async () => {
+    renderApp('/friends')
+    expect(await screen.findByRole('region', { name: 'Серия' })).toHaveTextContent('12дней')
+    expect(screen.getByRole('region', { name: 'За неделю' })).toHaveTextContent('185')
+  })
+
   it('ranks friends by weekly points with me highlighted', async () => {
     renderApp('/friends')
     const ladder = await screen.findByRole('list', { name: 'Рейтинг друзей' })
@@ -61,7 +67,7 @@ describe('Friends and invites (US-12)', () => {
   it('ignores reminder launches', async () => {
     fakeTelegram('query_id=AAE&user=%7B%7D&hash=abc', 'r-morning')
     renderApp()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Привет, Саша' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Квесты дня' })).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 

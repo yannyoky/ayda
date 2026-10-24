@@ -7,7 +7,6 @@ import { CoopSheet } from '../features/coop/CoopSheet'
 import { CheckinCard } from '../features/day/CheckinCard'
 import { OwnQuestSheet } from '../features/day/OwnQuestSheet'
 import { QuestRow } from '../features/day/QuestRow'
-import { StatsRow } from '../features/day/StatsRow'
 import { TopEventsCard } from '../features/events/TopEventsCard'
 import { formatDayTitle, t } from '../i18n'
 import { Icon } from '../ui/Icon'
@@ -18,14 +17,19 @@ export function TodayScreen() {
   const me = useMe().data as Schemas['Me']
   const today = useToday()
   const day = today.data
+  // A neutral header: the date, then the city and the weather. Streak and points live on the
+  // friends tab, so this screen keeps its room for the check-in and the quests.
+  const weather = day?.weather
+  const place = [me.city?.name, weather && t.today.weather(weather.temperature_c, t.today.conditions[weather.condition])]
+    .filter(Boolean)
+    .join(' · ')
   return (
     <>
-      <ScreenHeader eyebrow={formatDayTitle(new Date())} title={t.today.greeting(me.first_name)} />
+      <ScreenHeader title={formatDayTitle(new Date())} subtitle={place || undefined} />
       {today.isError && <InlineError onRetry={() => void today.refetch()} />}
       {day && (
         <>
           <CheckinCard key={day.checkin?.submitted_at ?? 'none'} checkin={day.checkin} />
-          <StatsRow day={day} />
           <CoopInvites />
           <QuestsCard day={day} />
           <TopEventsCard />
@@ -42,7 +46,6 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
   const mine = day.quests.filter((q) => q.state !== 'offered')
   const offered = day.quests.filter((q) => q.state === 'offered').length
   const left = day.limits.max_taken - day.limits.taken
-  const weather = day.weather
 
   return (
     <section aria-labelledby="quests-title" className="flex flex-col rounded-card bg-surface p-4">
@@ -52,9 +55,6 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
         </h2>
         <span className="text-[13px] font-bold text-muted">{t.today.scoredOf(day.limits.scored, day.limits.max_scored)}</span>
       </div>
-      {weather && day.pool_status !== 'none' && (
-        <span className="pb-1 text-xs font-semibold text-muted">{t.today.weather(weather.temperature_c, t.today.conditions[weather.condition])}</span>
-      )}
 
       {day.pool_status === 'generating' && (
         <p role="status" className="m-0 flex items-center gap-3 py-3 text-[15px] font-semibold text-muted">

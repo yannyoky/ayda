@@ -6,7 +6,7 @@ import { renderApp } from '../test/render'
 describe('App shell', () => {
   it('renders the Today screen with the bottom navigation', async () => {
     renderApp()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Привет, Саша' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Квесты дня' })).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Основное меню' })
     for (const name of ['Сегодня', 'Лента', 'Друзья', 'Профиль']) {
       expect(nav.querySelector(`a[aria-label="${name}"]`)).not.toBeNull()

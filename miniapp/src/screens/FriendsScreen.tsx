@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useLadder, type LadderWeek } from '../api/queries'
+import { useLadder, useToday, type LadderWeek } from '../api/queries'
+import { StatsRow } from '../features/day/StatsRow'
 import { FriendsList } from '../features/friends/FriendsList'
 import { Ladder } from '../features/friends/Ladder'
 import { t } from '../i18n'
@@ -13,9 +14,11 @@ export function FriendsScreen() {
   const [week, setWeek] = useState<LadderWeek>('current')
   const ladder = useLadder(week)
   const data = ladder.data
+  const today = useToday()
   return (
     <>
       <ScreenHeader eyebrow={data ? t.friends.weekFrom(weekStart.format(new Date(data.week_start))) : undefined} title={t.friends.title} />
+      {today.data && <StatsRow day={today.data} />}
       <div role="radiogroup" aria-label={t.friends.title} className="flex gap-1.5 rounded-[20px] bg-surface p-1">
         {weeks.map((w) => (
           <label

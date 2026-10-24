@@ -59,6 +59,7 @@ REPLY_UNAVAILABLE = "Сейчас не получается ответить, п
 NOTE_NO_CITY = "Укажи город в профиле, и я найду места рядом."
 NOTE_NO_PLACES = "Рядом с центром города в карте пока мало таких мест."
 NOTE_LOADING = "Загружаю места твоего города из карты. Спроси ещё раз через пару минут."
+NOTE_MAP_DOWN = "Карта сейчас не отвечает, попробую загрузить места снова в течение часа."
 NOTE_NO_EVENTS = "В афише на эти дни ничего не нашёл."
 NOTE_NOT_EXACT = "Точно такого в афише нет, вот что ещё будет."
 NOTE_OTHER_REGION = "Афишу я собираю только по твоей области."
@@ -141,8 +142,9 @@ async def _places(
     )
     if not found:
         if not await events.venues_loaded(session, user.city_id):
-            await events_app.request_venue_load(session, user.city_id, now)
-            return AssistantCard(kind="places", note=NOTE_LOADING)
+            state = await events_app.request_venue_load(session, user.city_id, now)
+            note = NOTE_LOADING if state == "loading" else NOTE_MAP_DOWN
+            return AssistantCard(kind="places", note=note)
         return AssistantCard(kind="places", note=NOTE_NO_PLACES)
     city = await events.get_city(session, user.city_id)
     city_name = city.name if city else ""

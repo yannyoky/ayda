@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +18,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -104,7 +109,19 @@ fun ChatScreen(
                     modifier = Modifier.weight(1f),
                 )
                 if (chat.canSend) {
-                    TextButton(onClick = onMeetup) { Text(stringResource(R.string.meetup_button)) }
+                    // The meetup is the chat's main action, so it is an accent pill, not a quiet link.
+                    Button(
+                        onClick = onMeetup,
+                        shape = RoundedCornerShape(50),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = colors.accent,
+                                contentColor = colors.onAccent,
+                            ),
+                        contentPadding = PaddingValues(16.dp, 10.dp),
+                    ) {
+                        Text(stringResource(R.string.meetup_button), style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
         }
@@ -168,7 +185,11 @@ fun ChatScreen(
     }
 }
 
-/** Laid out bottom-up, so the newest message stays in view as new ones arrive. */
+/**
+ * Laid out bottom-up. A lazy list keeps the item it showed in place when one is added below, so
+ * the list scrolls down itself for the user's own messages, and for others' while the user is
+ * at the bottom (someone reading older messages is not pulled away).
+ */
 @Composable
 private fun Messages(
     model: ChatViewModel,
@@ -176,8 +197,18 @@ private fun Messages(
     coop: Boolean,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
+    val list = rememberLazyListState()
+    val newestPending = state.pending.lastOrNull()?.clientId
+    val newest = state.messages.lastOrNull()
+    LaunchedEffect(newestPending) { if (newestPending != null) list.animateScrollToItem(0) }
+    LaunchedEffect(newest?.id) {
+        if (newest != null && (newest.author.id == meId || list.firstVisibleItemIndex <= 1)) {
+            list.animateScrollToItem(0)
+        }
+    }
     LazyColumn(
         Modifier.fillMaxSize(),
+        state = list,
         reverseLayout = true,
         contentPadding =
             androidx.compose.foundation.layout

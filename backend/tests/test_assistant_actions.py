@@ -131,10 +131,18 @@ async def test_no_city_or_no_places_is_said_on_the_card(
     async with database.sessionmaker() as session:
         [job] = list(await session.scalars(select(Job).where(Job.kind == "events.venues")))
         assert job.payload["city_id"] == KALININGRAD and job.status == "queued"
-    # Asking again the same day does not queue a second load.
-    await send(client, user, "Где погулять?")
+    # Asking again within the hour does not queue a second load.
+    [card] = (await send(client, user, "Где погулять?")).json()["reply"]["cards"]
+    assert card["note"] == assistant_chat.NOTE_LOADING
     async with database.sessionmaker() as session:
         assert len(list(await session.scalars(select(Job).where(Job.kind == "events.venues")))) == 1
+
+    # The load ran but the map did not answer: no more "in a couple of minutes".
+    async with database.sessionmaker() as session:
+        await session.execute(update(Job).where(Job.kind == "events.venues").values(status="done"))
+        await session.commit()
+    [card] = (await send(client, user, "Где погулять?")).json()["reply"]["cards"]
+    assert card["note"] == assistant_chat.NOTE_MAP_DOWN
 
     # A load of an empty map counts as loaded: then the card says there is little there.
     source = Overpass(httpx.Response(200, json={"elements": []})).source()
