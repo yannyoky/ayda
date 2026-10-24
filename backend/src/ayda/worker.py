@@ -5,7 +5,7 @@ import signal
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,7 +47,11 @@ def build_worker(
     realtime_client: Realtime | None = None,
     event_sources: Sequence[EventSource] | None = None,
     venues: OverpassSource | None = None,
+    lane: Literal["all", "media", "rest"] = "all",
 ) -> Worker:
+    """`media` takes only voice, circle and photo processing, so a sent recording is ready in
+    seconds even while a slow job (events, backup) runs; `rest` takes everything else and the
+    periodic tasks. `all` is both in one loop (tests)."""
     storage = storage or Storage(settings)
     publisher = realtime_client or Realtime(settings)
     sender = sender or default_sender(settings)
@@ -161,6 +165,11 @@ def build_worker(
         Periodic("chat.expire_video_notes", 3600, expire_video_notes),
         Periodic("media.expire_videos", 3600, expire_proof_videos),
     ]
+    media_kinds = [social.PROCESS_JOB, chat.ATTACHMENT_JOB]
+    if lane == "media":
+        return Worker(db.sessionmaker, handlers, poll_s=0.3, only=media_kinds)
+    if lane == "rest":
+        return Worker(db.sessionmaker, handlers, periodic, skip=media_kinds)
     return Worker(db.sessionmaker, handlers, periodic)
 
 
@@ -168,12 +177,21 @@ async def main() -> None:
     settings = get_settings()
     init_error_tracking(settings, "worker")
     db = Database(settings.database_url, echo=settings.database_echo)
-    worker = build_worker(settings, db)
+    storage = Storage(settings)
+    lanes = [
+        build_worker(settings, db, storage, lane="rest"),
+        build_worker(settings, db, storage, lane="media"),
+    ]
     loop = asyncio.get_running_loop()
+
+    def stop() -> None:
+        for worker in lanes:
+            worker.stop()
+
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, worker.stop)
+        loop.add_signal_handler(sig, stop)
     try:
-        await worker.run_forever()
+        await asyncio.gather(*(worker.run_forever() for worker in lanes))
     finally:
         await db.dispose()
 

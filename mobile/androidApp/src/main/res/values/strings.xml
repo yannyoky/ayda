@@ -305,10 +305,11 @@
     <string name="chats_recording">Запись %1$s</string>
     <string name="chats_stop_and_send">Отправить голосовое</string>
     <string name="chats_cancel_recording">Отменить запись</string>
+    <string name="chats_slide_cancel">Отмена</string>
     <string name="chats_mic_denied">Нет доступа к микрофону. Разреши его в настройках</string>
     <string name="chats_voice_play">Слушать</string>
     <string name="chats_voice_pause">Пауза</string>
-    <string name="chats_voice_processing">Голосовое обрабатывается…</string>
+    <string name="chats_voice_processing">Отправляется…</string>
     <string name="chats_voice_failed">Не получилось обработать голосовое</string>
     <string name="chats_camera_denied">Нет доступа к камере. Разреши её в настройках</string>
     <string name="chats_circle">Кружок</string>
@@ -316,7 +317,7 @@
     <string name="chats_stop_and_send_circle">Отправить кружок</string>
     <string name="chats_circle_play">Смотреть кружок</string>
     <string name="chats_circle_pause">Пауза</string>
-    <string name="chats_circle_processing">Кружок обрабатывается…</string>
+    <string name="chats_circle_processing">Отправляется…</string>
     <string name="chats_circle_failed">Не получилось обработать кружок</string>
     <string name="chats_circle_expired">Кружок удалён: они хранятся 30 дней</string>
     <string name="coop_eyebrow">Совместный квест</string>
