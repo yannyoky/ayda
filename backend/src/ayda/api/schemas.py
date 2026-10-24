@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 Theme = Literal["graphite", "plum"]
 NotificationChannel = Literal["auto", "push", "telegram"]
@@ -351,6 +351,13 @@ class RealtimeToken(BaseModel):
     channel: str
 
 
+class Attachment(BaseModel):
+    kind: Literal["voice"]
+    status: Literal["processing", "ready", "failed"]
+    duration_ms: int | None
+    url: str | None
+
+
 class Message(BaseModel):
     id: int
     conversation_id: uuid.UUID
@@ -359,6 +366,7 @@ class Message(BaseModel):
     created_at: datetime
     client_id: uuid.UUID | None
     edited_at: datetime | None = None
+    attachment: Attachment | None = None
 
 
 MessageText = Annotated[
@@ -367,8 +375,23 @@ MessageText = Annotated[
 
 
 class MessageInput(BaseModel):
-    text: MessageText
+    """Text, or a voice message uploaded with createChatUpload."""
+
+    text: MessageText | None = None
     client_id: uuid.UUID
+    attachment_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _text_or_attachment(self) -> "MessageInput":
+        if (self.text is None) == (self.attachment_id is None):
+            raise ValueError("send either text or attachment_id")
+        return self
+
+
+class ChatUploadInput(BaseModel):
+    kind: Literal["voice"]
+    content_type: Literal["audio/webm", "audio/ogg", "audio/mp4", "audio/aac", "audio/mpeg"]
+    size_bytes: int = Field(ge=1, le=10 * 1024 * 1024)
 
 
 class MessageEdit(BaseModel):

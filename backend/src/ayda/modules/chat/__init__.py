@@ -1,6 +1,7 @@
 """Direct messages and co-op quest chats, delivered via Centrifugo."""
 
-from ayda.modules.chat.models import Conversation, Member, Message
+from ayda.modules.chat import attachments
+from ayda.modules.chat.models import Attachment, Conversation, Member, Message
 from ayda.modules.chat.service import (
     EDIT_WINDOW,
     MAX_MESSAGES_PER_MINUTE,
@@ -33,6 +34,7 @@ from ayda.modules.chat.service import (
 __all__ = [
     "EDIT_WINDOW",
     "MAX_MESSAGES_PER_MINUTE",
+    "Attachment",
     "Conversation",
     "CursorError",
     "EditWindowError",
@@ -41,6 +43,7 @@ __all__ = [
     "MessageLimitError",
     "add_member",
     "add_message",
+    "attachments",
     "conversation_for_coop",
     "conversations_for_coops",
     "create_group",

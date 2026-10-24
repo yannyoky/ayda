@@ -8,14 +8,16 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.api.schemas import Conversation, Message, UserSummary
+from ayda.api.schemas import Attachment, Conversation, Message, UserSummary
 from ayda.app.feed import DELETED_NAME, user_summary
 from ayda.app.notifications import RENDERERS, Renderer, app_button, notify
 from ayda.app.notifications import Message as BotMessage
 from ayda.app.realtime import BUILDERS, Delivery, publish
+from ayda.core import jobs
 from ayda.core.config import Settings
 from ayda.core.problems import Problem
 from ayda.core.realtime import Realtime
+from ayda.core.storage import Storage
 from ayda.modules import analytics, auth, chat, quests, social
 from ayda.modules.analytics import EventType
 
@@ -23,6 +25,7 @@ MESSAGE_CREATED = "chat.message_created"
 MESSAGE_DELETED = "chat.message_deleted"
 MESSAGE_UPDATED = "chat.message_updated"
 CONVERSATION_READ = "chat.conversation_read"
+ATTACHMENT_JOB = chat.attachments.PROCESS_JOB
 NOTIFY_KIND = "chat.message"
 # The bot waits a minute (the message may be read in the app by then) and sends at most
 # one notice per chat and person every 10 minutes.
@@ -33,11 +36,38 @@ COOP_TITLE = "Совместный квест"
 COOP_CHAT_TTL = timedelta(days=30)
 
 
+class _Media:
+    """Storage for play URLs of voice messages; set once by the API app and the worker,
+    since realtime builders get only a session."""
+
+    storage: Storage | None = None
+
+
+MEDIA = _Media()
+
+
+def use_storage(storage: Storage) -> None:
+    MEDIA.storage = storage
+
+
 def not_found() -> Problem:
     return Problem(404, "conversation-not-found", detail="Чат не найден")
 
 
-def message_schema(message: chat.Message, author: UserSummary) -> Message:
+def attachment_schema(attachment: chat.Attachment) -> Attachment:
+    status = "processing" if attachment.status == "pending" else attachment.status
+    storage = MEDIA.storage
+    return Attachment(
+        kind="voice",
+        status=status,  # pyright: ignore[reportArgumentType]
+        duration_ms=attachment.duration_ms,
+        url=chat.attachments.play_url(storage, attachment) if storage else None,
+    )
+
+
+def message_schema(
+    message: chat.Message, author: UserSummary, attachment: chat.Attachment | None = None
+) -> Message:
     return Message(
         id=message.id,
         conversation_id=message.conversation_id,
@@ -46,7 +76,17 @@ def message_schema(message: chat.Message, author: UserSummary) -> Message:
         created_at=message.created_at,
         client_id=message.client_id,
         edited_at=message.edited_at,
+        attachment=attachment_schema(attachment) if attachment else None,
     )
+
+
+async def message_views(session: AsyncSession, messages: Sequence[chat.Message]) -> list[Message]:
+    authors = await auth.get_users(session, list({m.author_id for m in messages}))
+    attached = await chat.attachments.for_messages(session, [m.id for m in messages])
+    return [
+        message_schema(m, user_summary(authors.get(m.author_id), m.author_id), attached.get(m.id))
+        for m in messages
+    ]
 
 
 async def _can_send(
@@ -78,6 +118,7 @@ async def build_conversations(
     ids = [c.id for c, _ in rows]
     members = await chat.member_ids(session, ids)
     last = await chat.last_messages(session, ids)
+    attached = await chat.attachments.for_messages(session, [m.id for m in last.values()])
     unread = await chat.unread_counts(session, user_id, ids)
     people = {u for us in members.values() for u in us} | {m.author_id for m in last.values()}
     users = await auth.get_users(session, list(people))
@@ -106,7 +147,9 @@ async def build_conversations(
                 members=summaries,
                 can_send=await _can_send(session, conversation, user_id, others, alive),
                 last_message=message_schema(
-                    message, user_summary(users.get(message.author_id), message.author_id)
+                    message,
+                    user_summary(users.get(message.author_id), message.author_id),
+                    attached.get(message.id),
                 )
                 if message
                 else None,
@@ -157,11 +200,13 @@ async def send_message(
     realtime: Realtime,
     user: auth.User,
     conversation_id: uuid.UUID,
-    text: str,
+    text: str | None,
     client_id: uuid.UUID,
     now: datetime,
+    attachment_id: uuid.UUID | None = None,
 ) -> tuple[Message, bool]:
-    """Save, commit, then publish; returns (message, created)."""
+    """Save, commit, then publish; returns (message, created). A voice message has no
+    text; its upload is re-encoded by the worker and members get message.updated then."""
     conversation, _ = await get_conversation(session, user.id, conversation_id)
     members = (await chat.member_ids(session, [conversation.id]))[conversation.id]
     others = [u for u in members if u != user.id]
@@ -170,14 +215,31 @@ async def send_message(
     repeated = await chat.find_by_client_id(session, user.id, client_id)
     if repeated is None and not await _can_send(session, conversation, user.id, others, alive):
         raise Problem(403, "chat-closed", detail="Этот чат закрыт для новых сообщений")
+    attachment = None
+    if repeated is None and attachment_id is not None:
+        try:
+            attachment = await chat.attachments.claim(
+                session, conversation.id, user.id, attachment_id
+            )
+        except chat.attachments.AttachmentError:
+            raise Problem(
+                422, "attachment-invalid", detail="Голосовое не найдено или уже отправлено"
+            ) from None
     try:
         message, created = await chat.add_message(
-            session, conversation, user.id, text, client_id, now
+            session, conversation, user.id, text or "", client_id, now
         )
     except chat.MessageLimitError:
         raise Problem(429, "too-many-messages", detail="Слишком много сообщений") from None
     if message.conversation_id != conversation.id:  # client_id reused in another chat
         raise Problem(422, "client-id-reused", detail="Этот client_id уже использован")
+    if created and attachment is not None:
+        chat.attachments.attach(attachment, message)
+        await jobs.enqueue(
+            session, chat.attachments.PROCESS_JOB, {"attachment_id": str(attachment.id)}
+        )
+    elif not created:
+        attachment = (await chat.attachments.for_messages(session, [message.id])).get(message.id)
     if created:
         await analytics.record(
             session,
@@ -199,7 +261,54 @@ async def send_message(
     await session.commit()
     if created:
         await publish(session, realtime, MESSAGE_CREATED, {"message_id": message.id})
-    return message_schema(message, user_summary(user, user.id)), created
+    return message_schema(message, user_summary(user, user.id), attachment), created
+
+
+async def create_upload(
+    session: AsyncSession,
+    storage: Storage,
+    user: auth.User,
+    conversation_id: uuid.UUID,
+    content_type: str,
+    size_bytes: int,
+    now: datetime,
+) -> chat.attachments.AttachmentSlot:
+    """A presigned slot for a voice message in a chat the user can write to."""
+    conversation, _ = await get_conversation(session, user.id, conversation_id)
+    members = (await chat.member_ids(session, [conversation.id]))[conversation.id]
+    others = [u for u in members if u != user.id]
+    users = await auth.get_users(session, others)
+    alive = {u: users[u].deletion_requested_at is None for u in users}
+    if not await _can_send(session, conversation, user.id, others, alive):
+        raise Problem(403, "chat-closed", detail="Этот чат закрыт для новых сообщений")
+    try:
+        slot = await chat.attachments.create_upload(
+            session, storage, conversation.id, user.id, content_type, size_bytes, now
+        )
+    except chat.attachments.AttachmentLimitError:
+        raise Problem(429, "too-many-uploads", detail="Слишком много голосовых за сутки") from None
+    await session.commit()
+    return slot
+
+
+async def process_attachment(
+    session: AsyncSession, storage: Storage, realtime: Realtime, attachment_id: uuid.UUID
+) -> None:
+    """Worker job: re-encode a voice message, then show members the result."""
+    message_id = await chat.attachments.process(session, storage, attachment_id)
+    await session.commit()
+    if message_id is not None:
+        await publish(session, realtime, MESSAGE_UPDATED, {"message_id": message_id})
+
+
+async def delete_unsent_uploads(session: AsyncSession, now: datetime) -> None:
+    """Periodic: voice uploads never sent within a day are deleted with their files."""
+    await _delete_files(session, await chat.attachments.remove_unsent(session, now))
+
+
+async def _delete_files(session: AsyncSession, keys: Sequence[str]) -> None:
+    if keys:
+        await jobs.enqueue(session, social.DELETE_FILES_JOB, {"keys": list(keys)})
 
 
 async def edit_message(
@@ -218,6 +327,8 @@ async def edit_message(
         raise Problem(404, "message-not-found", detail="Сообщение не найдено")
     if message.author_id != user.id:
         raise Problem(403, "not-your-message", detail="Изменить можно только своё сообщение")
+    if await chat.attachments.for_messages(session, [message.id]):
+        raise Problem(422, "not-editable", detail="Голосовое сообщение нельзя изменить")
     try:
         changed = await chat.edit_message(session, message, text, now)
     except chat.EditWindowError:
@@ -245,6 +356,7 @@ async def delete_message(
     if message.author_id != user.id:
         raise Problem(403, "not-your-message", detail="Удалить можно только своё сообщение")
     await chat.delete_message(session, message, now)
+    await _delete_files(session, await chat.attachments.remove_for_message(session, message.id))
     await session.commit()
     await publish(
         session,
@@ -267,8 +379,9 @@ async def hide_conversation(
 async def purge_ended_coop_chats(session: AsyncSession, now: datetime) -> int:
     """Delete co-op chats 30 days after their quest is over, for everyone."""
     coops = await quests.coop.ended_before(session, now - COOP_CHAT_TTL)
-    chats = await chat.conversations_for_coops(session, coops)
-    return await chat.delete_conversations(session, list(chats.values()))
+    chats = list((await chat.conversations_for_coops(session, coops)).values())
+    await _delete_files(session, await chat.attachments.remove_for_conversations(session, chats))
+    return await chat.delete_conversations(session, chats)
 
 
 async def mark_read(
@@ -301,8 +414,7 @@ async def _message_created(session: AsyncSession, params: Mapping[str, Any]) -> 
     message = await session.get(chat.Message, int(params["message_id"]))
     if message is None or message.deleted_at is not None:
         return None
-    author = await auth.get_user(session, message.author_id)
-    data = message_schema(message, user_summary(author, message.author_id))
+    [data] = await message_views(session, [message])
     return Delivery(
         await _members(session, message.conversation_id),
         {

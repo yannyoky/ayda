@@ -2,7 +2,10 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEven
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
 import { useConversation, useDeleteMessage, useEditMessage, useHideConversation, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
+import { uploadVoice } from '../api/media'
 import { MeetupSheet } from '../features/chat/MeetupSheet'
+import { VoiceMessage } from '../features/chat/VoiceMessage'
+import { canRecordVoice, formatSeconds, useVoiceRecorder } from '../features/chat/useVoiceRecorder'
 import { t } from '../i18n'
 import { useRealtimeStatus } from '../realtime/realtime'
 import { useBackButton } from '../telegram/useBackButton'
@@ -15,6 +18,9 @@ interface Pending {
   client_id: string
   text: string
   failed: boolean
+  /** A recording to upload first; kept until the message is saved so a retry can resend it. */
+  voice?: Blob
+  attachment_id?: string
 }
 
 const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
@@ -45,6 +51,8 @@ export function ChatScreen() {
   const [selected, setSelected] = useState<number | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [organizing, setOrganizing] = useState(false)
+  const recorder = useVoiceRecorder()
+  const [canRecord] = useState(canRecordVoice)
   const end = useRef<HTMLDivElement>(null)
   const readUpTo = useRef(0)
 
@@ -67,14 +75,31 @@ export function ChatScreen() {
     }
   }, [newest, lastRead, mark])
 
-  function deliver(item: Pending) {
+  function fail(item: Pending) {
+    setPending((cur) => cur.map((p) => (p.client_id === item.client_id ? { ...p, failed: true } : p)))
+  }
+
+  async function deliver(item: Pending) {
     setPending((cur) => [...cur.filter((p) => p.client_id !== item.client_id), { ...item, failed: false }])
+    let attachmentId = item.attachment_id
+    if (item.voice && !attachmentId) {
+      try {
+        attachmentId = await uploadVoice(id, item.voice)
+      } catch (e) {
+        fail(item)
+        if (e instanceof ApiError && e.status === 429) setNotice(t.chats.tooMany)
+        return
+      }
+      const uploaded = { ...item, attachment_id: attachmentId, failed: false }
+      setPending((cur) => cur.map((p) => (p.client_id === uploaded.client_id ? uploaded : p)))
+    }
+    const body = attachmentId ? { client_id: item.client_id, attachment_id: attachmentId } : { text: item.text, client_id: item.client_id }
     send.mutate(
-      { text: item.text, client_id: item.client_id },
+      body,
       {
         onSuccess: () => haptic('tap'),
         onError: (e) => {
-          setPending((cur) => cur.map((p) => (p.client_id === item.client_id ? { ...p, failed: true } : p)))
+          fail(item)
           if (e instanceof ApiError && e.status === 429) setNotice(t.chats.tooMany)
           if (e instanceof ApiError && e.status === 403) void conversation.refetch()
         },
@@ -110,7 +135,13 @@ export function ChatScreen() {
     }
     setText('')
     setNotice(null)
-    deliver({ client_id: crypto.randomUUID(), text: value, failed: false })
+    void deliver({ client_id: crypto.randomUUID(), text: value, failed: false })
+  }
+
+  async function recordVoice() {
+    setNotice(null)
+    const blob = await recorder.start()
+    if (blob) void deliver({ client_id: crypto.randomUUID(), text: '', failed: false, voice: blob })
   }
 
   function deleteMessage(m: Schemas['Message']) {
@@ -179,18 +210,32 @@ export function ChatScreen() {
             return (
               <li key={m.id} className={`flex max-w-[80%] flex-col ${mine ? 'items-end self-end' : 'items-start self-start'}`}>
                 {chat.kind === 'coop' && !mine && <span className="px-3 text-xs font-bold text-muted">{m.author.first_name}</span>}
-                <button
-                  type="button"
-                  disabled={!mine}
-                  onClick={() => setSelected((s) => (s === m.id ? null : m.id))}
-                  className={`rounded-[20px] px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
-                >
-                  {m.text}
-                  <span className={`ml-2 inline-block text-[11px] font-semibold ${mine ? 'text-on-plate/60' : 'text-muted'}`}>
-                    {m.edited_at && `${t.chats.edited} `}
-                    {timeFormat.format(new Date(m.created_at))}
-                  </span>
-                </button>
+                {m.attachment ? (
+                  <div
+                    className={`flex items-center gap-2 rounded-[20px] px-3 py-2 ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
+                  >
+                    <VoiceMessage attachment={m.attachment} mine={mine} onExpired={() => void messages.refetch()} />
+                    {mine && (
+                      <button type="button" aria-label={t.chats.delete} onClick={() => deleteMessage(m)} className="flex size-8 shrink-0 items-center justify-center rounded-full">
+                        <Icon name="trash" size={14} />
+                      </button>
+                    )}
+                    <span className={`text-[11px] font-semibold ${mine ? 'text-on-plate/60' : 'text-muted'}`}>{timeFormat.format(new Date(m.created_at))}</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!mine}
+                    onClick={() => setSelected((s) => (s === m.id ? null : m.id))}
+                    className={`rounded-[20px] px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
+                  >
+                    {m.text}
+                    <span className={`ml-2 inline-block text-[11px] font-semibold ${mine ? 'text-on-plate/60' : 'text-muted'}`}>
+                      {m.edited_at && `${t.chats.edited} `}
+                      {timeFormat.format(new Date(m.created_at))}
+                    </span>
+                  </button>
+                )}
                 {mine && selected === m.id && (
                   <span className="mt-1 flex gap-1.5">
                     {openedAt - Date.parse(m.created_at) < EDIT_WINDOW_MS && (
@@ -212,11 +257,18 @@ export function ChatScreen() {
               <button
                 type="button"
                 disabled={!p.failed}
-                onClick={() => deliver(p)}
-                aria-label={p.failed ? t.chats.failed : t.chats.sending}
+                onClick={() => void deliver(p)}
+                aria-label={p.failed ? t.chats.failed : p.voice ? t.chats.voiceSending : t.chats.sending}
                 className={`rounded-[20px] rounded-br-md px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${p.failed ? 'bg-surface text-ink outline-2 outline-accent' : 'bg-plate text-on-plate opacity-60'}`}
               >
-                {p.text}
+                {p.voice ? (
+                  <span className="flex items-center gap-2 font-bold">
+                    <Icon name="mic" size={18} />
+                    {t.chats.voice}
+                  </span>
+                ) : (
+                  p.text
+                )}
               </button>
               {p.failed && <span className="px-2 pt-0.5 text-xs font-bold text-muted">{t.chats.failed}</span>}
             </li>
@@ -237,7 +289,25 @@ export function ChatScreen() {
           </button>
         </p>
       )}
-      {chat.can_send ? (
+      {recorder.denied && (
+        <p role="status" className="m-0 px-4 pb-1 text-xs font-semibold text-muted">
+          {t.chats.micDenied}
+        </p>
+      )}
+      {chat.can_send && recorder.state === 'recording' ? (
+        <div className="flex items-center gap-2 px-4 pt-1 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <button type="button" onClick={recorder.cancel} aria-label={t.chats.cancelRecording} className="flex size-12 shrink-0 items-center justify-center rounded-field bg-surface">
+            <Icon name="close" size={18} />
+          </button>
+          <p role="timer" className="m-0 flex h-12 flex-1 items-center gap-2 rounded-field bg-surface px-4 text-[15px] font-bold">
+            <span className="size-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
+            {t.chats.recording(formatSeconds(recorder.seconds))}
+          </p>
+          <button type="button" onClick={recorder.stop} aria-label={t.chats.stopAndSend} className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent">
+            <Icon name="arrow" size={20} strokeWidth={2.4} />
+          </button>
+        </div>
+      ) : chat.can_send ? (
         <form onSubmit={submit} className="flex gap-2 px-4 pt-1 pb-[max(16px,env(safe-area-inset-bottom))]">
           <label htmlFor={inputId} className="sr-only">
             {t.chats.placeholder}
@@ -251,14 +321,26 @@ export function ChatScreen() {
             onChange={(e) => setText(e.target.value)}
             className="h-12 min-w-0 flex-1 rounded-field border-0 bg-surface px-4 text-[15px] font-medium placeholder:text-muted"
           />
-          <button
-            type="submit"
-            aria-label={editing ? t.chats.save : t.chats.send}
-            disabled={!text.trim()}
-            className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-40"
-          >
-            <Icon name="arrow" size={20} strokeWidth={2.4} />
-          </button>
+          {canRecord && !editing && !text.trim() ? (
+            <button
+              type="button"
+              onClick={() => void recordVoice()}
+              disabled={recorder.state !== 'idle'}
+              aria-label={t.chats.record}
+              className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-40"
+            >
+              <Icon name="mic" size={20} strokeWidth={2.4} />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              aria-label={editing ? t.chats.save : t.chats.send}
+              disabled={!text.trim()}
+              className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-40"
+            >
+              <Icon name="arrow" size={20} strokeWidth={2.4} />
+            </button>
+          )}
         </form>
       ) : (
         <p role="note" className="m-0 mx-4 mb-[max(16px,env(safe-area-inset-bottom))] rounded-card bg-surface p-4 text-sm font-semibold text-muted">

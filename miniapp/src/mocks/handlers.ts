@@ -432,13 +432,32 @@ export const handlers = [
       const c = db.findConversation(params.id)
       if (!c) return problem(404, 'Чат не найден')
       const body = await request.json()
-      if (!body.text?.trim() || body.text.length > 2000) return problem(422, 'Пустое или слишком длинное сообщение')
+      if (body.attachment_id) {
+        if (body.text !== undefined || !db.uploads.has(body.attachment_id)) return problem(422, 'Голосовое не найдено или уже отправлено')
+      } else if (!body.text?.trim() || body.text.length > 2000) return problem(422, 'Пустое или слишком длинное сообщение')
       const result = db.sendMessage(c, body)
       if (result === 'closed') return problem(403, 'Этот чат закрыт для новых сообщений', 'https://ayda.app/errors/chat-closed')
       if (result.created && import.meta.env.MODE !== 'test') setTimeout(() => db.replyFrom(c, '👍'), 2500)
       return HttpResponse.json(result.message, {
         status: result.created ? 201 : 200,
       })
+    }),
+  ),
+  http.post<{ id: string }, Schemas['ChatUploadInput'], DefaultBodyType>(
+    `${API}/conversations/:id/uploads`,
+    authed(async ({ params, request }) => {
+      if (!db.findConversation(params.id)) return problem(404, 'Чат не найден')
+      const body = await request.json()
+      if (body.size_bytes > 10_485_760) return problem(422, 'Голосовое больше 10 МБ')
+      const id = uuid()
+      db.uploads.set(id, { url: null })
+      const slot: Schemas['UploadSlot'] = {
+        media_id: id,
+        upload_url: new URL(`/mock-s3/${id}`, request.url).href,
+        headers: { 'Content-Type': body.content_type },
+        expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+      }
+      return HttpResponse.json(slot, { status: 201 })
     }),
   ),
   http.patch<{ id: string; messageId: string }, Schemas['MessageEdit'], DefaultBodyType>(

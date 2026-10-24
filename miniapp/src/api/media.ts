@@ -22,3 +22,29 @@ export async function uploadPhoto(file: File): Promise<string> {
   if (!response.ok) throw new Error(`upload failed: ${response.status}`)
   return slot.media_id
 }
+
+export const MAX_VOICE_BYTES = 10 * 1024 * 1024
+const VOICE_TYPES = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/aac', 'audio/mpeg'] as const
+type VoiceType = (typeof VOICE_TYPES)[number]
+
+/** The contract's type for a recording: MediaRecorder adds codecs (`audio/webm;codecs=opus`). */
+export function voiceType(blob: Blob): VoiceType | null {
+  const base = blob.type.split(';')[0]!.trim().toLowerCase()
+  return (VOICE_TYPES as readonly string[]).includes(base) ? (base as VoiceType) : null
+}
+
+/** ADR 0019: a presigned slot in the chat, then a PUT straight to storage. Returns the id
+ *  to send as `attachment_id`; the server re-encodes the recording before anyone plays it. */
+export async function uploadVoice(conversationId: string, blob: Blob): Promise<string> {
+  const contentType = voiceType(blob)
+  if (!contentType) throw new Error('unsupported recording type')
+  const slot = await unwrap(
+    api.POST('/conversations/{conversation_id}/uploads', {
+      params: { path: { conversation_id: conversationId } },
+      body: { kind: 'voice', content_type: contentType, size_bytes: blob.size },
+    }),
+  )
+  const response = await fetch(slot.upload_url, { method: 'PUT', headers: slot.headers, body: blob })
+  if (!response.ok) throw new Error(`upload failed: ${response.status}`)
+  return slot.media_id
+}

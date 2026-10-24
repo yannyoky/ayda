@@ -699,7 +699,13 @@ export class MockDb {
     const existing = c.messages.find((m) => m.client_id === input.client_id)
     if (existing) return { message: existing, created: false }
     if (!c.coopId && !this.friends.some((f) => f.id === c.peerId)) return 'closed'
-    return { message: this.addMessage(c, this.me.id, input.text.trim(), undefined, input.client_id), created: true }
+    const message = this.addMessage(c, this.me.id, input.text?.trim() ?? '', undefined, input.client_id)
+    if (input.attachment_id) {
+      // The mock "re-encodes" at once: the recording plays from the uploaded blob.
+      const url = this.uploads.get(input.attachment_id)?.url ?? 'data:audio/mp4;base64,AAAA'
+      message.attachment = { kind: 'voice', status: 'ready', duration_ms: 3000, url }
+    }
+    return { message, created: true }
   }
 
   /** Dev only: the friend answers, as if over realtime (picked up by polling). */

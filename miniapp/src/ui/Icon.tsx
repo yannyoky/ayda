@@ -34,6 +34,14 @@ const paths = {
   ),
   check: <path d="M20 6 9 17l-5-5" />,
   close: <path d="M18 6 6 18M6 6l12 12" />,
+  mic: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </>
+  ),
+  play: <path d="M7 5v14l11-7z" />,
+  pause: <path d="M8 5v14M16 5v14" />,
   plus: <path d="M12 5v14M5 12h14" />,
   chevron: <path d="m9 18 6-6-6-6" />,
   back: <path d="m15 18-6-6 6-6" />,

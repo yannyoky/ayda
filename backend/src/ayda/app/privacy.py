@@ -22,13 +22,15 @@ async def request_deletion(session: AsyncSession, user: auth.User) -> None:
 
 async def erase_account(session: AsyncSession, user_id: uuid.UUID) -> bool:
     """Erase profile, habits, check-ins, quests, points, posts, comments, likes, friendships,
-    photos, messages, chat memberships and the assistant chat; anonymize analytics events.
-    Runs in one transaction; photo files are deleted by a follow-up job."""
+    photos, messages, voice messages, chat memberships and the assistant chat; anonymize
+    analytics events.
+    Runs in one transaction; photo and voice files are deleted by a follow-up job."""
     user = await auth.get_user(session, user_id)
     if user is None or user.deletion_requested_at is None:
         return False
     keys = await social.erase_user(session, user_id)
     await quests.erase_user(session, user_id)
+    keys += await chat.attachments.remove_for_owner(session, user_id)
     await chat.erase_user(session, user_id)
     await assistant.chat.erase_user(session, user_id)
     await habits.erase_user(session, user_id)

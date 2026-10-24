@@ -23,6 +23,7 @@ from ayda.api import (
     system,
 )
 from ayda.api import events as events_api
+from ayda.app import chat as chat_app
 from ayda.app.day import DayTools
 from ayda.core.config import Settings, get_settings
 from ayda.core.db import Database
@@ -65,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db = db
     app.state.day_tools = day_tools
     app.state.storage = Storage(settings)
+    chat_app.use_storage(app.state.storage)
     app.state.realtime = Realtime(settings, http)
     app.state.mailer = Mailer(settings)
     install_problem_handlers(app)

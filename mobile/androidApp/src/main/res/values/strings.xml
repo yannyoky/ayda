@@ -285,6 +285,16 @@
     <string name="chats_hide_confirm">Удалить чат у себя? У остальных он останется. Если придёт новое сообщение, чат вернётся без старой переписки.</string>
     <string name="chats_hide_yes">Удалить</string>
     <string name="chats_deletes_at">Квест закончился, чат удалится у всех %1$s</string>
+    <string name="chats_voice">Голосовое сообщение</string>
+    <string name="chats_record">Записать голосовое</string>
+    <string name="chats_recording">Запись %1$s</string>
+    <string name="chats_stop_and_send">Отправить голосовое</string>
+    <string name="chats_cancel_recording">Отменить запись</string>
+    <string name="chats_mic_denied">Нет доступа к микрофону. Разреши его в настройках</string>
+    <string name="chats_voice_play">Слушать</string>
+    <string name="chats_voice_pause">Пауза</string>
+    <string name="chats_voice_processing">Голосовое обрабатывается…</string>
+    <string name="chats_voice_failed">Не получилось обработать голосовое</string>
     <string name="coop_eyebrow">Совместный квест</string>
     <string name="coop_invites_title">Тебя зовут вместе</string>
     <string name="coop_invited_by">%1$s зовёт</string>
