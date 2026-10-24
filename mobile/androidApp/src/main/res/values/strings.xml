@@ -386,6 +386,12 @@
     <string name="meetup_kind_bar">бар</string>
     <string name="meetup_kind_pub">паб</string>
     <string name="meetup_kind_fast_food">фастфуд</string>
+    <string name="meetup_kind_park">парк</string>
+    <string name="meetup_kind_garden">сад</string>
+    <string name="meetup_kind_embankment">набережная</string>
+    <string name="meetup_kind_viewpoint">смотровая</string>
+    <string name="meetup_kind_square">площадь</string>
+    <string name="meetup_change_time">Изменить время</string>
     <string name="meetup_reviews">Отзывы и средний чек</string>
     <string name="meetup_gis">2ГИС</string>
     <string name="meetup_yandex">Яндекс Карты</string>

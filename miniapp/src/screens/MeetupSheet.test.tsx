@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { db } from '../mocks/db'
 import { renderApp } from '../test/render'
@@ -28,6 +28,21 @@ describe('"Айда, организуй" in a chat (M5)', () => {
     expect(await screen.findByRole('heading', { name: 'Встреча: Кофейня на углу' })).toBeInTheDocument()
     expect(screen.getByText(/Сегодня в \d\d:\d\d · Кофейня на углу · Ленина, 1/)).toBeInTheDocument()
     expect(db.coops.at(-1)!.place?.name).toBe('Кофейня на углу')
+  })
+
+  it('lets the user change the proposed time before choosing a place', async () => {
+    const user = userEvent.setup()
+    const chat = chatWith('Го в кафе?')
+    renderApp(`/chats/${chat.id}`)
+    await user.click(await screen.findByRole('button', { name: 'Айда, организуй' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Встреча' })
+    const input = await within(sheet).findByLabelText('Время')
+    fireEvent.change(input, { target: { value: '23:59' } })
+    expect(within(sheet).getByText('Сегодня в 23:59')).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Выбрать Кофейня на углу' }))
+    await screen.findByRole('heading', { name: 'Встреча: Кофейня на углу' })
+    const startsAt = new Date(db.coops.at(-1)!.startsAt!)
+    expect([startsAt.getHours(), startsAt.getMinutes()]).toEqual([23, 59])
   })
 
   it('offers an online plan when the friends talk about a game', async () => {

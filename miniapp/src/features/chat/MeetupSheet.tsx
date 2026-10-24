@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Schemas } from '../../api/client'
 import { usePickMeetup, useSuggestMeetup } from '../../api/queries'
@@ -8,24 +8,42 @@ import { Sheet } from '../../ui/Sheet'
 
 const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
 
+function pad(n: number) {
+  return String(n).padStart(2, '0')
+}
+
+/** Today's date with the "HH:MM" of a time input, as the moment the plan starts. */
+function startsAtToday(hhmm: string): Date | null {
+  const [h, m] = hhmm.split(':').map(Number)
+  if (h === undefined || m === undefined || Number.isNaN(h) || Number.isNaN(m)) return null
+  const at = new Date()
+  at.setHours(h, m, 0, 0)
+  return at
+}
+
 /** "Айда, организуй": the assistant read the last messages on this tap; code found the places. */
 export function MeetupSheet({ conversationId, onClose }: { conversationId: string; onClose: () => void }) {
   const navigate = useNavigate()
   const suggest = useSuggestMeetup(conversationId)
   const pick = usePickMeetup(conversationId)
   const { mutate: load } = suggest
+  const [edited, setEdited] = useState<string | null>(null)
 
   useEffect(() => {
     load()
   }, [load])
 
   const offer = suggest.data
-  const time = offer?.starts_at ? timeFormat.format(new Date(offer.starts_at)) : null
+  const proposed = offer?.starts_at ? timeFormat.format(new Date(offer.starts_at)) : null
+  const time = edited ?? proposed
+  const startsAt = edited ? startsAtToday(edited) : offer?.starts_at ? new Date(offer.starts_at) : null
+  const now = new Date()
+  const invalidTime = startsAt === null || (edited !== null && startsAt.getTime() < now.getTime() - 60_000)
 
   function choose(body: Omit<Schemas['MeetupPick'], 'starts_at'>) {
-    if (!offer?.starts_at) return
+    if (!startsAt || invalidTime) return
     pick.mutate(
-      { ...body, starts_at: offer.starts_at },
+      { ...body, starts_at: startsAt.toISOString() },
       {
         onSuccess: (coop) => {
           haptic('success')
@@ -55,14 +73,33 @@ export function MeetupSheet({ conversationId, onClose }: { conversationId: strin
           </div>
         )}
         {offer?.note && <p className="m-0 rounded-card bg-surface p-4 text-sm font-bold">{offer.note}</p>}
-        {offer && time && offer.kind !== 'unclear' && <p className="m-0 font-display text-base font-bold">{t.meetup.when(time)}</p>}
+        {offer && time && offer.kind !== 'unclear' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="m-0 font-display text-base font-bold">{t.meetup.when(time)}</p>
+            <label className="flex items-center gap-2 text-sm font-bold text-muted">
+              {t.meetup.time}
+              <input
+                type="time"
+                value={time}
+                min={`${pad(now.getHours())}:${pad(now.getMinutes())}`}
+                onChange={(e) => setEdited(e.target.value || null)}
+                className="h-11 rounded-field bg-surface px-3 text-sm font-extrabold text-ink"
+              />
+            </label>
+          </div>
+        )}
+        {invalidTime && edited !== null && (
+          <p role="alert" className="m-0 text-sm font-bold">
+            {t.meetup.pastTime}
+          </p>
+        )}
 
         {offer?.kind === 'online' && offer.activity && (
           <div className="flex flex-col gap-3 rounded-card bg-surface p-4">
             <span className="text-[15px] font-extrabold">{t.meetup.online(offer.activity)}</span>
             <button
               type="button"
-              disabled={pick.isPending}
+              disabled={pick.isPending || invalidTime}
               onClick={() => choose({ activity: offer.activity })}
               className="h-12 rounded-[16px] bg-plate text-sm font-extrabold text-on-plate disabled:opacity-50"
             >
@@ -94,7 +131,7 @@ export function MeetupSheet({ conversationId, onClose }: { conversationId: strin
                 <button
                   type="button"
                   aria-label={t.meetup.choose(v.name)}
-                  disabled={pick.isPending}
+                  disabled={pick.isPending || invalidTime}
                   onClick={() => choose({ venue_id: v.id })}
                   className="h-12 rounded-[16px] bg-plate text-sm font-extrabold text-on-plate disabled:opacity-50"
                 >

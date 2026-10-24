@@ -47,6 +47,7 @@ from ayda.modules.events.venues import (
     venue_place,
 )
 from ayda.modules.events.venues import candidates as venue_candidates
+from ayda.modules.events.venues import find_named as find_named_venue
 from ayda.modules.events.venues import is_loaded as venues_loaded
 from ayda.modules.events.weather import Weather, WeatherClient
 
@@ -75,6 +76,7 @@ __all__ = [
     "WeatherClient",
     "cities_to_load",
     "city_point",
+    "find_named_venue",
     "get_cities",
     "get_city",
     "get_listings",

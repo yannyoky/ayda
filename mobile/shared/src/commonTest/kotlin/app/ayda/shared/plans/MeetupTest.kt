@@ -24,6 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MeetupTest {
@@ -110,6 +111,22 @@ class MeetupTest {
             assertEquals("k1", created)
             assertTrue(
                 """POST /conversations/c1/meetup/pick {"starts_at":"2026-10-23T16:00:00Z","venue_id":7}""" in calls,
+                calls.toString(),
+            )
+        }
+
+    @Test
+    fun aTimeEditedByTheUserIsSentInsteadOfTheOfferedOne() =
+        runTest(dispatcher) {
+            val model = MeetupViewModel(client(), "c1")
+            advanceUntilIdle()
+
+            model.setTime(Instant.parse("2026-10-23T12:00:00Z"))
+            model.pick(7L) {}
+            advanceUntilIdle()
+
+            assertTrue(
+                """POST /conversations/c1/meetup/pick {"starts_at":"2026-10-23T12:00:00Z","venue_id":7}""" in calls,
                 calls.toString(),
             )
         }
