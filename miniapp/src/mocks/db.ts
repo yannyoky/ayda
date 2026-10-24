@@ -13,6 +13,7 @@ type Visibility = Schemas['Visibility']
 export const MAX_TAKEN = 30
 export const MAX_SCORED = 5
 export const MAX_REPLACEMENTS = 5
+const COOP_CHAT_TTL_MS = 30 * 24 * 3600 * 1000
 export const ASSISTANT_DAILY_LIMIT = 40
 export const ASSISTANT_REPLY_CHECKIN = 'Записала твой план и собираю квесты. Пиши, если хочешь что-то обсудить: места, блюда, идеи на вечер.'
 
@@ -73,6 +74,8 @@ interface StoredConversation {
   createdAt: string
   messages: Schemas['Message'][]
   lastRead: number | null
+  /** "Удалить у себя": older messages are gone for me */
+  hiddenAt?: string
 }
 
 interface StoredCoop {
@@ -643,7 +646,19 @@ export class MockDb {
       unread_count: c.messages.filter((m) => m.id > (c.lastRead ?? 0) && m.author.id !== this.me.id).length,
       last_read_message_id: c.lastRead,
       updated_at: last?.created_at ?? c.createdAt,
+      deletes_at: coop ? new Date(Date.parse(coop.expiresAt) + COOP_CHAT_TTL_MS).toISOString() : null,
     }
+  }
+
+  /** "Удалить у себя": the chat comes back only with newer messages. */
+  hideConversation(c: StoredConversation): void {
+    c.hiddenAt = new Date().toISOString()
+    c.lastRead = c.messages.at(-1)?.id ?? c.lastRead
+  }
+
+  private visible(c: StoredConversation): boolean {
+    const last = c.messages.at(-1)
+    return !c.hiddenAt || (last !== undefined && last.created_at > c.hiddenAt)
   }
 
   /** Chats the user is in: DMs, and co-op chats once owner or joined. */
@@ -655,7 +670,7 @@ export class MockDb {
 
   listConversations(): Schemas['Conversation'][] {
     return this.conversations
-      .filter((c) => this.member(c))
+      .filter((c) => this.member(c) && this.visible(c))
       .map((c) => this.conversation(c)).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   }
 
@@ -675,7 +690,7 @@ export class MockDb {
 
   messages(c: StoredConversation, cursor: string | null, limit: number): Schemas['MessagePage'] {
     const before = cursor ? Number(cursor) : Infinity
-    const older = c.messages.filter((m) => m.id < before).reverse()
+    const older = c.messages.filter((m) => m.id < before && (!c.hiddenAt || m.created_at > c.hiddenAt)).reverse()
     const items = older.slice(0, limit)
     return { items, next_cursor: older.length > limit ? String(items.at(-1)!.id) : null }
   }

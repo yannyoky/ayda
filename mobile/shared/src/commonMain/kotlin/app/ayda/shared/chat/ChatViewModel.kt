@@ -42,6 +42,10 @@ data class ChatState(
     val selected: Long? = null,
     /** The message the user is asked to confirm deleting. */
     val deleting: Message? = null,
+    /** The user is asked to confirm "Удалить у себя". */
+    val askingHide: Boolean = false,
+    /** The chat was deleted for this user: the screen closes. */
+    val hidden: Boolean = false,
     /** Too many messages a minute (429). */
     val tooFast: Boolean = false,
     val error: String? = null,
@@ -57,6 +61,8 @@ class ChatViewModel(
     private val conversationId: String,
     /** Called after the chat was marked read, so the chat list can clear its badge at once. */
     private val onRead: (conversationId: String, lastReadMessageId: Long) -> Unit = { _, _ -> },
+    /** Called after the chat was deleted for this user, so the chat list drops it at once. */
+    private val onHidden: (conversationId: String) -> Unit = {},
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(ChatState())
     val state: StateFlow<ChatState> = mutableState.asStateFlow()
@@ -144,6 +150,24 @@ class ChatViewModel(
             when (val removed = apiCall({ client.chat.deleteMessage(conversationId, message.id) }) {}) {
                 is ApiResult.Ok -> remove(message.id)
                 else -> mutableState.update { it.copy(error = removed.errorText()) }
+            }
+        }
+    }
+
+    fun askHide() = mutableState.update { it.copy(askingHide = true) }
+
+    fun cancelHide() = mutableState.update { it.copy(askingHide = false) }
+
+    /** "Удалить у себя": the chat leaves this user's list; the others keep it. */
+    fun confirmHide() {
+        mutableState.update { it.copy(askingHide = false) }
+        viewModelScope.launch {
+            when (val hidden = apiCall({ client.chat.hideConversation(conversationId) }) {}) {
+                is ApiResult.Ok -> {
+                    mutableState.update { it.copy(hidden = true) }
+                    onHidden(conversationId)
+                }
+                else -> mutableState.update { it.copy(error = hidden.errorText()) }
             }
         }
     }

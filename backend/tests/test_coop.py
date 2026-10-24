@@ -6,6 +6,7 @@ import httpx
 import pytest
 from sqlalchemy import select, update
 
+from ayda.app import chat as chat_app
 from ayda.app import coop as coop_app
 from ayda.app import notifications
 from ayda.core.config import Settings
@@ -251,3 +252,21 @@ async def test_erasing_the_owner_removes_the_coop(
     # Bob keeps his quest of the day.
     assert [q["source"] for q in await today_quests(client, bob)] == ["coop"]
     assert (await today_quests(client, bob))[0]["coop_id"] is None
+
+
+async def test_a_coop_chat_is_deleted_30_days_after_the_quest(
+    client: httpx.AsyncClient, realtime: FakeRealtime, database: Database
+) -> None:
+    alice, bob, _ = await trio(client)
+    coop = (await create(client, alice, await own_quest(client, alice), bob)).json()
+    await answer(client, bob, coop["id"], "accept")
+    [chat] = (await client.get("/conversations", headers=alice.headers)).json()["items"]
+    assert chat["kind"] == "coop"
+    ends = datetime.fromisoformat(chat["deletes_at"]) - timedelta(days=30)
+    assert ends == datetime.fromisoformat(coop["expires_at"])
+
+    async with database.sessionmaker() as session:
+        assert await chat_app.purge_ended_coop_chats(session, ends + timedelta(days=29)) == 0
+        assert await chat_app.purge_ended_coop_chats(session, ends + timedelta(days=31)) == 1
+        await session.commit()
+    assert (await client.get("/conversations", headers=bob.headers)).json()["items"] == []

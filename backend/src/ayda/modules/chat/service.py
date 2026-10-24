@@ -5,6 +5,7 @@ import base64
 import uuid
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -130,7 +131,10 @@ async def user_conversations(
     rows = await session.execute(
         select(Conversation, Member)
         .join(Member, Member.conversation_id == Conversation.id)
-        .where(Member.user_id == user_id)
+        .where(
+            Member.user_id == user_id,
+            Member.hidden_at.is_(None) | (Conversation.last_message_at > Member.hidden_at),
+        )
         .order_by(
             func.coalesce(Conversation.last_message_at, Conversation.created_at).desc(),
             Conversation.id.desc(),
@@ -226,12 +230,18 @@ async def delete_message(session: AsyncSession, message: Message, now: datetime)
 
 
 async def messages_page(
-    session: AsyncSession, conversation_id: uuid.UUID, cursor: str | None, limit: int
+    session: AsyncSession,
+    conversation_id: uuid.UUID,
+    cursor: str | None,
+    limit: int,
+    since: datetime | None = None,
 ) -> tuple[list[Message], str | None]:
-    """Newest first."""
+    """Newest first; only messages after `since` (the member hid the chat then)."""
     query = select(Message).where(
         Message.conversation_id == conversation_id, Message.deleted_at.is_(None)
     )
+    if since is not None:
+        query = query.where(Message.created_at > since)
     if cursor:
         query = query.where(Message.id < _decode_cursor(cursor))
     rows = list(await session.scalars(query.order_by(Message.id.desc()).limit(limit + 1)))
@@ -302,6 +312,27 @@ async def mark_read(session: AsyncSession, member: Member, message_id: int) -> i
         return None
     member.last_read_message_id = target
     return target
+
+
+async def hide(session: AsyncSession, member: Member, now: datetime) -> None:
+    """ "Удалить у себя": hide the chat and everything in it so far, and mark it read."""
+    member.hidden_at = now
+    newest = await session.scalar(
+        select(func.max(Message.id)).where(Message.conversation_id == member.conversation_id)
+    )
+    if newest is not None and newest > (member.last_read_message_id or 0):
+        member.last_read_message_id = newest
+
+
+async def delete_conversations(session: AsyncSession, conversation_ids: Sequence[uuid.UUID]) -> int:
+    """Delete chats with all their messages and members, for everyone."""
+    if not conversation_ids:
+        return 0
+    ids = list(conversation_ids)
+    await session.execute(delete(Message).where(Message.conversation_id.in_(ids)))
+    await session.execute(delete(Member).where(Member.conversation_id.in_(ids)))
+    result = await session.execute(delete(Conversation).where(Conversation.id.in_(ids)))
+    return cast(Any, result).rowcount or 0
 
 
 async def erase_user(session: AsyncSession, user_id: uuid.UUID) -> None:

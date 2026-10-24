@@ -203,7 +203,7 @@ M5 (ADR 0010) добавляет коопы из частей: **quests.coops** 
 
 ### chat (M2)
 
-**chat.conversations**: id, kind (`dm` \| `coop`), dm_key text unique null (два id пользователей по порядку, чтобы у пары был один чат), coop_id unique null, created_at, last_message_at null. **chat.members**: conversation_id FK, user_id, last_read_message_id bigint null, joined_at; PK по обоим. **chat.messages**: id bigint identity, conversation_id FK, author_id, client_id uuid null (уникален вместе с author_id: повторные отправки сохраняются один раз), text varchar(2000), created_at, deleted_at null (удалённое сообщение сразу теряет текст).
+**chat.conversations**: id, kind (`dm` \| `coop`), dm_key text unique null (два id пользователей по порядку, чтобы у пары был один чат), coop_id unique null, created_at, last_message_at null. **chat.members**: conversation_id FK, user_id, last_read_message_id bigint null, joined_at, hidden_at null («Удалить у себя», ADR 0019: старые сообщения у этого участника скрыты); PK по обоим. **chat.messages**: id bigint identity, conversation_id FK, author_id, client_id uuid null (уникален вместе с author_id: повторные отправки сохраняются один раз), text varchar(2000), created_at, deleted_at null (удалённое сообщение сразу теряет текст).
 
 Открыть личный чат могут только друзья; после удаления дружбы чат остаётся доступным для чтения, но новые сообщения не принимает, и бывшему другу больше ничего не публикуется. Участники получают каждое новое сообщение через Centrifugo; бот отправляет «Тебе пишет <name>» через минуту, не чаще раза в 10 минут на чат и только если сообщение всё ещё не прочитано. Пользователь может отправить не больше 30 сообщений в минуту.
 
@@ -247,7 +247,7 @@ M5 (ADR 0010) добавляет коопы из частей: **quests.coops** 
 | Текст чек-ина | quests.checkins.text | 30 дней, затем обнуляется |
 | Текст чата с помощником | assistant.messages | удаляется после местного дня |
 | Фото | S3 в России | до удаления пруфа или аккаунта; EXIF удалён |
-| Комментарии, сообщения | social.comments, chat.messages | до удаления или удаления аккаунта |
+| Комментарии, сообщения | social.comments, chat.messages | до удаления или удаления аккаунта; чат совместного квеста через 30 дней после его конца (ADR 0019) |
 | Поведенческие события | analytics.events | хранятся, при удалении аккаунта обезличиваются |
 
 ### Где лежат данные (152-ФЗ)

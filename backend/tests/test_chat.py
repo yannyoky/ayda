@@ -287,3 +287,32 @@ async def test_failed_publish_does_not_lose_the_message(
         "params": {"message_id": sent.json()["id"]},
     }
     await app.state.realtime.aclose()
+
+
+async def test_a_chat_deleted_for_me_comes_back_with_only_new_messages(
+    client: httpx.AsyncClient, realtime: FakeRealtime
+) -> None:
+    alice, bob = await pair(client)
+    conversation = await open_dm(client, alice, bob)
+    await send(client, bob, conversation["id"], "старое")
+
+    hidden = await client.delete(f"/conversations/{conversation['id']}", headers=alice.headers)
+    assert hidden.status_code == 204
+    assert_matches(hidden, "hideConversation")
+    assert (await client.get("/conversations", headers=alice.headers)).json()["items"] == []
+    [kept] = (await client.get("/conversations", headers=bob.headers)).json()["items"]
+    assert kept["last_message"]["text"] == "старое" and kept["deletes_at"] is None
+
+    await send(client, bob, conversation["id"], "новое")
+    [back] = (await client.get("/conversations", headers=alice.headers)).json()["items"]
+    assert back["unread_count"] == 1
+    page = await client.get(f"/conversations/{conversation['id']}/messages", headers=alice.headers)
+    assert [m["text"] for m in page.json()["items"]] == ["новое"]
+    bob_page = await client.get(
+        f"/conversations/{conversation['id']}/messages", headers=bob.headers
+    )
+    assert [m["text"] for m in bob_page.json()["items"]] == ["новое", "старое"]
+
+    stranger = await sign_in(client, 3003, "Ева")
+    missing = await client.delete(f"/conversations/{conversation['id']}", headers=stranger.headers)
+    assert missing.status_code == 404

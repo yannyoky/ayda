@@ -35,6 +35,9 @@ class Member(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     last_read_message_id: Mapped[int | None] = mapped_column(BigInteger)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # "Удалить у себя": the chat and its older messages are gone for this member; a newer
+    # message brings the chat back with only what came after.
+    hidden_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Message(Base):

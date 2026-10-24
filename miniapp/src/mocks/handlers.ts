@@ -408,6 +408,15 @@ export const handlers = [
       return c ? HttpResponse.json(db.conversation(c)) : problem(404, 'Чат не найден')
     }),
   ),
+  http.delete<{ id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/conversations/:id`,
+    authed(({ params }) => {
+      const c = db.findConversation(params.id)
+      if (!c) return problem(404, 'Чат не найден')
+      db.hideConversation(c)
+      return new HttpResponse(null, { status: 204 })
+    }),
+  ),
   http.get<{ id: string }, DefaultBodyType, DefaultBodyType>(
     `${API}/conversations/:id/messages`,
     authed(({ params, request }) => {

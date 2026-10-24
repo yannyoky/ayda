@@ -273,7 +273,7 @@ private fun SignedInHome(
                         // Polling and live updates for a chat stop as soon as it is closed.
                         val model =
                             viewModel(viewModelStoreOwner = rememberScreenStore(id)) {
-                                ChatViewModel(client, realtime, id, chats::markedRead)
+                                ChatViewModel(client, realtime, id, chats::markedRead, chats::hidden)
                             }
                         ChatScreen(model, me.id, onBack = back, onMeetup = { meetupChat = id })
                     }

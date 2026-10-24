@@ -439,6 +439,21 @@ export function useDeleteMessage(conversationId: string) {
   })
 }
 
+/** "Удалить у себя": the chat leaves my list; the others keep it. */
+export function useHideConversation(conversationId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE('/conversations/{conversation_id}', { params: { path: { conversation_id: conversationId } } })),
+    onSuccess: () => {
+      client.setQueryData<{ items: Schemas['Conversation'][] }>(conversationsKey, (data) =>
+        data ? { items: data.items.filter((c) => c.id !== conversationId) } : data,
+      )
+      client.removeQueries({ queryKey: messagesKey(conversationId) })
+      void client.invalidateQueries({ queryKey: conversationsKey })
+    },
+  })
+}
+
 export function useMarkRead(conversationId: string) {
   const client = useQueryClient()
   return useMutation({

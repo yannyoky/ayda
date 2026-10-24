@@ -51,6 +51,14 @@ async def get_conversation(
     return await chat_app.conversation_view(session, user.id, conversation_id)
 
 
+@router.delete("/conversations/{conversation_id}", operation_id="hideConversation", status_code=204)
+async def hide_conversation(
+    conversation_id: uuid.UUID, user: CurrentUser, session: DbSession
+) -> Response:
+    await chat_app.hide_conversation(session, user, conversation_id, datetime.now(UTC))
+    return Response(status_code=204)
+
+
 @router.get("/conversations/{conversation_id}/messages", operation_id="listMessages")
 async def list_messages(
     conversation_id: uuid.UUID,
@@ -59,9 +67,11 @@ async def list_messages(
     cursor: Cursor = None,
     limit: Limit = 20,
 ) -> MessagePage:
-    await chat_app.get_conversation(session, user.id, conversation_id)
+    _, member = await chat_app.get_conversation(session, user.id, conversation_id)
     try:
-        messages, next_cursor = await chat.messages_page(session, conversation_id, cursor, limit)
+        messages, next_cursor = await chat.messages_page(
+            session, conversation_id, cursor, limit, member.hidden_at
+        )
     except chat.CursorError:
         raise Problem(422, "invalid-cursor", detail="Неверный курсор") from None
     authors = await auth.get_users(session, list({m.author_id for m in messages}))

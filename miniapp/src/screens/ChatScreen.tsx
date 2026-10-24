@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
-import { useConversation, useDeleteMessage, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
+import { useConversation, useDeleteMessage, useHideConversation, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
 import { MeetupSheet } from '../features/chat/MeetupSheet'
 import { t } from '../i18n'
 import { useRealtimeStatus } from '../realtime/realtime'
@@ -18,6 +18,8 @@ interface Pending {
 }
 
 const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
+const COOP_CHAT_TTL_MS = 30 * 24 * 3600 * 1000
+const dayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
 
 /** US-17: one chat. Messages arrive over Centrifugo, or by polling when realtime is off. */
 export function ChatScreen() {
@@ -32,6 +34,8 @@ export function ChatScreen() {
   const send = useSendMessage(id)
   const remove = useDeleteMessage(id)
   const markRead = useMarkRead(id)
+  const hide = useHideConversation(id)
+  const [openedAt] = useState(() => Date.now())
   const inputId = useId()
   const [text, setText] = useState('')
   const [pending, setPending] = useState<Pending[]>([])
@@ -90,6 +94,11 @@ export function ChatScreen() {
     remove.mutate(m.id)
   }
 
+  function hideChat() {
+    if (!window.confirm(t.chats.hideConfirm)) return
+    hide.mutate(undefined, { onSuccess: () => navigate('/chats') })
+  }
+
   if (conversation.isError) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-[480px] flex-col gap-3 p-4">
@@ -113,7 +122,16 @@ export function ChatScreen() {
             {t.meetup.button}
           </button>
         )}
+        <button type="button" aria-label={t.chats.hide} onClick={hideChat} disabled={hide.isPending} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
+          <Icon name="trash" size={18} />
+        </button>
       </header>
+      {/* Shown once the quest is over: the chat is deleted 30 days after that */}
+      {chat.deletes_at && Date.parse(chat.deletes_at) - openedAt < COOP_CHAT_TTL_MS && (
+        <p role="note" className="m-0 mx-4 mb-2 rounded-field bg-surface px-3.5 py-2 text-xs font-bold text-muted">
+          {t.chats.deletesAt(dayFormat.format(new Date(chat.deletes_at)))}
+        </p>
+      )}
       {organizing && <MeetupSheet conversationId={id} onClose={() => setOrganizing(false)} />}
       <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-4 pb-3" aria-live="polite">
         {messages.hasNextPage && (

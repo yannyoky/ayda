@@ -203,7 +203,7 @@ Personal quests never create a post.
 
 ### chat (M2)
 
-**chat.conversations**: id, kind (`dm` \| `coop`), dm_key text unique null (the two user ids ordered, so a pair has one chat), coop_id unique null, created_at, last_message_at null. **chat.members**: conversation_id FK, user_id, last_read_message_id bigint null, joined_at; PK both. **chat.messages**: id bigint identity, conversation_id FK, author_id, client_id uuid null (unique with author_id: retries are saved once), text varchar(2000), created_at, deleted_at null (a deleted message loses its text at once).
+**chat.conversations**: id, kind (`dm` \| `coop`), dm_key text unique null (the two user ids ordered, so a pair has one chat), coop_id unique null, created_at, last_message_at null. **chat.members**: conversation_id FK, user_id, last_read_message_id bigint null, joined_at, hidden_at null ("Удалить у себя", ADR 0019: older messages are gone for this member); PK both. **chat.messages**: id bigint identity, conversation_id FK, author_id, client_id uuid null (unique with author_id: retries are saved once), text varchar(2000), created_at, deleted_at null (a deleted message loses its text at once).
 
 Only friends can open a DM; once the friendship is removed the chat stays readable but takes no new messages, and nothing more is published to the former friend. Members get each new message over Centrifugo; the bot sends "Тебе пишет <name>" a minute later, at most once per chat and 10 minutes, and only if the message is still unread. A user can send at most 30 messages a minute.
 
@@ -247,7 +247,7 @@ Partitioning by month can be added when the table grows; not needed for the MVP.
 | Check-in text | quests.checkins.text | 30 days, then set to null |
 | Assistant chat text | assistant.messages | deleted after the local day |
 | Photos | S3 in Russia | until the proof or account is deleted; EXIF removed |
-| Comments, messages | social.comments, chat.messages | until deleted or account deletion |
+| Comments, messages | social.comments, chat.messages | until deleted or account deletion; a co-op chat 30 days after its quest is over (ADR 0019) |
 | Behavior events | analytics.events | kept, anonymized on account deletion |
 
 ### Where the data lives (152-FZ)
