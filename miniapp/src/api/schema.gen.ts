@@ -371,17 +371,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me/goals": {
+    "/me/interests": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Goals the user picked */
-        get: operations["listMyGoals"];
-        /** Replace the user's goals (1-5, may be empty when skipped) */
-        put: operations["setMyGoals"];
+        /** Interests the user picked and their own words (ADR 0018) */
+        get: operations["listMyInterests"];
+        /**
+         * Replace the user's interests (up to 8 codes and 5 own words, may be empty)
+         * @description Own words are lower-cased, trimmed and deduplicated; links and addresses are rejected.
+         *     Interests rank quests, events and the assistant's suggestions; they never leave the
+         *     server in raw form except the catalog codes sent to the assistant.
+         */
+        put: operations["setMyInterests"];
         post?: never;
         delete?: never;
         options?: never;
@@ -445,15 +450,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/goals": {
+    "/interests": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Goal catalog for onboarding */
-        get: operations["listGoals"];
+        /** Interest catalog for onboarding and the profile */
+        get: operations["listInterests"];
         put?: never;
         post?: never;
         delete?: never;
@@ -757,7 +762,7 @@ export interface paths {
         /**
          * Write to the assistant and get its answer
          * @description The request waits for the answer (up to about 12 s). The assistant gets only the last
-         *     messages of the topic, mood, goals, weather and the quest, never the name or city; the
+         *     messages of the topic, mood, interests, weather and the quest, never the name or city; the
          *     text is not logged. Without a working assistant, code answers obvious requests itself
          *     (`source` is `code`). At most 40 messages a day (`assistant-limit`, 429).
          */
@@ -1412,14 +1417,16 @@ export interface components {
             region_name: string;
             timezone: string;
         };
-        Goal: {
-            /** @example more_movement */
+        Interest: {
+            /** @example music */
             code: string;
-            /** @example Больше двигаться */
+            /** @example Музыка и концерты */
             title: string;
         };
-        GoalSelection: {
-            goal_codes: string[];
+        InterestSelection: {
+            codes: string[];
+            /** @description The user's own interests in a word or two (up to 30 characters each). */
+            tags: string[];
         };
         /**
          * @description `more` = "want more", `less` = "want less".
@@ -1824,7 +1831,7 @@ export interface components {
             /** @enum {string} */
             kind: "places" | "events" | "dishes" | "quest";
             places: components["schemas"]["AssistantPlace"][];
-            /** @description Up to 5 listings of the user's region (or of a town in it the user named), the best fit for the request and the user's goals first (ADR 0015). */
+            /** @description Up to 5 listings of the user's region (or of a town in it the user named), the best fit for the request and the user's interests first (ADR 0015). */
             events: components["schemas"]["AssistantEvent"][];
             /** @description Open one with `getRecipe`; the cooking plan of M5 takes it from there. */
             recipes: components["schemas"]["RecipeCard"][];
@@ -2707,7 +2714,7 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
-    listMyGoals: {
+    listMyInterests: {
         parameters: {
             query?: never;
             header?: never;
@@ -2716,19 +2723,19 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Goal codes */
+            /** @description Interest codes and own words */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalSelection"];
+                    "application/json": components["schemas"]["InterestSelection"];
                 };
             };
             401: components["responses"]["Problem"];
         };
     };
-    setMyGoals: {
+    setMyInterests: {
         parameters: {
             query?: never;
             header?: never;
@@ -2737,17 +2744,17 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GoalSelection"];
+                "application/json": components["schemas"]["InterestSelection"];
             };
         };
         responses: {
-            /** @description Saved goals */
+            /** @description Saved interests */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalSelection"];
+                    "application/json": components["schemas"]["InterestSelection"];
                 };
             };
             401: components["responses"]["Problem"];
@@ -2854,7 +2861,7 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
-    listGoals: {
+    listInterests: {
         parameters: {
             query?: never;
             header?: never;
@@ -2863,14 +2870,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Goals */
+            /** @description Interests */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        items: components["schemas"]["Goal"][];
+                        items: components["schemas"]["Interest"][];
                     };
                 };
             };

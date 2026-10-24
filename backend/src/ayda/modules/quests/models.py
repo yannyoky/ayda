@@ -38,7 +38,7 @@ class Template(Base):
     outdoor: Mapped[bool] = mapped_column(Boolean)
     weather: Mapped[dict[str, object]] = mapped_column(JSONB)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text))
-    goal_codes: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    interest_codes: Mapped[list[str]] = mapped_column(ARRAY(Text))
     active: Mapped[bool] = mapped_column(Boolean)
 
 

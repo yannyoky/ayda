@@ -76,8 +76,8 @@ class ProfileViewModelTest {
                 }
             call == "PATCH /me/profile" -> json(ME_JSON.replace("Аня", "Анна"))
             call == "DELETE /me" -> respond("", HttpStatusCode.Accepted)
-            call == "GET /goals" -> json("""{"items":[]}""")
-            call == "GET /me/goals" -> json("""{"goal_codes":[]}""")
+            call == "GET /interests" -> json("""{"items":[]}""")
+            call == "GET /me/interests" -> json("""{"codes":[],"tags":[]}""")
             call == "GET /me/habits" -> json("""{"items":[]}""")
             else -> respond("", HttpStatusCode.NotFound)
         }

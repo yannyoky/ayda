@@ -30,8 +30,8 @@ import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.QuietButton
 import app.ayda.android.ui.profile.CityEditor
-import app.ayda.android.ui.profile.GoalsEditor
 import app.ayda.android.ui.profile.HabitsEditor
+import app.ayda.android.ui.profile.InterestsEditor
 import app.ayda.android.ui.profile.RemindersEditor
 import app.ayda.android.ui.profile.TextInput
 import app.ayda.android.ui.profile.ThemePicker
@@ -39,7 +39,7 @@ import app.ayda.shared.onboarding.OnboardingState
 import app.ayda.shared.onboarding.OnboardingStep
 import app.ayda.shared.onboarding.OnboardingViewModel
 
-/** US-02: name (email users), city, goals, own habits, reminder times and theme. */
+/** US-02: name (email users), city, interests, own habits, reminder times and theme. */
 @Composable
 fun OnboardingScreen(model: OnboardingViewModel) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -73,7 +73,7 @@ fun OnboardingScreen(model: OnboardingViewModel) {
                         capitalization = KeyboardCapitalization.Words,
                     )
                 OnboardingStep.City -> CityEditor(state.me.city, editor, model.editor)
-                OnboardingStep.Goals -> GoalsEditor(editor, model.editor)
+                OnboardingStep.Interests -> InterestsEditor(editor, model.editor)
                 OnboardingStep.Habits -> HabitsEditor(editor, model.editor)
                 OnboardingStep.Reminders -> RemindersEditor(editor, model.editor)
                 OnboardingStep.Theme -> ThemePicker(state.me.theme, model.editor)
@@ -98,7 +98,7 @@ private fun OnboardingStep.texts(): Pair<Int, Int> =
     when (this) {
         OnboardingStep.Name -> R.string.onboarding_name_title to R.string.onboarding_name_text
         OnboardingStep.City -> R.string.onboarding_city_title to R.string.onboarding_city_text
-        OnboardingStep.Goals -> R.string.onboarding_goals_title to R.string.onboarding_goals_text
+        OnboardingStep.Interests -> R.string.onboarding_interests_title to R.string.onboarding_interests_text
         OnboardingStep.Habits -> R.string.onboarding_habits_title to R.string.onboarding_habits_text
         OnboardingStep.Reminders -> R.string.onboarding_reminders_title to R.string.onboarding_reminders_text
         OnboardingStep.Theme -> R.string.onboarding_theme_title to R.string.onboarding_theme_text

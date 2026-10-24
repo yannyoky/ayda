@@ -90,21 +90,49 @@ fun CityEditor(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun GoalsEditor(
+fun InterestsEditor(
     state: EditorState,
     editor: ProfileEditor,
 ) {
+    var draft by remember { mutableStateOf("") }
+    val add = {
+        editor.addInterestTag(draft)
+        draft = ""
+    }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        state.goals.forEach { goal ->
-            Chip(goal.title, selected = goal.code in state.selectedGoals) { editor.toggleGoal(goal.code) }
+        state.interests.forEach { interest ->
+            Chip(
+                interest.title,
+                selected = interest.code in state.selectedInterests,
+            ) { editor.toggleInterest(interest.code) }
         }
     }
-    if (state.goalLimitReached) {
+    if (state.interestLimitReached) {
         Text(
-            stringResource(R.string.onboarding_goals_limit),
+            stringResource(R.string.onboarding_interests_limit),
             style = MaterialTheme.typography.bodyMedium,
             color = LocalAydaColors.current.muted,
         )
+    }
+    Card {
+        Text(stringResource(R.string.onboarding_interests_own), style = MaterialTheme.typography.titleMedium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            state.interestTags.forEach { tag ->
+                val remove = stringResource(R.string.onboarding_interests_remove, tag)
+                Chip(
+                    "$tag  ✕",
+                    selected = true,
+                    modifier = Modifier.semantics { contentDescription = remove },
+                ) { editor.removeInterestTag(tag) }
+            }
+        }
+        TextInput(
+            value = draft,
+            onValueChange = { draft = it.take(EditorState.TAG_MAX) },
+            label = stringResource(R.string.onboarding_interests_hint),
+            onDone = add,
+        )
+        QuietButton(stringResource(R.string.onboarding_habits_add), onClick = add)
     }
 }
 

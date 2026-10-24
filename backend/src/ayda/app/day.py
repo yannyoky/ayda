@@ -1,6 +1,6 @@
 """The user's day: morning check-in, the quest pool, taking, replacing and own quests.
 
-Code picks the candidates (goals, free time, weather, recent history); the assistant only
+Code picks the candidates (interests, free time, weather, recent history); the assistant only
 parses the check-in and orders candidates; without it the code ranking is used.
 """
 
@@ -256,7 +256,8 @@ async def submit_checkin(
     parsed_by = "llm" if parsed else "code"
     parsed = parsed or parse_without_llm(text)
 
-    goals = await habits.list_goals(session, user.id)
+    interests = await habits.list_interests(session, user.id)
+    declared = await local_events.declared_interests(session, user.id)
     own_habits = await habits.list_habits(session, user.id)
     weather = await _today_weather(session, user, tools, now)
     flags = (
@@ -272,7 +273,7 @@ async def submit_checkin(
         else None
     )
     conditions = DayConditions(
-        goals=goals,
+        interests=interests,
         weather=flags,
         wants_outdoor=parsed.wants_outdoor,
         max_duration_min=max_duration(parsed),
@@ -288,7 +289,7 @@ async def submit_checkin(
     left = POOL_DEADLINE_S - (time.monotonic() - started)
     if len(candidates) >= 5 and left > 1:
         profile = assistant.Profile(
-            goals=goals,
+            interests=interests,
             want_more=[h.text for h in own_habits if h.direction == "more"],
             want_less=[h.text for h in own_habits if h.direction == "less"],
             mood="tired" if needs_rest else body.mood,
@@ -326,7 +327,8 @@ async def submit_checkin(
                 " ".join([text, *(h.text for h in own_habits if h.direction == "more")]),
                 limit=12,
             ),
-            goals=tuple(goals),
+            interests=declared[0],
+            tags=declared[1],
             taste=await local_events.load_taste(session, user.id, day),
         ),
     )

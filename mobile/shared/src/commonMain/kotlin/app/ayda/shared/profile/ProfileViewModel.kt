@@ -48,7 +48,7 @@ data class ProfileState(
 }
 
 /**
- * The profile (US-03, ADR 0009): name, theme, city, goals, habits, reminders, sign-in
+ * The profile (US-03, ADR 0009): name, theme, city, interests, habits, reminders, sign-in
  * methods, sign-out and account deletion. [onSignedOut] ends the session in the app.
  */
 class ProfileViewModel(
@@ -77,7 +77,7 @@ class ProfileViewModel(
         busy { editor.updateProfile(ProfileUpdate(firstName = state.value.name.trim())).orFail() }
     }
 
-    fun saveGoals() = busy { editor.saveGoals().orFail() }
+    fun saveInterests() = busy { editor.saveInterests().orFail() }
 
     fun saveReminders() = busy { editor.saveReminders().orFail() }
 

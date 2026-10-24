@@ -428,3 +428,39 @@ async def test_taste_picks_the_jazz_event_without_a_word_in_the_check_in(
 
     first = next(q for q in offered(day) if q["source"] == "event")
     assert first["title"] == "Вечер джаза"
+
+
+def test_declared_interests_lift_matching_events() -> None:
+    jazz = listing("jazz", timedelta(hours=3), title="Вечер джаза")
+    humor = listing("standup", timedelta(hours=3), title="Стендап-вечер")
+    fair = listing("fair", timedelta(hours=3), title="Ярмарка мёда")
+
+    by_tag = Interest(tags=("джаз",))
+    by_code = Interest(interests=("humor",))
+
+    assert interest_score(jazz, by_tag) == interest_score(fair, by_tag) + 1.5
+    assert interest_score(humor, by_code) > interest_score(fair, by_code) + 1
+    assert interest_score(fair, Interest()) == interest_score(fair, by_tag)
+
+
+async def test_the_pool_follows_the_declared_interests(
+    app: FastAPI, client: httpx.AsyncClient, database: Database, fixed_now: datetime
+) -> None:
+    use_tools(app, [], forecast())
+    user = await onboarded(client)
+    saved = await client.put(
+        "/me/interests", json={"codes": [], "tags": ["Джаз"]}, headers=user.headers
+    )
+    assert saved.status_code == 200
+    await seed(
+        database,
+        [
+            listing("fair", timedelta(hours=3), title="Ярмарка мёда", free=True),
+            listing("jazz", timedelta(hours=4), title="Вечер джаза"),
+        ],
+    )
+
+    day = await checkin(client, user, "")
+
+    first = next(q for q in offered(day) if q["source"] == "event")
+    assert first["title"] == "Вечер джаза"

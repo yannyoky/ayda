@@ -5,9 +5,9 @@ from fastapi import APIRouter, Response
 from ayda.api.deps import CurrentUser, DbSession
 from ayda.api.schemas import (
     ConsentInput,
-    GoalSelection,
     Habit,
     HabitCreate,
+    InterestSelection,
     Items,
     Me,
     ProfileUpdate,
@@ -54,19 +54,24 @@ async def accept_consent(body: ConsentInput, user: CurrentUser, session: DbSessi
     return Response(status_code=204)
 
 
-@router.get("/me/goals", operation_id="listMyGoals")
-async def list_my_goals(user: CurrentUser, session: DbSession) -> GoalSelection:
-    return GoalSelection(goal_codes=await habits.list_goals(session, user.id))
+@router.get("/me/interests", operation_id="listMyInterests")
+async def list_my_interests(user: CurrentUser, session: DbSession) -> InterestSelection:
+    return InterestSelection(
+        codes=await habits.list_interests(session, user.id),
+        tags=await habits.list_tags(session, user.id),
+    )
 
 
-@router.put("/me/goals", operation_id="setMyGoals")
-async def set_my_goals(body: GoalSelection, user: CurrentUser, session: DbSession) -> GoalSelection:
+@router.put("/me/interests", operation_id="setMyInterests")
+async def set_my_interests(
+    body: InterestSelection, user: CurrentUser, session: DbSession
+) -> InterestSelection:
     try:
-        codes = await habits.set_goals(session, user.id, body.goal_codes)
-    except habits.GoalsError as exc:
-        raise Problem(422, "invalid-goals", detail=str(exc)) from None
+        codes, tags = await habits.set_interests(session, user.id, body.codes, body.tags)
+    except habits.InterestsError as exc:
+        raise Problem(422, "invalid-interests", detail=str(exc)) from None
     await session.commit()
-    return GoalSelection(goal_codes=codes)
+    return InterestSelection(codes=codes, tags=tags)
 
 
 def _habit(h: habits.UserHabit) -> Habit:

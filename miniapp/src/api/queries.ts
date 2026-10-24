@@ -103,19 +103,19 @@ export function useCitySearch(params: { query?: string; lat?: number; lon?: numb
   })
 }
 
-export function useGoalCatalog() {
-  return useQuery({ queryKey: ['goals'], queryFn: () => unwrap(api.GET('/goals')), staleTime: Infinity })
+export function useInterestCatalog() {
+  return useQuery({ queryKey: ['interests'], queryFn: () => unwrap(api.GET('/interests')), staleTime: Infinity })
 }
 
-export function useMyGoals() {
-  return useQuery({ queryKey: ['me', 'goals'], queryFn: () => unwrap(api.GET('/me/goals')) })
+export function useMyInterests() {
+  return useQuery({ queryKey: ['me', 'interests'], queryFn: () => unwrap(api.GET('/me/interests')) })
 }
 
-export function useSetGoals() {
+export function useSetInterests() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (goal_codes: string[]) => unwrap(api.PUT('/me/goals', { body: { goal_codes } })),
-    onSuccess: (data) => client.setQueryData(['me', 'goals'], data),
+    mutationFn: (body: Schemas['InterestSelection']) => unwrap(api.PUT('/me/interests', { body })),
+    onSuccess: (data) => client.setQueryData(['me', 'interests'], data),
   })
 }
 

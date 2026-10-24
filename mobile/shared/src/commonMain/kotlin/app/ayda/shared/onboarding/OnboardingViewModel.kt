@@ -21,7 +21,7 @@ enum class OnboardingStep(
     /** Only for users without a name, such as a first sign-in by email. */
     Name(skippable = false),
     City(skippable = false),
-    Goals(skippable = true),
+    Interests(skippable = true),
     Habits(skippable = true),
     Reminders(skippable = true),
     Theme(skippable = false),
@@ -91,7 +91,7 @@ class OnboardingViewModel(
             val saved: ApiResult<*> =
                 when (current.step) {
                     OnboardingStep.Name -> editor.updateProfile(ProfileUpdate(firstName = current.name.trim()))
-                    OnboardingStep.Goals -> editor.saveGoals()
+                    OnboardingStep.Interests -> editor.saveInterests()
                     OnboardingStep.Reminders -> editor.saveReminders()
                     else -> ApiResult.Ok(Unit)
                 }

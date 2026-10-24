@@ -129,7 +129,8 @@ export interface MockOptions {
 
 export class MockDb {
   me!: Schemas['Me']
-  goalCodes: string[] = []
+  interestCodes: string[] = []
+  interestTags: string[] = []
   habits: Schemas['Habit'][] = []
   checkin: Schemas['Checkin'] | null = null
   poolStatus: Schemas['PoolStatus'] = 'none'
@@ -174,7 +175,8 @@ export class MockDb {
       consent_required: onboarded ? null : CONSENT_VERSION,
       onboarded,
     }
-    this.goalCodes = onboarded ? ['more_movement', 'own_project'] : []
+    this.interestCodes = onboarded ? ['sport', 'project'] : []
+    this.interestTags = []
     this.habits = []
     this.checkin = null
     this.poolStatus = 'none'

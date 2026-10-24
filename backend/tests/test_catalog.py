@@ -16,12 +16,13 @@ def test_catalog_has_150_to_200_quests_and_15_per_category() -> None:
     assert min(per_category.values()) >= 15
 
 
-def test_catalog_goals_exist_and_every_goal_has_quests() -> None:
+def test_catalog_interests_exist_and_the_main_ones_have_quests() -> None:
     catalog = quests.load_catalog()
-    used = {g for q in catalog.quests for g in q.goals}
+    used = {i for q in catalog.quests for i in q.interests}
 
-    assert used <= habits.GOAL_CODES
-    assert used == habits.GOAL_CODES
+    assert used <= habits.INTEREST_CODES
+    # Interests such as music or theatre are served by events, not by catalog quests.
+    assert {"sport", "outdoors", "city", "learning", "rest", "project", "friends", "home"} <= used
 
 
 def test_rest_quests_cover_the_same_durations_as_sport() -> None:

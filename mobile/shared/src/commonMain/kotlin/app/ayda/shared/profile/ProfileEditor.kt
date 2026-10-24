@@ -1,11 +1,11 @@
 package app.ayda.shared.profile
 
 import app.ayda.api.models.City
-import app.ayda.api.models.Goal
-import app.ayda.api.models.GoalSelection
 import app.ayda.api.models.Habit
 import app.ayda.api.models.HabitCreate
 import app.ayda.api.models.HabitDirection
+import app.ayda.api.models.Interest
+import app.ayda.api.models.InterestSelection
 import app.ayda.api.models.Me
 import app.ayda.api.models.ProfileUpdate
 import app.ayda.api.models.Reminders
@@ -24,22 +24,26 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-/** What the profile editors show: city search, goals, own habits and reminder times. */
+/** What the profile editors show: city search, interests, own habits and reminder times. */
 data class EditorState(
     val cityQuery: String = "",
     val cities: List<City> = emptyList(),
     val searching: Boolean = false,
-    val goals: List<Goal> = emptyList(),
-    val selectedGoals: List<String> = emptyList(),
+    val interests: List<Interest> = emptyList(),
+    val selectedInterests: List<String> = emptyList(),
+    val interestTags: List<String> = emptyList(),
     val habits: List<Habit> = emptyList(),
     val reminders: Reminders,
     val busy: Boolean = false,
     val error: String? = null,
 ) {
-    val goalLimitReached: Boolean get() = selectedGoals.size >= GOALS_MAX
+    val interestLimitReached: Boolean get() = selectedInterests.size >= INTERESTS_MAX
+    val tagLimitReached: Boolean get() = interestTags.size >= TAGS_MAX
 
-    internal companion object {
-        const val GOALS_MAX = 5
+    companion object {
+        const val INTERESTS_MAX = 8
+        const val TAGS_MAX = 5
+        const val TAG_MAX = 30
     }
 }
 
@@ -58,16 +62,18 @@ class ProfileEditor(
 
     private var search: Job? = null
 
-    /** Loads the goal catalog and the user's goals and habits. */
+    /** Loads the interest catalog and the user's interests and habits. */
     fun load() {
         scope.launch {
-            (apiCall { client.reference.listGoals() } as? ApiResult.Ok)?.let { goals ->
-                mutableState.update { it.copy(goals = goals.value.items) }
+            (apiCall { client.reference.listInterests() } as? ApiResult.Ok)?.let { interests ->
+                mutableState.update { it.copy(interests = interests.value.items) }
             }
         }
         scope.launch {
-            (apiCall { client.profile.listMyGoals() } as? ApiResult.Ok)?.let { mine ->
-                mutableState.update { it.copy(selectedGoals = mine.value.goalCodes.toList()) }
+            (apiCall { client.profile.listMyInterests() } as? ApiResult.Ok)?.let { mine ->
+                mutableState.update {
+                    it.copy(selectedInterests = mine.value.codes.toList(), interestTags = mine.value.tags.toList())
+                }
             }
         }
         scope.launch {
@@ -110,18 +116,41 @@ class ProfileEditor(
         }
     }
 
-    fun toggleGoal(code: String) =
+    fun toggleInterest(code: String) =
         mutableState.update {
-            val selected = it.selectedGoals
+            val selected = it.selectedInterests
             when {
-                code in selected -> it.copy(selectedGoals = selected - code)
-                it.goalLimitReached -> it
-                else -> it.copy(selectedGoals = selected + code)
+                code in selected -> it.copy(selectedInterests = selected - code)
+                it.interestLimitReached -> it
+                else -> it.copy(selectedInterests = selected + code)
             }
         }
 
-    suspend fun saveGoals(): ApiResult<Unit> =
-        report(apiCall({ client.profile.setMyGoals(GoalSelection(state.value.selectedGoals.toSet())) }) {})
+    /** Adds one of the user's own words; blank, repeated and over-limit words are ignored. */
+    fun addInterestTag(text: String) {
+        val clean = text.trim().lowercase().take(EditorState.TAG_MAX)
+        mutableState.update {
+            if (clean.isEmpty() ||
+                clean in it.interestTags ||
+                it.tagLimitReached
+            ) {
+                it
+            } else {
+                it.copy(interestTags = it.interestTags + clean)
+            }
+        }
+    }
+
+    fun removeInterestTag(tag: String) = mutableState.update { it.copy(interestTags = it.interestTags - tag) }
+
+    suspend fun saveInterests(): ApiResult<Unit> =
+        report(
+            apiCall({
+                client.profile.setMyInterests(
+                    InterestSelection(state.value.selectedInterests.toSet(), state.value.interestTags),
+                )
+            }) {},
+        )
 
     fun addHabit(
         direction: HabitDirection,

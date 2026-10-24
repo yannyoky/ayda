@@ -44,7 +44,7 @@ class CatalogQuest(BaseModel, extra="forbid"):
     outdoor: bool
     weather: WeatherRule = WeatherRule()
     tags: list[str] = []
-    goals: list[str] = []
+    interests: list[str] = []
     active: bool = True
 
 
@@ -76,7 +76,7 @@ def template_values(q: CatalogQuest) -> dict[str, object]:
         "outdoor": q.outdoor,
         "weather": q.weather.model_dump(exclude_defaults=True),
         "tags": q.tags,
-        "goal_codes": q.goals,
+        "interest_codes": q.interests,
         "active": q.active,
     }
 

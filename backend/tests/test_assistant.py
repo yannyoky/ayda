@@ -98,7 +98,7 @@ async def test_prompt_has_no_personal_identifiers() -> None:
     _, user = fake.calls[0]
     payload = json.loads(user)
     assert set(payload) == {"profile", "today_tasks", "candidates"}
-    assert set(payload["profile"]) == {"goals", "want_more", "want_less", "mood", "weather"}
+    assert set(payload["profile"]) == {"interests", "want_more", "want_less", "mood", "weather"}
 
 
 async def test_parse_checkin() -> None:

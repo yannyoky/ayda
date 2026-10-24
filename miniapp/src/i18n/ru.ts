@@ -362,7 +362,7 @@ export const ru = {
     theme: 'Тема',
     themes: { graphite: 'Графит', plum: 'Слива' },
     city: 'Город',
-    goals: 'Цели',
+    interests: 'Интересы',
     habits: 'Свои привычки',
     reminders: 'Напоминания',
     privacy: 'Данные и приватность',
@@ -405,10 +405,14 @@ export const ru = {
       nothingFound: 'Ничего не нашли',
       selected: 'Выбран',
     },
-    goals: {
-      title: 'Чего хочется?',
-      text: 'Выбери до пяти целей, из них соберём квесты.',
-      limit: 'Не больше пяти',
+    interests: {
+      title: 'Что тебе интересно?',
+      text: 'Выбери до восьми тем и добавь свои слова: по ним подберём квесты и события.',
+      limit: 'Не больше восьми',
+      own: 'Свои слова',
+      ownPlaceholder: 'Например, джаз',
+      add: 'Добавить свои слова',
+      remove: (tag: string) => `Убрать: ${tag}`,
     },
     habits: {
       title: 'Свои привычки',

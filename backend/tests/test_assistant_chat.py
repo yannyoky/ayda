@@ -94,7 +94,7 @@ async def test_the_assistant_answers_with_the_topic_and_no_personal_data(
         chat_store.REPLY_CHECKIN,
         "Как не выгореть к вечеру?",
     ]
-    assert sent["profile"]["goals"] == ["more_movement"] and sent["quest"] is None
+    assert sent["profile"]["interests"] == ["sport"] and sent["quest"] is None
     assert sent["today_quests"]
     assert "Саша" not in prompt and "Калининград" not in prompt
 

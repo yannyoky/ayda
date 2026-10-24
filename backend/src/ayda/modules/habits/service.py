@@ -5,14 +5,19 @@ from typing import Literal
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.modules.habits.goals import GOAL_CODES, MAX_GOALS
-from ayda.modules.habits.models import UserGoal, UserHabit
+from ayda.modules.habits.interests import (
+    INTEREST_CODES,
+    MAX_INTERESTS,
+    MAX_TAG_LENGTH,
+    MAX_TAGS,
+)
+from ayda.modules.habits.models import UserHabit, UserInterest, UserInterestTag
 
 Direction = Literal["more", "less"]
 MAX_HABITS = 20
 
 
-class GoalsError(ValueError):
+class InterestsError(ValueError):
     pass
 
 
@@ -20,27 +25,51 @@ class HabitLimitError(ValueError):
     pass
 
 
-async def list_goals(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
+def normalize_tag(tag: str) -> str:
+    """Lower case, spaces collapsed; the tag is only ever matched against event titles."""
+    return " ".join(tag.lower().replace("ё", "е").split())
+
+
+async def list_interests(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
     rows = await session.execute(
-        select(UserGoal.goal_code)
-        .where(UserGoal.user_id == user_id)
-        .order_by(UserGoal.created_at, UserGoal.goal_code)
+        select(UserInterest.code)
+        .where(UserInterest.user_id == user_id)
+        .order_by(UserInterest.created_at, UserInterest.code)
     )
     return list(rows.scalars())
 
 
-async def set_goals(session: AsyncSession, user_id: uuid.UUID, codes: list[str]) -> list[str]:
-    if len(codes) > MAX_GOALS:
-        raise GoalsError(f"at most {MAX_GOALS} goals")
+async def list_tags(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    rows = await session.execute(
+        select(UserInterestTag.tag)
+        .where(UserInterestTag.user_id == user_id)
+        .order_by(UserInterestTag.created_at, UserInterestTag.tag)
+    )
+    return list(rows.scalars())
+
+
+async def set_interests(
+    session: AsyncSession, user_id: uuid.UUID, codes: list[str], tags: list[str]
+) -> tuple[list[str], list[str]]:
+    """Replace the user's interests: catalog codes and their own words."""
+    if len(codes) > MAX_INTERESTS:
+        raise InterestsError(f"at most {MAX_INTERESTS} interests")
     if len(set(codes)) != len(codes):
-        raise GoalsError("duplicate goals")
-    unknown = [c for c in codes if c not in GOAL_CODES]
+        raise InterestsError("duplicate interests")
+    unknown = [c for c in codes if c not in INTEREST_CODES]
     if unknown:
-        raise GoalsError("unknown goal: " + ", ".join(unknown))
-    await session.execute(delete(UserGoal).where(UserGoal.user_id == user_id))
+        raise InterestsError("unknown interest: " + ", ".join(unknown))
+    clean = list(dict.fromkeys(t for t in (normalize_tag(t) for t in tags) if t))
+    if len(clean) > MAX_TAGS:
+        raise InterestsError(f"at most {MAX_TAGS} own interests")
+    if any(len(t) > MAX_TAG_LENGTH or "http" in t or "@" in t for t in clean):
+        raise InterestsError("an own interest is a short word or two")
+    await session.execute(delete(UserInterest).where(UserInterest.user_id == user_id))
+    await session.execute(delete(UserInterestTag).where(UserInterestTag.user_id == user_id))
     now = datetime.now(UTC)
-    session.add_all(UserGoal(user_id=user_id, goal_code=c, created_at=now) for c in codes)
-    return codes
+    session.add_all(UserInterest(user_id=user_id, code=c, created_at=now) for c in codes)
+    session.add_all(UserInterestTag(user_id=user_id, tag=t, created_at=now) for t in clean)
+    return codes, clean
 
 
 async def list_habits(session: AsyncSession, user_id: uuid.UUID) -> list[UserHabit]:

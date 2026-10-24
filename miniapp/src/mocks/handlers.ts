@@ -1,7 +1,7 @@
 // MSW handlers implementing contracts/openapi.yaml on top of the in-memory MockDb.
 import { delay, http, HttpResponse, type DefaultBodyType, type HttpResponseResolver, type PathParams } from 'msw'
 import type { Schemas } from '../api/client'
-import { CONSENT_VERSION, cities, goals } from './data'
+import { CONSENT_VERSION, cities, interests } from './data'
 import { db, MAX_TAKEN, uuid } from './db'
 
 const API = '*/api/v1'
@@ -96,14 +96,15 @@ export const handlers = [
       return new HttpResponse(null, { status: 204 })
     }),
   ),
-  http.get(`${API}/me/goals`, authed(() => HttpResponse.json({ goal_codes: db.goalCodes }))),
-  http.put<never, Schemas['GoalSelection'], DefaultBodyType>(
-    `${API}/me/goals`,
+  http.get(`${API}/me/interests`, authed(() => HttpResponse.json({ codes: db.interestCodes, tags: db.interestTags }))),
+  http.put<never, Schemas['InterestSelection'], DefaultBodyType>(
+    `${API}/me/interests`,
     authed(async ({ request }) => {
-      const { goal_codes } = await request.json()
-      if (goal_codes.length > 5 || goal_codes.some((c) => !goals.some((g) => g.code === c))) return problem(422, 'Неверные цели')
-      db.goalCodes = goal_codes
-      return HttpResponse.json({ goal_codes })
+      const { codes, tags } = await request.json()
+      if (codes.length > 8 || tags.length > 5 || codes.some((c) => !interests.some((i) => i.code === c))) return problem(422, 'Неверные интересы')
+      db.interestCodes = codes
+      db.interestTags = tags
+      return HttpResponse.json({ codes, tags })
     }),
   ),
   http.get(`${API}/me/habits`, authed(() => HttpResponse.json({ items: db.habits }))),
@@ -144,7 +145,7 @@ export const handlers = [
       return HttpResponse.json({ items: items.slice(0, limit) })
     }),
   ),
-  http.get(`${API}/goals`, authed(() => HttpResponse.json({ items: goals }))),
+  http.get(`${API}/interests`, authed(() => HttpResponse.json({ items: interests }))),
 
   // ---- day ----
   http.get(`${API}/days/today`, authed(() => HttpResponse.json(db.day()))),

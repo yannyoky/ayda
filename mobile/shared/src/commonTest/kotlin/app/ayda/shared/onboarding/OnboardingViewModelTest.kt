@@ -63,8 +63,8 @@ class OnboardingViewModelTest {
         val path = request.url.encodedPath.removePrefix("/api/v1")
         calls += "${request.method.value} $path ${request.bodyText()}".trim()
         return when ("${request.method.value} $path") {
-            "GET /goals" -> json("""{"items":[{"code":"more_movement","title":"Больше двигаться"}]}""")
-            "GET /me/goals" -> json("""{"goal_codes":[]}""")
+            "GET /interests" -> json("""{"items":[{"code":"sport","title":"Спорт и движение"}]}""")
+            "GET /me/interests" -> json("""{"codes":[],"tags":[]}""")
             "GET /me/habits" -> json("""{"items":[]}""")
             "GET /cities" ->
                 json(
@@ -88,7 +88,7 @@ class OnboardingViewModelTest {
                 (patch["theme"] as? JsonPrimitive)?.let { me = me.copy(theme = Theme.valueOf(it.content)) }
                 json(ApiJson.encodeToString(Me.serializer(), me))
             }
-            "PUT /me/goals" -> json(request.bodyText())
+            "PUT /me/interests" -> json(request.bodyText())
             "POST /me/habits" ->
                 json(
                     """{"id":"6f1e2d3c-4b5a-4968-8776-655443322110","direction":"more","text":"читать"}""",
@@ -143,7 +143,8 @@ class OnboardingViewModelTest {
             model.next()
             advanceUntilIdle()
 
-            model.editor.toggleGoal("more_movement")
+            model.editor.toggleInterest("sport")
+            model.editor.addInterestTag(" Джаз ")
             model.next()
             advanceUntilIdle()
 
@@ -173,13 +174,13 @@ class OnboardingViewModelTest {
                     """PATCH /me/profile {"first_name":"Аня"}""",
                     """GET /cities""",
                     """PATCH /me/profile {"city_id":435}""",
-                    """PUT /me/goals {"goal_codes":["more_movement"]}""",
+                    """PUT /me/interests {"codes":["sport"],"tags":["джаз"]}""",
                     """POST /me/habits {"direction":"more","text":"читать"}""",
                     """PATCH /me/profile {"reminders":{"morning_at":"08:30","evening_at":null}}""",
                     """PATCH /me/profile {"theme":"plum"}""",
                     """POST /me/onboarding/complete""",
                 ),
-                calls.filterNot { it.startsWith("GET /goals") || it.startsWith("GET /me/") },
+                calls.filterNot { it.startsWith("GET /interests") || it.startsWith("GET /me/") },
             )
         }
 
@@ -209,18 +210,20 @@ class OnboardingViewModelTest {
             }
 
             assertEquals(OnboardingStep.Theme, model.state.value.step)
-            assertTrue(calls.none { it.startsWith("PUT /me/goals") || it.startsWith("PATCH") })
+            assertTrue(calls.none { it.startsWith("PUT /me/interests") || it.startsWith("PATCH") })
         }
 
     @Test
-    fun goalsStopAtFive() =
+    fun interestsStopAtEight() =
         runTest(dispatcher) {
             val model = model()
             advanceUntilIdle()
 
-            (1..7).forEach { model.editor.toggleGoal("g$it") }
+            (1..10).forEach { model.editor.toggleInterest("g$it") }
+            (1..7).forEach { model.editor.addInterestTag("t$it") }
 
-            assertEquals(listOf("g1", "g2", "g3", "g4", "g5"), model.editor.state.value.selectedGoals)
+            assertEquals((1..8).map { "g$it" }, model.editor.state.value.selectedInterests)
+            assertEquals((1..5).map { "t$it" }, model.editor.state.value.interestTags)
         }
 
     @Test

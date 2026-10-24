@@ -1,30 +1,30 @@
 import { useState, type ReactNode } from 'react'
 import type { Schemas } from '../../api/client'
-import { useCompleteOnboarding, useMe, useSetGoals, useUpdateProfile } from '../../api/queries'
+import { useCompleteOnboarding, useMe, useSetInterests, useUpdateProfile } from '../../api/queries'
 import { t } from '../../i18n'
 import { Icon } from '../../ui/Icon'
 import { InlineError, PrimaryButton } from '../../ui/states'
 import { CityPicker } from '../profile/CityPicker'
-import { GoalsPicker } from '../profile/GoalsPicker'
+import { InterestsPicker, type InterestSelection } from '../profile/InterestsPicker'
 import { HabitsEditor } from '../profile/HabitsEditor'
 import { RemindersEditor } from '../profile/RemindersEditor'
 import { ThemePicker } from '../profile/ThemePicker'
 
-const STEPS = ['city', 'goals', 'habits', 'reminders', 'theme'] as const
+const STEPS = ['city', 'interests', 'habits', 'reminders', 'theme'] as const
 type Step = (typeof STEPS)[number]
 
-/** US-02: city (required), goals, own habits, reminder times and theme; everything else can be skipped. */
+/** US-02: city (required), interests, own habits, reminder times and theme; everything else can be skipped. */
 export function Onboarding() {
   const me = useMe().data as Schemas['Me']
   const [step, setStep] = useState<Step>('city')
-  const [goals, setGoals] = useState<string[]>([])
+  const [interests, setInterests] = useState<InterestSelection>({ codes: [], tags: [] })
   const [reminders, setReminders] = useState<Schemas['Reminders']>(me.reminders)
   const updateProfile = useUpdateProfile()
-  const saveGoals = useSetGoals()
+  const saveInterests = useSetInterests()
   const complete = useCompleteOnboarding()
   const index = STEPS.indexOf(step)
-  const failed = updateProfile.isError || saveGoals.isError || complete.isError
-  const busy = updateProfile.isPending || saveGoals.isPending || complete.isPending
+  const failed = updateProfile.isError || saveInterests.isError || complete.isError
+  const busy = updateProfile.isPending || saveInterests.isPending || complete.isPending
 
   const advance = () => {
     const next = STEPS[index + 1]
@@ -33,7 +33,7 @@ export function Onboarding() {
   }
 
   async function next() {
-    if (step === 'goals') await saveGoals.mutateAsync(goals)
+    if (step === 'interests') await saveInterests.mutateAsync(interests)
     if (step === 'reminders') await updateProfile.mutateAsync({ reminders })
     advance()
   }
@@ -46,7 +46,13 @@ export function Onboarding() {
       skippable: false,
       ready: Boolean(me.city),
     },
-    goals: { title: t.onboarding.goals.title, text: t.onboarding.goals.text, body: <GoalsPicker value={goals} onChange={setGoals} />, skippable: true, ready: true },
+    interests: {
+      title: t.onboarding.interests.title,
+      text: t.onboarding.interests.text,
+      body: <InterestsPicker value={interests} onChange={setInterests} />,
+      skippable: true,
+      ready: true,
+    },
     habits: { title: t.onboarding.habits.title, text: t.onboarding.habits.text, body: <HabitsEditor />, skippable: true, ready: true },
     reminders: {
       title: t.onboarding.reminders.title,
