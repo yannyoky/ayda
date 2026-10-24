@@ -2,7 +2,7 @@
 
 The check-in opens it; then the user writes in the day topic or in the topic of one of
 today's quests. The assistant gets the last messages of the topic and an anonymized context
-(mood, goals, weather, the quest), never the name or city. It answers in prose and may ask
+(mood, interests, weather, the quest), never the name or city. It answers in prose and may ask
 code for one action; facts on cards come only from code. Text is never logged, and the chat
 is deleted once the day is over.
 """
@@ -267,10 +267,12 @@ async def _events(
     words = events_app.stems(action.query or text)
     if named:
         words = tuple(w for w in words if not named.lower().replace("ё", "е").startswith(w[:4]))
+    declared = await events_app.declared_interests(session, user.id)
     interest = events_app.Interest(
         asked=words,
         category=action.category,
-        goals=tuple(await habits.list_goals(session, user.id)),
+        interests=declared[0],
+        tags=declared[1],
         taste=await events_app.load_taste(
             session, user.id, day_clock.local_day(now, user.timezone)
         ),
@@ -424,7 +426,7 @@ async def _context(
     )
     return assistant.ChatContext(
         mood=checkin.mood if checkin else None,
-        goals=await habits.list_goals(session, user.id),
+        interests=await habits.list_interests(session, user.id),
         weather=pool.weather if pool else None,
         quest=assistant.ChatQuest(quest.title, quest.category, quest.duration_min, quest.state)
         if quest

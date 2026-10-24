@@ -17,15 +17,15 @@ export const cities: Schemas['City'][] = [
   { id: 11, name: 'Зеленоградск', region_name: 'Калининградская область', timezone: 'Europe/Kaliningrad' },
 ]
 
-export const goals: Schemas['Goal'][] = [
-  { code: 'more_movement', title: 'Больше двигаться' },
-  { code: 'less_screen', title: 'Меньше экранов' },
-  { code: 'own_project', title: 'Делать свой проект' },
-  { code: 'rest_better', title: 'Нормально отдыхать' },
-  { code: 'see_city', title: 'Чаще выбираться в город' },
-  { code: 'friends', title: 'Видеться с друзьями' },
-  { code: 'learn', title: 'Учиться новому' },
-  { code: 'home_food', title: 'Готовить дома' },
+export const interests: Schemas['Interest'][] = [
+  { code: 'sport', title: 'Спорт и движение' },
+  { code: 'outdoors', title: 'Прогулки и природа' },
+  { code: 'city', title: 'Город и история' },
+  { code: 'music', title: 'Музыка' },
+  { code: 'learning', title: 'Лекции и учёба' },
+  { code: 'cooking', title: 'Еда и готовка' },
+  { code: 'friends', title: 'Встречи с людьми' },
+  { code: 'project', title: 'Свой проект' },
 ]
 
 export interface CatalogQuest {

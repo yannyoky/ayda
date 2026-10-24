@@ -3,7 +3,7 @@ pool and the interest score that orders events for the pool and the assistant's 
 
 Code alone picks event quests: events in the user's city first, then elsewhere in their
 region, starting at least an hour from now and before the quest day ends; among those the
-ones closest to what the user wrote and to their goals go first.
+ones closest to what the user wrote and to their interests go first.
 """
 
 import random
@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.config import Settings
 from ayda.core.jobs import enqueue
-from ayda.modules import auth, events, quests
+from ayda.modules import auth, events, habits, quests
 from ayda.modules.quests.day_service import NewQuest
 
 INGEST_JOB = "events.ingest"
@@ -37,17 +37,6 @@ WHY_FREE = "Бесплатно и сегодня: хороший повод вы
 WHY_HOME = "Событие сегодня в твоём городе."
 
 
-# Event categories that serve each goal (codes from the habits goal catalog).
-GOAL_CATEGORIES: dict[str, tuple[str, ...]] = {
-    "more_movement": ("sport", "walk"),
-    "less_screen": ("social", "city", "sport"),
-    "see_friends": ("social",),
-    "explore_city": ("city", "walk"),
-    "learn": ("learning",),
-    "own_project": ("learning",),
-    "rest_well": ("city", "rest"),
-    "calm_mind": ("walk", "rest"),
-}
 _WORD = re.compile(r"[а-яёa-z0-9-]{3,}")
 # Words that say nothing about what kind of event the user wants.
 _STOP = frozenset((
@@ -125,16 +114,31 @@ async def load_taste(session: AsyncSession, user_id: uuid.UUID, today: date) -> 
 @dataclass(frozen=True)
 class Interest:
     """What the user is into right now: words they asked for (strong), words of their
-    check-in (weak), a category and their goals."""
+    check-in (weak), a category, and their declared interests: catalog codes and own words."""
 
     asked: tuple[str, ...] = ()
     mentioned: tuple[str, ...] = ()
     category: str | None = None
-    goals: tuple[str, ...] = ()
+    interests: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()
     taste: Taste = field(default_factory=Taste)
 
     def categories(self) -> set[str]:
-        return {c for g in self.goals for c in GOAL_CATEGORIES.get(g, ())}
+        return habits.categories_of(self.interests)
+
+    def declared_words(self) -> tuple[str, ...]:
+        """Title words that point at a declared interest: the catalog's and the user's own."""
+        return tuple(dict.fromkeys((*habits.words_of(self.interests), *stems(" ".join(self.tags)))))
+
+
+async def declared_interests(
+    session: AsyncSession, user_id: uuid.UUID
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The user's catalog interests and own words, for `Interest(interests=, tags=)`."""
+    return (
+        tuple(await habits.list_interests(session, user_id)),
+        tuple(await habits.list_tags(session, user_id)),
+    )
 
 
 def _hits(title: str, words: Iterable[str]) -> int:
@@ -150,6 +154,7 @@ def interest_score(listing: events.Listing | events.ListingData, interest: Inter
         score += 2
     if listing.category in interest.categories():
         score += 1
+    score += 1.5 * min(_hits(listing.title, interest.declared_words()), 2)
     if listing.is_free:
         score += 0.5
     score += TASTE_CATEGORY_POINTS * interest.taste.categories.get(listing.category, 0.0)

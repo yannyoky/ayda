@@ -27,7 +27,7 @@ First users are the owner and friends: 20-35 years old, living in different Russ
 
 1. **08:30.** The bot says "Good morning, what's today?" and opens the Mini App.
 2. **Check-in.** The user writes in free text: "work until 18, need to finish a report, free in the evening, tired".
-3. **Pool.** The assistant turns their tasks into quests and fills free time with quests that fit the weather and goals: "a 40-minute walk along the embankment", "no screens after 22:00".
+3. **Pool.** The assistant turns their tasks into quests and fills free time with quests that fit the weather and the user's interests: "a 40-minute walk along the embankment", "no screens after 22:00".
 4. **Pick.** The user takes as many quests as they like (points for the first 5 completed, since M6) and replaces the ones that don't fit.
 5. **Day.** They mark quests done and attach a photo to the ones they share.
 6. **20:30.** The bot reminds about open quests and suggests showing the day to friends.
@@ -38,7 +38,7 @@ First users are the owner and friends: 20-35 years old, living in different Russ
 | Feature | Milestone | Why in the MVP |
 | --- | --- | --- |
 | Telegram sign-in (initData), profile, Graphite/Plum theme | M1 | no product without it |
-| Onboarding: region, goals, own good and bad habits, reminder times | M1 | quests are built from it |
+| Onboarding: region, interests, own good and bad habits, reminder times | M1 | quests are built from it |
 | Morning check-in in free text | M1 | main difference from competitors |
 | Daily quest pool, take quests (up to 3 in M1, any number since M6), replace with an alternative | M1 | core of the loop |
 | Own quest added by hand | M1 | when the assistant misses |
@@ -65,7 +65,7 @@ A story is done when all its criteria hold, it has tests, and its events are wri
     - The first sign-in creates a profile with the Telegram name and avatar; later sign-ins find it.
     - An invalid signature returns 401, and initData itself never reaches logs.
 - **US-02. Onboarding.** As a new user, I tell the app what I want in 2 minutes so quests are about me.
-    - Steps: region and city (geolocation or pick from a list), 1-5 goals from a catalog, own "want more" and "want less" habits, morning and evening reminder times.
+    - Steps: region and city (geolocation or pick from a list), up to 8 interests from a catalog and up to 5 of their own words (ADR 0018), own "want more" and "want less" habits, morning and evening reminder times.
     - Every step except the city can be skipped; everything is editable later in Profile.
     - Exact coordinates are not stored: they are rounded to the city (settlement center).
     - The user words habits themselves; the app does not judge them.
@@ -163,7 +163,7 @@ Example: a 40-minute walk with a photo on day 10 of a streak gives 35 × 1.0 × 
 Code selects candidates; the LLM only ranks them and writes the text. So the pool works without an LLM, and the model cannot invent a quest that is not in the catalog. From M6 the LLM also talks in the assistant chat, but every quest, place or recipe it shows still comes from code (ADR 0013).
 
 1. **Parse the check-in.** The LLM extracts tasks, busy hours and mood into JSON by schema. Without an LLM, tasks are taken line by line and the time after 18:00 counts as free.
-2. **Candidates.** Code takes 20-30 catalog quests: they match goals and habits, fit free slots, are allowed by the weather, were not shown yesterday and were not replaced today.
+2. **Candidates.** Code takes 20-30 catalog quests: they match interests and habits, fit free slots, are allowed by the weather, were not shown yesterday and were not replaced today.
 3. **Ranking and text.** The LLM gets candidates by id and a profile without name or exact location, and returns 5-7 ids in order with a "why you" line.
 4. **Validation.** The answer is checked against a JSON schema: ids only from the candidates, text length, no banned topics. On failure: one retry, then the next provider, then ranking in code by simple weights.
 5. **Logging.** Pool shown, take, replace and completion go to `events` with candidate ids and the provider, but without the check-in text and without the model's full answer.

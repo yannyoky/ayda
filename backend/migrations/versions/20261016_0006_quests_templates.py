@@ -54,7 +54,13 @@ def upgrade() -> None:
         sa.column("active", sa.Boolean),
         schema="quests",
     )
-    op.bulk_insert(table, [{"id": q.id, **template_values(q)} for q in load_catalog().quests])
+    # The column is renamed to interest_codes in 0024; values carry the current interests.
+    rows = []
+    for q in load_catalog().quests:
+        values = template_values(q)
+        values["goal_codes"] = values.pop("interest_codes")
+        rows.append({"id": q.id, **values})
+    op.bulk_insert(table, rows)
 
 
 def downgrade() -> None:

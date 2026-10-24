@@ -75,7 +75,7 @@ async def onboarded(client: httpx.AsyncClient, telegram_id: int = 1001) -> Signe
         "/me/profile", json={"city_id": KALININGRAD}, headers=user.headers
     )
     assert response.status_code == 200
-    await client.put("/me/goals", json={"goal_codes": ["more_movement"]}, headers=user.headers)
+    await client.put("/me/interests", json={"codes": ["sport"], "tags": []}, headers=user.headers)
     return user
 
 

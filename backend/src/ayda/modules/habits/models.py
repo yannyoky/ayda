@@ -13,11 +13,21 @@ class Base(DeclarativeBase):
     metadata = module_metadata("habits")
 
 
-class UserGoal(Base):
-    __tablename__ = "user_goals"
+class UserInterest(Base):
+    __tablename__ = "user_interests"
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    goal_code: Mapped[str] = mapped_column(Text, primary_key=True)
+    code: Mapped[str] = mapped_column(Text, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UserInterestTag(Base):
+    """An interest in the user's own words, kept as typed (lower case)."""
+
+    __tablename__ = "user_interest_tags"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    tag: Mapped[str] = mapped_column(String(30), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

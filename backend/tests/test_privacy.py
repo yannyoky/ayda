@@ -94,7 +94,9 @@ async def test_account_deletion_erases_and_anonymizes(
     alice = await sign_in(client, 1001, "Алиса")
     bob = await sign_in(client, 2002, "Боря")
     await befriend(client, alice, bob)
-    await client.put("/me/goals", json={"goal_codes": ["learn"]}, headers=alice.headers)
+    await client.put(
+        "/me/interests", json={"codes": ["learning"], "tags": ["джаз"]}, headers=alice.headers
+    )
     await client.post(
         "/me/habits", json={"direction": "less", "text": "дота"}, headers=alice.headers
     )
@@ -134,7 +136,8 @@ async def test_account_deletion_erases_and_anonymizes(
     for table, column in [
         ("auth.users", "id"),
         ("auth.consents", "user_id"),
-        ("habits.user_goals", "user_id"),
+        ("habits.user_interests", "user_id"),
+        ("habits.user_interest_tags", "user_id"),
         ("habits.user_habits", "user_id"),
         ("quests.checkins", "user_id"),
         ("quests.day_pools", "user_id"),

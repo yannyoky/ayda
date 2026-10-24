@@ -45,7 +45,7 @@ import app.ayda.api.models.SignInIdentity
 import app.ayda.shared.profile.ProfileState
 import app.ayda.shared.profile.ProfileViewModel
 
-private enum class Section { Name, City, Goals, Habits, Reminders }
+private enum class Section { Name, City, Interests, Habits, Reminders }
 
 /** US-03 and ADR 0009: settings, sign-in methods, sign-out and account deletion. */
 @Composable
@@ -107,17 +107,19 @@ fun ProfileScreen(model: ProfileViewModel) {
             CityEditor(city, editor, model.editor, onPicked = { open = null })
         }
 
-        val goalTitles = editor.selectedGoals.map { code -> editor.goals.find { it.code == code }?.title ?: code }
+        val interestTitles =
+            editor.selectedInterests.map { code -> editor.interests.find { it.code == code }?.title ?: code } +
+                editor.interestTags
         Editable(
-            stringResource(R.string.profile_goals),
-            goalTitles.joinToString().ifEmpty { stringResource(R.string.profile_not_set) },
-            open == Section.Goals,
-            { toggle(Section.Goals) },
+            stringResource(R.string.profile_interests),
+            interestTitles.joinToString().ifEmpty { stringResource(R.string.profile_not_set) },
+            open == Section.Interests,
+            { toggle(Section.Interests) },
         ) {
-            GoalsEditor(editor, model.editor)
+            InterestsEditor(editor, model.editor)
             PrimaryButton(
                 stringResource(R.string.profile_save),
-                onClick = model::saveGoals,
+                onClick = model::saveInterests,
                 enabled =
                     !editor.busy && !state.busy,
             )

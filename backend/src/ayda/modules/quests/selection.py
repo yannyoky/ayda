@@ -43,7 +43,7 @@ class WeatherFlags:
 
 @dataclass(frozen=True)
 class DayConditions:
-    goals: Sequence[str]
+    interests: Sequence[str]
     weather: WeatherFlags | None
     wants_outdoor: bool
     max_duration_min: int
@@ -90,8 +90,8 @@ def weather_allows(
     return not (long_outdoor and weather.rain and not wants_outdoor)
 
 
-def _score(template: Template, goals: Sequence[str], rng: random.Random) -> float:
-    return 2.0 * len(set(template.goal_codes) & set(goals)) + rng.random()
+def _score(template: Template, interests: Sequence[str], rng: random.Random) -> float:
+    return 2.0 * len(set(template.interest_codes) & set(interests)) + rng.random()
 
 
 def select_candidates(
@@ -107,7 +107,7 @@ def select_candidates(
         and t.duration_min <= conditions.max_duration_min
         and weather_allows(t, conditions.weather, conditions.wants_outdoor, conditions.feels_unwell)
     ]
-    scored = sorted(allowed, key=lambda t: (-_score(t, conditions.goals, rng), t.id))
+    scored = sorted(allowed, key=lambda t: (-_score(t, conditions.interests, rng), t.id))
     per_category: Counter[str] = Counter()
     picked: list[Template] = []
     for template in scored:

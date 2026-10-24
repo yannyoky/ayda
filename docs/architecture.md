@@ -33,7 +33,7 @@ Each module owns a PostgreSQL schema of the same name and is the only code that 
 | Module | Schema | Owns |
 | --- | --- | --- |
 | auth | `auth` | users, profile settings, consents |
-| habits | `habits` | user goals and own habits; Steam and screen time integrations later |
+| habits | `habits` | user interests and own habits; Steam and screen time integrations later |
 | quests | `quests` | quest catalog, check-ins, daily pools and quests, points ledger, streaks; co-op quests (M2) |
 | assistant | `assistant` | LLM call metadata (no prompt or answer text) |
 | social | `social` | invites, friendships, posts (proofs and routines), media, likes, comments |
@@ -84,7 +84,7 @@ The API issues short-lived signed access tokens (12 hours) after the initData ch
 
 ### habits
 
-**habits.user_goals**: user_id, goal_code text (catalog in code), created_at; PK (user_id, goal_code). 1-5 per user.
+**habits.user_interests** (ADR 0018, replaced `user_goals`): user_id, code text (catalog in code, `habits/interests.py`), created_at; PK (user_id, code). Up to 8 per user. **habits.user_interest_tags**: user_id, tag varchar(30) (the user's own word, lower case), created_at; PK (user_id, tag). Up to 5 per user; used only to match event titles, never sent to an LLM.
 
 **habits.user_habits**: id, user_id, direction (`more` \| `less`), text varchar(100), created_at, archived_at null.
 
@@ -102,7 +102,7 @@ The API issues short-lived signed access tokens (12 hours) after the initData ch
 | outdoor | bool | |
 | weather | jsonb | e.g. `{"no_rain": true, "min_temp_c": -15}` |
 | tags | text[] | |
-| goal_codes | text[] | goals the quest serves |
+| interest_codes | text[] | interests the quest serves |
 | active | bool | |
 
 **quests.checkins**
@@ -256,7 +256,7 @@ Every store with personal data runs on servers in Russia: PostgreSQL on the Russ
 
 ### Account deletion and retention
 
-`DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, goals, habits, check-ins, assistant chat messages, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships and photos are deleted; photo files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null, and an hourly job deletes assistant chat messages of finished days.
+`DELETE /me` marks the account at once (all tokens stop working) and queues `account.erase`, which the worker runs right away, well within the 30 days the law allows: profile, consents, interests, habits, check-ins, assistant chat messages, day quests, points, streaks, posts (with the likes and comments on them), the user's own likes, comments, invites, friendships and photos are deleted; photo files are removed by a retried `media.delete_files` job; queued messages to the user are dropped; `analytics.events` rows get one random id instead of the user's, including ids of the user inside other users' event payloads. A periodic job sets check-in texts older than 30 days to null, and an hourly job deletes assistant chat messages of finished days.
 
 ### Backups and error tracking
 

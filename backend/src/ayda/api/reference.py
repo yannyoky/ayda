@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from ayda.api.deps import CurrentUser, DbSession
-from ayda.api.schemas import City, Goal, Items
+from ayda.api.schemas import City, Interest, Items
 from ayda.app.profile import city_schema
 from ayda.core.problems import Problem
 from ayda.modules import events, habits
@@ -30,6 +30,6 @@ async def search_cities(
     return Items(items=[city_schema(c) for c in cities])
 
 
-@router.get("/goals", operation_id="listGoals")
-async def list_goals(_: CurrentUser) -> Items[Goal]:
-    return Items(items=[Goal(code=g.code, title=g.title) for g in habits.GOALS])
+@router.get("/interests", operation_id="listInterests")
+async def list_interests(_: CurrentUser) -> Items[Interest]:
+    return Items(items=[Interest(code=i.code, title=i.title) for i in habits.INTERESTS])

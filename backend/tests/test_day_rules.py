@@ -27,7 +27,7 @@ def template(
     duration: int = 30,
     outdoor: bool = False,
     weather: dict[str, Any] | None = None,
-    goals: list[str] | None = None,
+    interests: list[str] | None = None,
 ) -> Template:
     return Template(
         id=id,
@@ -39,7 +39,7 @@ def template(
         outdoor=outdoor,
         weather=weather or {},
         tags=[],
-        goal_codes=goals or [],
+        interest_codes=interests or [],
         active=True,
     )
 
@@ -102,7 +102,7 @@ def test_feeling_unwell_drops_long_outdoor_quests(
 
 def conditions(**overrides: Any) -> DayConditions:
     values: dict[str, Any] = {
-        "goals": [],
+        "interests": [],
         "weather": None,
         "wants_outdoor": False,
         "max_duration_min": 480,
@@ -115,17 +115,17 @@ def test_candidates_respect_exclusions_duration_and_category_cap() -> None:
     templates = [template(i, "sport", 30) for i in range(1, 11)] + [
         template(100, "rest", 120),
         template(101, "rest", 20),
-        template(102, "walk", 30, goals=["more_movement"]),
+        template(102, "walk", 30, interests=["sport"]),
     ]
 
     picked = select_candidates(
         templates,
-        conditions(goals=["more_movement"], max_duration_min=60, exclude_ids=frozenset({1})),
+        conditions(interests=["sport"], max_duration_min=60, exclude_ids=frozenset({1})),
         seed="u:2026-10-16",
     )
 
     ids = [t.id for t in picked]
-    assert ids[0] == 102  # matches a goal
+    assert ids[0] == 102  # matches an interest
     assert 1 not in ids and 100 not in ids
     assert sum(t.category == "sport" for t in picked) == 5
     assert select_candidates(templates, conditions(), "same") == select_candidates(

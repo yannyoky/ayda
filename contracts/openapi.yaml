@@ -27,9 +27,9 @@ tags:
       Sign-in with Telegram Mini App initData, or by a one-time email code in the native
       apps (ADR 0009). Native sessions also get a rotating refresh token.
   - name: profile
-    description: Profile settings, onboarding, consent, goals and own habits.
+    description: Profile settings, onboarding, consent, interests and own habits.
   - name: reference
-    description: Cities and the goal catalog.
+    description: Cities and the interest catalog.
   - name: day
     description: Morning check-in, the daily quest pool, taking, replacing and completing quests.
   - name: media
@@ -567,37 +567,41 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
 
-  /me/goals:
+  /me/interests:
     get:
       tags: [profile]
-      operationId: listMyGoals
-      summary: Goals the user picked
+      operationId: listMyInterests
+      summary: Interests the user picked and their own words (ADR 0018)
       responses:
         '200':
-          description: Goal codes
+          description: Interest codes and own words
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GoalSelection'
+                $ref: '#/components/schemas/InterestSelection'
         '401':
           $ref: '#/components/responses/Problem'
     put:
       tags: [profile]
-      operationId: setMyGoals
-      summary: Replace the user's goals (1-5, may be empty when skipped)
+      operationId: setMyInterests
+      summary: Replace the user's interests (up to 8 codes and 5 own words, may be empty)
+      description: |
+        Own words are lower-cased, trimmed and deduplicated; links and addresses are rejected.
+        Interests rank quests, events and the assistant's suggestions; they never leave the
+        server in raw form except the catalog codes sent to the assistant.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GoalSelection'
+              $ref: '#/components/schemas/InterestSelection'
       responses:
         '200':
-          description: Saved goals
+          description: Saved interests
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GoalSelection'
+                $ref: '#/components/schemas/InterestSelection'
         '401':
           $ref: '#/components/responses/Problem'
         '422':
@@ -712,14 +716,14 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
 
-  /goals:
+  /interests:
     get:
       tags: [reference]
-      operationId: listGoals
-      summary: Goal catalog for onboarding
+      operationId: listInterests
+      summary: Interest catalog for onboarding and the profile
       responses:
         '200':
-          description: Goals
+          description: Interests
           content:
             application/json:
               schema:
@@ -729,7 +733,7 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Goal'
+                      $ref: '#/components/schemas/Interest'
         '401':
           $ref: '#/components/responses/Problem'
 
@@ -1193,7 +1197,7 @@ paths:
       summary: Write to the assistant and get its answer
       description: |
         The request waits for the answer (up to about 12 s). The assistant gets only the last
-        messages of the topic, mood, goals, weather and the quest, never the name or city; the
+        messages of the topic, mood, interests, weather and the quest, never the name or city; the
         text is not logged. Without a working assistant, code answers obvious requests itself
         (`source` is `code`). At most 40 messages a day (`assistant-limit`, 429).
       requestBody:
@@ -2402,27 +2406,34 @@ components:
         timezone:
           type: string
 
-    Goal:
+    Interest:
       type: object
       required: [code, title]
       properties:
         code:
           type: string
-          examples: [more_movement]
+          examples: [music]
         title:
           type: string
-          examples: [Больше двигаться]
+          examples: [Музыка и концерты]
 
-    GoalSelection:
+    InterestSelection:
       type: object
-      required: [goal_codes]
+      required: [codes, tags]
       properties:
-        goal_codes:
+        codes:
           type: array
-          maxItems: 5
+          maxItems: 8
           uniqueItems: true
           items:
             type: string
+        tags:
+          type: array
+          maxItems: 5
+          description: The user's own interests in a word or two (up to 30 characters each).
+          items:
+            type: string
+            maxLength: 30
 
     HabitDirection:
       type: string
@@ -3128,7 +3139,7 @@ components:
           type: array
           description: >-
             Up to 5 listings of the user's region (or of a town in it the user named), the best
-            fit for the request and the user's goals first (ADR 0015).
+            fit for the request and the user's interests first (ADR 0015).
           maxItems: 5
           items:
             $ref: '#/components/schemas/AssistantEvent'

@@ -319,7 +319,9 @@ async def test_same_plan_with_a_place_and_time(
     client: httpx.AsyncClient, realtime: FakeRealtime, database: Database
 ) -> None:
     alice, bob, _ = await trio(client)
-    starts = (datetime.now(UTC) + timedelta(minutes=30)).replace(microsecond=0)
+    # A minute ahead: a plan lives until the day ends at 04:00, so "in half an hour" fails
+    # when the suite runs shortly before that.
+    starts = (datetime.now(UTC) + timedelta(minutes=1)).replace(microsecond=0)
     body = {
         "title": "Кофе в центре",
         "category": "social",

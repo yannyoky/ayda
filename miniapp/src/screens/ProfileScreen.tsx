@@ -1,16 +1,16 @@
 import { useState, type ReactNode } from 'react'
 import type { Schemas } from '../api/client'
-import { useGoalCatalog, useMe, useMyGoals, useMyHabits, useRequestDeletion, useSetGoals, useUpdateProfile } from '../api/queries'
+import { useInterestCatalog, useMe, useMyHabits, useMyInterests, useRequestDeletion, useSetInterests, useUpdateProfile } from '../api/queries'
 import { CityPicker } from '../features/profile/CityPicker'
-import { GoalsPicker } from '../features/profile/GoalsPicker'
 import { HabitsEditor } from '../features/profile/HabitsEditor'
+import { InterestsPicker } from '../features/profile/InterestsPicker'
 import { RemindersEditor } from '../features/profile/RemindersEditor'
 import { ThemePicker } from '../features/profile/ThemePicker'
 import { t } from '../i18n'
 import { Avatar } from '../ui/Avatar'
 import { Card } from '../ui/primitives'
 
-type Section = 'city' | 'goals' | 'habits' | 'reminders'
+type Section = 'city' | 'interests' | 'habits' | 'reminders'
 
 export function ProfileScreen() {
   const me = useMe().data as Schemas['Me']
@@ -43,7 +43,7 @@ export function ProfileScreen() {
         />
       </Editable>
 
-      <GoalsSection open={open === 'goals'} onToggle={() => toggle('goals')} />
+      <InterestsSection open={open === 'interests'} onToggle={() => toggle('interests')} />
 
       <HabitsSection open={open === 'habits'} onToggle={() => toggle('habits')} />
 
@@ -71,16 +71,17 @@ function Editable({ title, summary, open, onToggle, children }: { title: string;
   )
 }
 
-function GoalsSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const mine = useMyGoals()
-  const catalog = useGoalCatalog()
-  const save = useSetGoals()
-  const codes = mine.data?.goal_codes ?? []
-  const summary = codes.map((c) => catalog.data?.items.find((g) => g.code === c)?.title ?? c).join(', ') || t.profile.notSet
+function InterestsSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const mine = useMyInterests()
+  const catalog = useInterestCatalog()
+  const save = useSetInterests()
+  const value = { codes: mine.data?.codes ?? [], tags: mine.data?.tags ?? [] }
+  const titles = value.codes.map((c) => catalog.data?.items.find((i) => i.code === c)?.title ?? c)
+  const summary = [...titles, ...value.tags].join(', ') || t.profile.notSet
   return (
-    <Editable title={t.profile.goals} summary={summary} open={open} onToggle={onToggle}>
+    <Editable title={t.profile.interests} summary={summary} open={open} onToggle={onToggle}>
       <div className="p-2">
-        <GoalsPicker value={codes} onChange={(next) => save.mutate(next)} />
+        <InterestsPicker value={value} onChange={(next) => save.mutate(next)} />
       </div>
     </Editable>
   )

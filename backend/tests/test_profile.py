@@ -104,30 +104,40 @@ async def test_unknown_consent_version_is_422(client: httpx.AsyncClient) -> None
     assert response.status_code == 422
 
 
-async def test_goals(client: httpx.AsyncClient) -> None:
+async def test_interests(client: httpx.AsyncClient) -> None:
     me = await sign_in(client)
 
-    catalog = await client.get("/goals", headers=me.headers)
-    assert_matches(catalog, "listGoals")
-    codes = [g["code"] for g in catalog.json()["items"]]
-    assert "more_movement" in codes
+    catalog = await client.get("/interests", headers=me.headers)
+    assert_matches(catalog, "listInterests")
+    codes = [i["code"] for i in catalog.json()["items"]]
+    assert "sport" in codes and "music" in codes
 
     saved = await client.put(
-        "/me/goals", json={"goal_codes": ["more_movement", "own_project"]}, headers=me.headers
+        "/me/interests",
+        json={"codes": ["sport", "project"], "tags": ["  Джаз ", "стендап", "джаз"]},
+        headers=me.headers,
     )
     assert saved.status_code == 200
-    assert_matches(saved, "setMyGoals")
-    listed = await client.get("/me/goals", headers=me.headers)
-    assert_matches(listed, "listMyGoals")
-    assert listed.json() == {"goal_codes": ["more_movement", "own_project"]}
+    assert_matches(saved, "setMyInterests")
+    listed = await client.get("/me/interests", headers=me.headers)
+    assert_matches(listed, "listMyInterests")
+    assert listed.json() == {"codes": ["project", "sport"], "tags": ["джаз", "стендап"]}
 
-    skipped = await client.put("/me/goals", json={"goal_codes": []}, headers=me.headers)
-    assert skipped.json() == {"goal_codes": []}
+    skipped = await client.put("/me/interests", json={"codes": [], "tags": []}, headers=me.headers)
+    assert skipped.json() == {"codes": [], "tags": []}
 
-    for bad in (["nope"], codes[:6], ["learn", "learn"]):
-        response = await client.put("/me/goals", json={"goal_codes": bad}, headers=me.headers)
+    bad_bodies = (
+        {"codes": ["nope"], "tags": []},
+        {"codes": codes[:9], "tags": []},
+        {"codes": ["sport", "sport"], "tags": []},
+        {"codes": [], "tags": ["a", "b", "c", "d", "e", "f"]},
+        {"codes": [], "tags": ["x" * 31]},
+        {"codes": [], "tags": ["see http://spam.ru"]},
+    )
+    for bad in bad_bodies:
+        response = await client.put("/me/interests", json=bad, headers=me.headers)
         assert response.status_code == 422, bad
-        assert_matches(response, "setMyGoals")
+        assert_matches(response, "setMyInterests")
 
 
 async def test_habits_are_stored_as_worded(client: httpx.AsyncClient) -> None:

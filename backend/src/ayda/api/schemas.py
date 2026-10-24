@@ -117,13 +117,14 @@ class ConsentInput(BaseModel):
     version: str = Field(max_length=32)
 
 
-class Goal(BaseModel):
+class Interest(BaseModel):
     code: str
     title: str
 
 
-class GoalSelection(BaseModel):
-    goal_codes: list[str] = Field(max_length=5)
+class InterestSelection(BaseModel):
+    codes: list[str] = Field(max_length=8)
+    tags: list[Annotated[str, Field(max_length=30)]] = Field(max_length=5)
 
 
 class HabitCreate(BaseModel):
