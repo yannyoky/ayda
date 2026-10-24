@@ -65,9 +65,10 @@ class Settings(BaseSettings):
     timepad_token: SecretStr | None = None
     # Venues for meetups (ADR 0011): public Overpass instances in order, comma-separated;
     # empty: no venues. A city with users is queried about once a month, a few per night.
+    # The Russian mirror first, since prod runs on a Russian VPS; the main instance is the fallback.
     venues_overpass_urls: str = (
-        "https://overpass-api.de/api/interpreter,"
-        "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter,"
+        "https://overpass-api.de/api/interpreter"
     )
     venues_radius_m: int = 7000
 
