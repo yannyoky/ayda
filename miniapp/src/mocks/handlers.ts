@@ -441,6 +441,21 @@ export const handlers = [
       })
     }),
   ),
+  http.patch<{ id: string; messageId: string }, Schemas['MessageEdit'], DefaultBodyType>(
+    `${API}/conversations/:id/messages/:messageId`,
+    authed(async ({ params, request }) => {
+      const c = db.findConversation(params.id)
+      const m = c?.messages.find((x) => x.id === Number(params.messageId))
+      if (!c || !m) return problem(404, 'Сообщение не найдено')
+      if (m.author.id !== db.me.id) return problem(403, 'Изменить можно только своё сообщение')
+      if (Date.now() - Date.parse(m.created_at) > 24 * 3600 * 1000) return problem(409, 'Сообщение можно изменить только в первые сутки', 'https://ayda.app/errors/edit-window-over')
+      const body = await request.json()
+      const text = body.text?.trim() ?? ''
+      if (!text || text.length > 2000) return problem(422, 'Пустое или слишком длинное сообщение')
+      if (text !== m.text) Object.assign(m, { text, edited_at: new Date().toISOString() })
+      return HttpResponse.json(m)
+    }),
+  ),
   http.delete<{ id: string; messageId: string }, DefaultBodyType, DefaultBodyType>(
     `${API}/conversations/:id/messages/:messageId`,
     authed(({ params }) => {

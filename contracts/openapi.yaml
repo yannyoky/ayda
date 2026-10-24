@@ -2105,6 +2105,41 @@ paths:
           $ref: '#/components/responses/Problem'
 
   /conversations/{conversation_id}/messages/{message_id}:
+    patch:
+      tags: [chat]
+      operationId: editMessage
+      summary: Change the text of an own message within 24 hours (ADR 0019)
+      description: The message gets `edited_at`; members get `message.updated` over realtime.
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageEdit'
+      responses:
+        '200':
+          description: The changed message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: More than 24 hours since the message was sent
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
     delete:
       tags: [chat]
       operationId: deleteMessage
@@ -3766,6 +3801,19 @@ components:
         client_id:
           type: [string, 'null']
           format: uuid
+        edited_at:
+          type: [string, 'null']
+          format: date-time
+          description: Set once the author changed the text (within 24 hours of sending, ADR 0019).
+
+    MessageEdit:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
 
     MessagePage:
       type: object
@@ -3785,6 +3833,7 @@ components:
       oneOf:
         - $ref: '#/components/schemas/MessageCreatedEvent'
         - $ref: '#/components/schemas/MessageDeletedEvent'
+        - $ref: '#/components/schemas/MessageUpdatedEvent'
         - $ref: '#/components/schemas/ConversationReadEvent'
         - $ref: '#/components/schemas/CoopUpdatedEvent'
       discriminator:
@@ -3792,6 +3841,7 @@ components:
         mapping:
           message.created: '#/components/schemas/MessageCreatedEvent'
           message.deleted: '#/components/schemas/MessageDeletedEvent'
+          message.updated: '#/components/schemas/MessageUpdatedEvent'
           conversation.read: '#/components/schemas/ConversationReadEvent'
           coop.updated: '#/components/schemas/CoopUpdatedEvent'
 
@@ -3802,6 +3852,19 @@ components:
         type:
           type: string
           const: message.created
+        conversation_id:
+          type: string
+          format: uuid
+        message:
+          $ref: '#/components/schemas/Message'
+
+    MessageUpdatedEvent:
+      type: object
+      required: [type, conversation_id, message]
+      properties:
+        type:
+          type: string
+          const: message.updated
         conversation_id:
           type: string
           format: uuid

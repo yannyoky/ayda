@@ -276,6 +276,11 @@
     <string name="chats_closed">Вы больше не друзья: чат открыт только для чтения</string>
     <string name="chats_too_many">Слишком много сообщений, подожди минуту</string>
     <string name="chats_back">Назад</string>
+    <string name="chats_edit">Изменить</string>
+    <string name="chats_edited">изменено %1$s</string>
+    <string name="chats_editing">Изменение сообщения</string>
+    <string name="chats_save">Сохранить</string>
+    <string name="chats_edit_too_late">Сообщение можно изменить только в первые сутки</string>
     <string name="chats_hide">Удалить чат у себя</string>
     <string name="chats_hide_confirm">Удалить чат у себя? У остальных он останется. Если придёт новое сообщение, чат вернётся без старой переписки.</string>
     <string name="chats_hide_yes">Удалить</string>

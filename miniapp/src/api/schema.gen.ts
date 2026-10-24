@@ -1301,7 +1301,11 @@ export interface paths {
         delete: operations["deleteMessage"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change the text of an own message within 24 hours (ADR 0019)
+         * @description The message gets `edited_at`; members get `message.updated` over realtime.
+         */
+        patch: operations["editMessage"];
         trace?: never;
     };
     "/conversations/{conversation_id}/read": {
@@ -2173,6 +2177,14 @@ export interface components {
             created_at: string;
             /** Format: uuid */
             client_id: string | null;
+            /**
+             * Format: date-time
+             * @description Set once the author changed the text (within 24 hours of sending, ADR 0019).
+             */
+            edited_at?: string | null;
+        };
+        MessageEdit: {
+            text: string;
         };
         MessagePage: {
             items: components["schemas"]["Message"][];
@@ -2182,13 +2194,23 @@ export interface components {
          * @description A publication on the personal channel (ADR 0007). Clients ignore unknown `type`
          *     values, so new kinds of events can be added without breaking them.
          */
-        RealtimeEvent: components["schemas"]["MessageCreatedEvent"] | components["schemas"]["MessageDeletedEvent"] | components["schemas"]["ConversationReadEvent"] | components["schemas"]["CoopUpdatedEvent"];
+        RealtimeEvent: components["schemas"]["MessageCreatedEvent"] | components["schemas"]["MessageDeletedEvent"] | components["schemas"]["MessageUpdatedEvent"] | components["schemas"]["ConversationReadEvent"] | components["schemas"]["CoopUpdatedEvent"];
         MessageCreatedEvent: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "message.created";
+            /** Format: uuid */
+            conversation_id: string;
+            message: components["schemas"]["Message"];
+        };
+        MessageUpdatedEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "message.updated";
             /** Format: uuid */
             conversation_id: string;
             message: components["schemas"]["Message"];
@@ -4431,6 +4453,46 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    editMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+                message_id: components["parameters"]["MessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageEdit"];
+            };
+        };
+        responses: {
+            /** @description The changed message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            /** @description More than 24 hours since the message was sent */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["Problem"];
         };
     };
     markConversationRead: {

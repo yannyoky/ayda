@@ -2,8 +2,10 @@
 
 from ayda.modules.chat.models import Conversation, Member, Message
 from ayda.modules.chat.service import (
+    EDIT_WINDOW,
     MAX_MESSAGES_PER_MINUTE,
     CursorError,
+    EditWindowError,
     MessageLimitError,
     add_member,
     add_message,
@@ -12,6 +14,7 @@ from ayda.modules.chat.service import (
     create_group,
     delete_conversations,
     delete_message,
+    edit_message,
     erase_user,
     find_by_client_id,
     get_message,
@@ -28,9 +31,11 @@ from ayda.modules.chat.service import (
 )
 
 __all__ = [
+    "EDIT_WINDOW",
     "MAX_MESSAGES_PER_MINUTE",
     "Conversation",
     "CursorError",
+    "EditWindowError",
     "Member",
     "Message",
     "MessageLimitError",
@@ -41,6 +46,7 @@ __all__ = [
     "create_group",
     "delete_conversations",
     "delete_message",
+    "edit_message",
     "erase_user",
     "find_by_client_id",
     "get_message",

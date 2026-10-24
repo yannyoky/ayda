@@ -75,16 +75,23 @@ class RealtimeTest {
                     """"created_at":"2026-10-17T20:00:00Z",""" +
                     """"client_id":null}}""",
             )
+            transport.publish(
+                """{"type":"message.updated","conversation_id":"c1","message":{"id":7,"conversation_id":"c1",""" +
+                    """"author":{"id":"u2","first_name":"Боря"},"text":"Привет!",""" +
+                    """"created_at":"2026-10-17T20:00:00Z","client_id":null,""" +
+                    """"edited_at":"2026-10-17T20:01:00Z"}}""",
+            )
             transport.publish("""{"type":"message.deleted","conversation_id":"c1","message_id":7}""")
             transport.publish("""{"type":"something.new","x":1}""")
             transport.publish("not json")
             transport.listener!!.onResubscribed(recovered = true)
             transport.listener!!.onResubscribed(recovered = false)
 
-            assertEquals(3, events.size)
+            assertEquals(4, events.size)
             assertEquals("Привет", assertIs<LiveEvent.MessageCreated>(events[0]).message.text)
-            assertEquals(LiveEvent.MessageDeleted("c1", 7), events[1])
-            assertEquals(LiveEvent.Resync, events[2])
+            assertEquals("Привет!", assertIs<LiveEvent.MessageUpdated>(events[1]).message.text)
+            assertEquals(LiveEvent.MessageDeleted("c1", 7), events[2])
+            assertEquals(LiveEvent.Resync, events[3])
         }
 
     @Test

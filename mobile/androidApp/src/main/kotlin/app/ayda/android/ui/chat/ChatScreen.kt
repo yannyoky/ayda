@@ -276,7 +276,9 @@ private fun Messages(
                 mine = mine,
                 showAuthor = coop && !mine,
                 selected = state.selected == message.id,
+                canEdit = mine && model.canEdit(message),
                 onSelect = { model.select(message) },
+                onEdit = { model.startEdit(message) },
                 onDelete = { model.askDelete(message) },
             )
         }
@@ -296,7 +298,9 @@ private fun Bubble(
     mine: Boolean,
     showAuthor: Boolean,
     selected: Boolean,
+    canEdit: Boolean,
     onSelect: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
@@ -327,23 +331,43 @@ private fun Bubble(
                 color = if (mine) colors.onPlate else colors.ink,
                 modifier = Modifier.weight(1f, fill = false),
             )
-            Text(message.time(), style = small(), color = if (mine) colors.onPlate.copy(alpha = 0.6f) else colors.muted)
+            val time =
+                if (message.editedAt != null) {
+                    stringResource(R.string.chats_edited, message.time())
+                } else {
+                    message.time()
+                }
+            Text(time, style = small(), color = if (mine) colors.onPlate.copy(alpha = 0.6f) else colors.muted)
         }
         if (mine && selected) {
-            Row(
-                Modifier
-                    .padding(top = 4.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(colors.surface)
-                    .clickable(role = Role.Button, onClick = onDelete)
-                    .padding(12.dp, 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                AydaIcon(R.drawable.ic_trash, colors.ink, size = 16)
-                Text(stringResource(R.string.chats_delete), style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (canEdit) {
+                    MessageAction(stringResource(R.string.chats_edit), icon = null, onClick = onEdit)
+                }
+                MessageAction(stringResource(R.string.chats_delete), icon = R.drawable.ic_trash, onClick = onDelete)
             }
         }
+    }
+}
+
+@Composable
+private fun MessageAction(
+    text: String,
+    icon: Int?,
+    onClick: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    Row(
+        Modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(colors.surface)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(12.dp, 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        icon?.let { AydaIcon(it, colors.ink, size = 16) }
+        Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -392,6 +416,28 @@ private fun Pending(
 private fun Composer(model: ChatViewModel) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
+    if (state.editing != null) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.chats_editing),
+                style = small(),
+                color = colors.muted,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = model::cancelEdit) { Text(stringResource(R.string.cancel)) }
+        }
+    }
+    if (state.editTooLate) {
+        Text(
+            stringResource(R.string.chats_edit_too_late),
+            style = small(),
+            color = colors.muted,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
     Row(
         Modifier.fillMaxWidth().padding(16.dp, 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -419,7 +465,8 @@ private fun Composer(model: ChatViewModel) {
                 R.drawable.ic_arrow,
                 colors.onAccent,
                 size = 20,
-                contentDescription = stringResource(R.string.chats_send),
+                contentDescription =
+                    stringResource(if (state.editing != null) R.string.chats_save else R.string.chats_send),
             )
         }
     }

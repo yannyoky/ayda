@@ -358,11 +358,21 @@ class Message(BaseModel):
     text: str
     created_at: datetime
     client_id: uuid.UUID | None
+    edited_at: datetime | None = None
+
+
+MessageText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
+]
 
 
 class MessageInput(BaseModel):
-    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    text: MessageText
     client_id: uuid.UUID
+
+
+class MessageEdit(BaseModel):
+    text: MessageText
 
 
 class MessagePage(BaseModel):

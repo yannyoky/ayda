@@ -39,6 +39,12 @@ export function handleRealtimeEvent(client: QueryClient, event: RealtimeEvent): 
       void client.invalidateQueries({ queryKey: conversationKey(message.conversation_id) })
       return
     }
+    case 'message.updated': {
+      const { message } = event as Schemas['MessageUpdatedEvent']
+      upsertMessage(client, message)
+      void client.invalidateQueries({ queryKey: conversationsKey })
+      return
+    }
     case 'message.deleted': {
       const e = event as Schemas['MessageDeletedEvent']
       removeMessage(client, e.conversation_id, e.message_id)

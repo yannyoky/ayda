@@ -14,6 +14,7 @@ from ayda.api.schemas import (
     MeetupOffer,
     MeetupPick,
     Message,
+    MessageEdit,
     MessageInput,
     MessagePage,
     ReadInput,
@@ -99,6 +100,20 @@ async def send_message(
     if not created:
         response.status_code = 200
     return message
+
+
+@router.patch("/conversations/{conversation_id}/messages/{message_id}", operation_id="editMessage")
+async def edit_message(
+    conversation_id: uuid.UUID,
+    message_id: int,
+    body: MessageEdit,
+    user: CurrentUser,
+    session: DbSession,
+    realtime: RealtimeDep,
+) -> Message:
+    return await chat_app.edit_message(
+        session, realtime, user, conversation_id, message_id, body.text, datetime.now(UTC)
+    )
 
 
 @router.delete(
