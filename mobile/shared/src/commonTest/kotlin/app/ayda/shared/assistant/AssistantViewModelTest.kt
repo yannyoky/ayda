@@ -84,6 +84,8 @@ class AssistantViewModelTest {
                 )
             }
             "POST /day-quests/q9/take" -> json(quest.replace("\"offered\"", "\"taken\""))
+            "POST /venues/7/closed" -> json("", HttpStatusCode.NoContent)
+            "POST /venues/8/closed" -> problem(HttpStatusCode.NotFound, "venue-not-found", "Место не найдено")
             else -> error("unexpected $call")
         }
     }
@@ -193,6 +195,24 @@ class AssistantViewModelTest {
             advanceUntilIdle()
             assertEquals(1, refreshed)
             assertFalse(model.canTake("q9", QuestState.offered))
+        }
+
+    @Test
+    fun aPlaceReportedAsClosedIsRememberedOnce() =
+        runTest(dispatcher) {
+            val model = model()
+            advanceUntilIdle()
+            model.reportClosed(7)
+            advanceUntilIdle()
+            model.reportClosed(7)
+            advanceUntilIdle()
+            assertEquals(setOf(7L), model.state.value.closedPlaces)
+            assertEquals(1, calls.count { it.startsWith("POST /venues/7/closed") })
+
+            model.reportClosed(8)
+            advanceUntilIdle()
+            assertEquals(setOf(7L), model.state.value.closedPlaces)
+            assertEquals("Место не найдено", model.state.value.error)
         }
 
     @Test

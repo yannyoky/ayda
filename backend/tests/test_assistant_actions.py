@@ -322,3 +322,46 @@ async def test_no_events_is_said_on_the_card(app: FastAPI, client: httpx.AsyncCl
         "cards"
     ]
     assert card["kind"] == "events" and card["note"] == assistant_chat.NOTE_NO_EVENTS
+
+
+async def test_a_place_reported_as_closed_leaves_the_cards(
+    app: FastAPI, client: httpx.AsyncClient, database: Database
+) -> None:
+    await map_loaded(database)
+    first = await checked_in(app, client)
+    second = await checked_in(app, client, telegram_id=1002)
+    third = await checked_in(app, client, telegram_id=1003)
+    use_tools(app, [FakeProvider()], forecast())
+
+    async def places(user: Any) -> list[int]:
+        reply = (await send(client, user, "Где поужинать?")).json()["reply"]
+        return [p["id"] for p in reply["cards"][0]["places"]]
+
+    shown = await places(first)
+    closed = shown[0]
+    response = await client.post(f"/venues/{closed}/closed", headers=first.headers)
+    assert response.status_code == 204
+    assert_matches(response, "reportVenueClosed")
+    # Gone for the one who reported it at once, still shown to others.
+    assert closed not in await places(first)
+    assert closed in await places(second)
+    # Reporting again does not count twice.
+    await client.post(f"/venues/{closed}/closed", headers=first.headers)
+    assert closed in await places(third)
+    # A second person hides it for everyone.
+    await client.post(f"/venues/{closed}/closed", headers=second.headers)
+    assert closed not in await places(third)
+
+    # After 30 days the place comes back and the old reports are forgotten.
+    later = datetime.now(UTC) + events.REPORT_TTL + timedelta(days=1)
+    async with database.sessionmaker() as session:
+        found = await events.venue_candidates(
+            session, KALININGRAD, NOW.replace(tzinfo=None), now=later
+        )
+        assert closed in [c.venue.id for c in found]
+        assert await events.purge_reports(session, later) == 2
+        await session.commit()
+
+    missing = await client.post("/venues/999999/closed", headers=first.headers)
+    assert missing.status_code == 404
+    assert (await client.post(f"/venues/{closed}/closed")).status_code == 401

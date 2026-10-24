@@ -236,3 +236,14 @@ async def test_the_nightly_job_is_queued_once_a_day(database: Database, settings
             await session.scalars(select(Job.payload).where(Job.kind == local_events.VENUES_JOB))
         )
         assert jobs == [{"day": "2026-10-23"}]
+
+
+def test_a_place_the_map_marks_as_closed_is_skipped() -> None:
+    payload = {
+        "elements": [
+            node(11, "Открытый бар", "bar"),
+            node(12, "Бар на ремонте", "bar", opening_hours="off"),
+            node(13, "Бывшее кафе", **{"disused:amenity": "cafe"}),
+        ]
+    }
+    assert [v.osm_id for v in events.parse_venues(payload)] == [11]

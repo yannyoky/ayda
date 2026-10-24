@@ -18,7 +18,7 @@ from ayda.modules.events.listings import (
     save_listings,
     upcoming_near,
 )
-from ayda.modules.events.models import City, Listing, Venue, VenueLoad
+from ayda.modules.events.models import City, Listing, Venue, VenueLoad, VenueReport
 from ayda.modules.events.sources import (
     CityRef,
     EventSource,
@@ -30,6 +30,7 @@ from ayda.modules.events.venues import (
     ATTRIBUTION,
     FOOD_KINDS,
     KINDS,
+    REPORT_TTL,
     WALK_KINDS,
     Candidate,
     OverpassSource,
@@ -40,6 +41,8 @@ from ayda.modules.events.venues import (
     osm_url,
     parse_venues,
     place_snapshot,
+    purge_reports,
+    report_closed,
     save_venues,
     venue_place,
 )
@@ -51,6 +54,7 @@ __all__ = [
     "ATTRIBUTION",
     "FOOD_KINDS",
     "KINDS",
+    "REPORT_TTL",
     "WALK_KINDS",
     "Candidate",
     "City",
@@ -66,6 +70,7 @@ __all__ = [
     "Venue",
     "VenueData",
     "VenueLoad",
+    "VenueReport",
     "Weather",
     "WeatherClient",
     "cities_to_load",
@@ -82,7 +87,9 @@ __all__ = [
     "parse_venues",
     "place_snapshot",
     "purge_listings",
+    "purge_reports",
     "region_events",
+    "report_closed",
     "save_listings",
     "save_venues",
     "search_cities",

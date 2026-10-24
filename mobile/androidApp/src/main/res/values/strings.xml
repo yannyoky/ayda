@@ -336,7 +336,7 @@
     <string name="meetup_create_online">Создать план</string>
     <string name="meetup_distance_m">%1$d м от центра</string>
     <string name="meetup_distance_km">%1$.1f км от центра</string>
-    <string name="meetup_open">открыто</string>
+    <string name="meetup_open">открыто по графику</string>
     <string name="meetup_closed">закрыто</string>
     <string name="meetup_kind_restaurant">ресторан</string>
     <string name="meetup_kind_cafe">кафе</string>
@@ -425,7 +425,10 @@
     <string name="assistant_left">Сообщений на сегодня: %1$d</string>
     <string name="assistant_limit">На сегодня сообщения помощнику закончились</string>
     <string name="assistant_failed">Помощник не ответил. Попробуй ещё раз.</string>
-    <string name="assistant_open_now">открыто</string>
+    <string name="assistant_open_now">открыто по графику</string>
+    <string name="assistant_report_closed">Не работает</string>
+    <string name="assistant_report_closed_for">Не работает: %1$s</string>
+    <string name="assistant_reported_closed">Спасибо! Больше не покажу это место</string>
     <string name="today_top_events">Топ рядом</string>
     <string name="today_top_events_source">Афиша: Timepad и KudaGo</string>
     <string name="assistant_event_open">Подробнее</string>

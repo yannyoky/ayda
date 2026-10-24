@@ -134,7 +134,9 @@ async def suggest(
     if user.city_id is None:
         return await record(offer(note=NOTE_NO_CITY))
     local_start = starts_at.astimezone(ZoneInfo(user.timezone)).replace(tzinfo=None)
-    found = await events.venue_candidates(session, user.city_id, local_start, kinds, VENUES_SHOWN)
+    found = await events.venue_candidates(
+        session, user.city_id, local_start, kinds, VENUES_SHOWN, user.id, now
+    )
     city = await events.get_city(session, user.city_id)
     city_name = city.name if city else ""
     return await record(

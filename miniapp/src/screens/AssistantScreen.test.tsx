@@ -44,6 +44,20 @@ describe('Assistant chat (ADR 0013)', () => {
     expect(screen.getByText('© OpenStreetMap contributors')).toBeInTheDocument()
   })
 
+  it('hides a place reported as not working', async () => {
+    const user = userEvent.setup()
+    renderApp('/assistant')
+    await user.click(await screen.findByRole('button', { name: 'Где погулять сегодня?' }))
+    await user.click(await screen.findByRole('button', { name: 'Не работает: Центральный парк' }))
+    expect(await screen.findByText('Спасибо! Больше не покажу это место')).toBeInTheDocument()
+    expect(screen.queryByText('Центральный парк')).not.toBeInTheDocument()
+    expect(db.closedVenues.size).toBe(1)
+
+    await ask(user, 'Где ещё погулять?')
+    expect(await screen.findAllByText('Вот где можно погулять.')).toHaveLength(2)
+    expect(screen.queryByText('Центральный парк')).not.toBeInTheDocument()
+  })
+
   it('shows the listings found for a request', async () => {
     const user = userEvent.setup()
     renderApp('/assistant')
