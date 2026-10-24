@@ -42,9 +42,11 @@ test('a new user gets quests for the day, completes one and sees it in the feed'
   })
 
   await test.step('complete it with a text proof', async () => {
-    await page.getByRole('button', { name: /^Готово:/ }).click()
-    title = (await page.getByRole('heading', { level: 1 }).textContent()) ?? ''
+    const done = page.getByRole('button', { name: /^Готово:/ })
+    title = ((await done.getAttribute('aria-label')) ?? '').replace(/^Готово: /, '')
     expect(title).not.toBe('')
+    await done.click()
+    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible()
     await page.getByRole('textbox', { name: 'Подпись' }).fill('Получилось с первого раза')
     await page.getByRole('button', { name: 'Отметить' }).click()
     await expect(page.getByRole('status')).toContainText('Засчитано!')
