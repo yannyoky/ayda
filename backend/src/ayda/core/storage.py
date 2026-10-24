@@ -12,7 +12,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from ayda.core.config import Settings
+from ayda.core.config import SecretStr, Settings
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -22,32 +22,40 @@ else:
 UPLOAD_TTL = timedelta(minutes=15)
 READ_TTL = timedelta(hours=1)
 
+# (access key id, secret access key)
+Keys = tuple[SecretStr | None, SecretStr | None]
+
 
 class ObjectMissing(LookupError):
     pass
 
 
-def _client(settings: Settings, endpoint: str) -> S3Client:
-    def secret(value: Any) -> str | None:
-        return value.get_secret_value() if value is not None else None
+def _secret(value: SecretStr | None) -> str | None:
+    return value.get_secret_value() if value is not None else None
 
+
+def _client(settings: Settings, endpoint: str, keys: Keys) -> S3Client:
     return boto3.client(  # pyright: ignore[reportUnknownMemberType]
         "s3",
         endpoint_url=endpoint,
         region_name=settings.s3_region,
-        aws_access_key_id=secret(settings.s3_access_key_id),
-        aws_secret_access_key=secret(settings.s3_secret_access_key),
+        aws_access_key_id=_secret(keys[0]),
+        aws_secret_access_key=_secret(keys[1]),
         config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
 
 
 class Storage:
-    def __init__(self, settings: Settings, bucket: str | None = None) -> None:
+    def __init__(
+        self, settings: Settings, bucket: str | None = None, keys: Keys | None = None
+    ) -> None:
+        """`keys` overrides the S3 keys, for a provider that issues a key pair per bucket."""
         self.bucket = bucket or settings.s3_bucket
-        self._s3 = _client(settings, settings.s3_endpoint_url)
+        keys = keys or (settings.s3_access_key_id, settings.s3_secret_access_key)
+        self._s3 = _client(settings, settings.s3_endpoint_url, keys)
         # URLs handed to clients may need the public host (e.g. MinIO behind a proxy).
         public = settings.s3_public_endpoint_url or settings.s3_endpoint_url
-        self._presigner = _client(settings, public)
+        self._presigner = _client(settings, public, keys)
 
     def presign_put(self, key: str, content_type: str, size_bytes: int) -> str:
         """Content type and exact length are signed, so the client can't send another file."""

@@ -38,7 +38,7 @@ Pull requests touching `deploy/` or `infra/` validate the Compose file and build
 
 ## Backups
 
-The worker uploads a `pg_dump` to `BACKUP_BUCKET` every day after 03:30 Moscow time and keeps 14 days (`docs/architecture.md`, "Backups and error tracking"). A failed backup is retried; when it gives up, the error shows up in GlitchTip.
+The worker uploads a `pg_dump` to `BACKUP_BUCKET` every day after 03:30 Moscow time and keeps 14 days (`docs/architecture.md`, "Backups and error tracking"). Beget issues a separate key pair for each bucket: put the backup bucket's keys into `BACKUP_S3_ACCESS_KEY_ID` and `BACKUP_S3_SECRET_ACCESS_KEY`, otherwise the upload fails with `AccessDenied`; with a provider whose keys cover every bucket, leave them empty. A failed backup is retried; when it gives up, the error shows up in GlitchTip.
 
 By hand, on the VPS in `/opt/ayda`:
 
