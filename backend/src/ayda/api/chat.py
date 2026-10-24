@@ -119,7 +119,14 @@ async def create_chat_upload(
 ) -> UploadSlot:
     storage: Storage = request.app.state.storage
     slot = await chat_app.create_upload(
-        session, storage, user, conversation_id, body.content_type, body.size_bytes, _now()
+        session,
+        storage,
+        user,
+        conversation_id,
+        body.kind,
+        body.content_type,
+        body.size_bytes,
+        _now(),
     )
     return UploadSlot(
         media_id=slot.attachment.id,

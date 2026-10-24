@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Voice messages in chats (ADR 0019); asked for on the first recording. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Video circles in chats; the app works without a camera. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 
     <application
         android:name=".AydaApplication"

@@ -2,10 +2,11 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEven
 import { useNavigate, useParams } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
 import { useConversation, useDeleteMessage, useEditMessage, useHideConversation, useMarkRead, useMe, useMessages, useSendMessage } from '../api/queries'
-import { uploadVoice } from '../api/media'
+import { uploadRecording } from '../api/media'
 import { MeetupSheet } from '../features/chat/MeetupSheet'
+import { CirclePreview, VideoNote } from '../features/chat/VideoNote'
 import { VoiceMessage } from '../features/chat/VoiceMessage'
-import { canRecordVoice, formatSeconds, useVoiceRecorder } from '../features/chat/useVoiceRecorder'
+import { canRecord as canRecordMedia, formatSeconds, useRecorder, type RecordingKind } from '../features/chat/useRecorder'
 import { t } from '../i18n'
 import { useRealtimeStatus } from '../realtime/realtime'
 import { useBackButton } from '../telegram/useBackButton'
@@ -19,7 +20,7 @@ interface Pending {
   text: string
   failed: boolean
   /** A recording to upload first; kept until the message is saved so a retry can resend it. */
-  voice?: Blob
+  recording?: { kind: RecordingKind; blob: Blob }
   attachment_id?: string
 }
 
@@ -51,8 +52,8 @@ export function ChatScreen() {
   const [selected, setSelected] = useState<number | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [organizing, setOrganizing] = useState(false)
-  const recorder = useVoiceRecorder()
-  const [canRecord] = useState(canRecordVoice)
+  const recorder = useRecorder()
+  const [canRecord] = useState(canRecordMedia)
   const end = useRef<HTMLDivElement>(null)
   const readUpTo = useRef(0)
 
@@ -82,9 +83,9 @@ export function ChatScreen() {
   async function deliver(item: Pending) {
     setPending((cur) => [...cur.filter((p) => p.client_id !== item.client_id), { ...item, failed: false }])
     let attachmentId = item.attachment_id
-    if (item.voice && !attachmentId) {
+    if (item.recording && !attachmentId) {
       try {
-        attachmentId = await uploadVoice(id, item.voice)
+        attachmentId = await uploadRecording(id, item.recording.kind, item.recording.blob)
       } catch (e) {
         fail(item)
         if (e instanceof ApiError && e.status === 429) setNotice(t.chats.tooMany)
@@ -138,10 +139,10 @@ export function ChatScreen() {
     void deliver({ client_id: crypto.randomUUID(), text: value, failed: false })
   }
 
-  async function recordVoice() {
+  async function record(kind: RecordingKind) {
     setNotice(null)
-    const blob = await recorder.start()
-    if (blob) void deliver({ client_id: crypto.randomUUID(), text: '', failed: false, voice: blob })
+    const blob = await recorder.start(kind)
+    if (blob) void deliver({ client_id: crypto.randomUUID(), text: '', failed: false, recording: { kind, blob } })
   }
 
   function deleteMessage(m: Schemas['Message']) {
@@ -210,7 +211,19 @@ export function ChatScreen() {
             return (
               <li key={m.id} className={`flex max-w-[80%] flex-col ${mine ? 'items-end self-end' : 'items-start self-start'}`}>
                 {chat.kind === 'coop' && !mine && <span className="px-3 text-xs font-bold text-muted">{m.author.first_name}</span>}
-                {m.attachment ? (
+                {m.attachment?.kind === 'video_note' ? (
+                  <div className={`flex items-end gap-1.5 ${mine ? 'flex-row-reverse' : ''}`}>
+                    <VideoNote attachment={m.attachment} onExpired={() => void messages.refetch()} />
+                    <span className="flex flex-col items-center gap-1">
+                      {mine && (
+                        <button type="button" aria-label={t.chats.delete} onClick={() => deleteMessage(m)} className="flex size-8 items-center justify-center rounded-full bg-surface">
+                          <Icon name="trash" size={14} />
+                        </button>
+                      )}
+                      <span className="text-[11px] font-semibold text-muted">{timeFormat.format(new Date(m.created_at))}</span>
+                    </span>
+                  </div>
+                ) : m.attachment ? (
                   <div
                     className={`flex items-center gap-2 rounded-[20px] px-3 py-2 ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
                   >
@@ -258,13 +271,13 @@ export function ChatScreen() {
                 type="button"
                 disabled={!p.failed}
                 onClick={() => void deliver(p)}
-                aria-label={p.failed ? t.chats.failed : p.voice ? t.chats.voiceSending : t.chats.sending}
+                aria-label={p.failed ? t.chats.failed : p.recording ? (p.recording.kind === 'video_note' ? t.chats.circleSending : t.chats.voiceSending) : t.chats.sending}
                 className={`rounded-[20px] rounded-br-md px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${p.failed ? 'bg-surface text-ink outline-2 outline-accent' : 'bg-plate text-on-plate opacity-60'}`}
               >
-                {p.voice ? (
+                {p.recording ? (
                   <span className="flex items-center gap-2 font-bold">
-                    <Icon name="mic" size={18} />
-                    {t.chats.voice}
+                    <Icon name={p.recording.kind === 'video_note' ? 'camera' : 'mic'} size={18} />
+                    {p.recording.kind === 'video_note' ? t.chats.circle : t.chats.voice}
                   </span>
                 ) : (
                   p.text
@@ -291,9 +304,10 @@ export function ChatScreen() {
       )}
       {recorder.denied && (
         <p role="status" className="m-0 px-4 pb-1 text-xs font-semibold text-muted">
-          {t.chats.micDenied}
+          {recorder.denied === 'video_note' ? t.chats.cameraDenied : t.chats.micDenied}
         </p>
       )}
+      {recorder.state === 'recording' && recorder.kind === 'video_note' && recorder.stream && <CirclePreview stream={recorder.stream} />}
       {chat.can_send && recorder.state === 'recording' ? (
         <div className="flex items-center gap-2 px-4 pt-1 pb-[max(16px,env(safe-area-inset-bottom))]">
           <button type="button" onClick={recorder.cancel} aria-label={t.chats.cancelRecording} className="flex size-12 shrink-0 items-center justify-center rounded-field bg-surface">
@@ -303,7 +317,7 @@ export function ChatScreen() {
             <span className="size-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
             {t.chats.recording(formatSeconds(recorder.seconds))}
           </p>
-          <button type="button" onClick={recorder.stop} aria-label={t.chats.stopAndSend} className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent">
+          <button type="button" onClick={recorder.stop} aria-label={recorder.kind === 'video_note' ? t.chats.stopAndSendCircle : t.chats.stopAndSend} className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent">
             <Icon name="arrow" size={20} strokeWidth={2.4} />
           </button>
         </div>
@@ -322,15 +336,26 @@ export function ChatScreen() {
             className="h-12 min-w-0 flex-1 rounded-field border-0 bg-surface px-4 text-[15px] font-medium placeholder:text-muted"
           />
           {canRecord && !editing && !text.trim() ? (
-            <button
-              type="button"
-              onClick={() => void recordVoice()}
-              disabled={recorder.state !== 'idle'}
-              aria-label={t.chats.record}
-              className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-40"
-            >
-              <Icon name="mic" size={20} strokeWidth={2.4} />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => void record('video_note')}
+                disabled={recorder.state !== 'idle'}
+                aria-label={t.chats.recordCircle}
+                className="flex size-12 shrink-0 items-center justify-center rounded-field bg-surface disabled:opacity-40"
+              >
+                <Icon name="camera" size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={() => void record('voice')}
+                disabled={recorder.state !== 'idle'}
+                aria-label={t.chats.record}
+                className="flex size-12 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent disabled:opacity-40"
+              >
+                <Icon name="mic" size={20} strokeWidth={2.4} />
+              </button>
+            </>
           ) : (
             <button
               type="submit"

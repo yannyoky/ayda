@@ -448,9 +448,12 @@ export const handlers = [
     authed(async ({ params, request }) => {
       if (!db.findConversation(params.id)) return problem(404, 'Чат не найден')
       const body = await request.json()
-      if (body.size_bytes > 10_485_760) return problem(422, 'Голосовое больше 10 МБ')
+      const video = body.kind === 'video_note'
+      if (video !== body.content_type.startsWith('video/')) return problem(422, 'Такой файл не подходит для этого сообщения')
+      if (body.size_bytes > (video ? 52_428_800 : 10_485_760)) return problem(422, 'Файл слишком большой')
       const id = uuid()
       db.uploads.set(id, { url: null })
+      db.uploadKinds.set(id, body.kind)
       const slot: Schemas['UploadSlot'] = {
         media_id: id,
         upload_url: new URL(`/mock-s3/${id}`, request.url).href,

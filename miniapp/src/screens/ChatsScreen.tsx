@@ -71,7 +71,7 @@ export function ChatsScreen() {
                     </span>
                     <span className="flex items-center justify-between gap-2">
                       <span className={`truncate text-sm ${c.unread_count > 0 ? 'font-bold text-ink' : 'font-medium text-muted'}`}>
-                        {last ? `${mine ? t.chats.you : ''}${last.attachment ? `🎤 ${t.chats.voice}` : last.text}` : t.chats.noMessages}
+                        {last ? `${mine ? t.chats.you : ''}${last.attachment ? (last.attachment.kind === 'video_note' ? `⭕ ${t.chats.circle}` : `🎤 ${t.chats.voice}`) : last.text}` : t.chats.noMessages}
                       </span>
                       {c.unread_count > 0 && (
                         <span

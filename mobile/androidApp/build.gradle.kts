@@ -97,6 +97,11 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.sentry.android)
+    // Video circles in chats (ADR 0019): the front camera, recorded at SD quality.
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.video)
+    implementation(libs.camera.view)
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)

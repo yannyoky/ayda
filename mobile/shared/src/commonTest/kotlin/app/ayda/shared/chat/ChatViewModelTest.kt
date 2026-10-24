@@ -2,6 +2,7 @@ package app.ayda.shared.chat
 
 import androidx.lifecycle.viewModelScope
 import app.ayda.api.models.Attachment
+import app.ayda.api.models.ChatUploadInput
 import app.ayda.shared.AydaClient
 import app.ayda.shared.InMemoryTokenStore
 import app.ayda.shared.TEST_BASE
@@ -126,7 +127,7 @@ class ChatViewModelTest {
             val model = model()
             advanceUntilIdle()
             sendStatus = HttpStatusCode.ServiceUnavailable
-            model.sendVoice(byteArrayOf(1, 2, 3))
+            model.sendRecording(ChatUploadInput.Kind.voice, byteArrayOf(1, 2, 3))
             advanceUntilIdle()
             val failed =
                 model.state.value.pending
@@ -151,6 +152,21 @@ class ChatViewModelTest {
                     .last()
                     .attachment
                     ?.status,
+            )
+        }
+
+    @Test
+    fun aCircleIsUploadedAsVideo() =
+        runTest(dispatcher) {
+            val model = model()
+            advanceUntilIdle()
+            model.sendRecording(ChatUploadInput.Kind.video_note, byteArrayOf(4, 5, 6))
+            advanceUntilIdle()
+            val slot = calls.single { it.startsWith("POST /conversations/c1/uploads") }
+            assertTrue("\"kind\":\"video_note\"" in slot && "\"content_type\":\"video/mp4\"" in slot, slot)
+            assertTrue(
+                model.state.value.pending
+                    .isEmpty(),
             )
         }
 

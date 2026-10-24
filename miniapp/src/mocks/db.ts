@@ -144,6 +144,7 @@ export class MockDb {
   pointsWeek = 0
   streak: Schemas['Streak'] = { current_days: 0, best_days: 0, freeze_available: true }
   uploads = new Map<string, { url: string | null }>()
+  uploadKinds = new Map<string, Schemas['Attachment']['kind']>()
   posts: StoredPost[] = []
   friends: (Friend & { points: number; streak_days: number })[] = []
   invites = new Map<string, { inviterId: string | null; expiresAt: string }>()
@@ -198,6 +199,7 @@ export class MockDb {
     this.pointsWeek = onboarded ? 185 : 0
     this.streak = onboarded ? { current_days: 12, best_days: 15, freeze_available: true } : { current_days: 0, best_days: 0, freeze_available: true }
     this.uploads.clear()
+    this.uploadKinds.clear()
     this.posts = []
     this.friends = []
     this.invites.clear()
@@ -703,7 +705,8 @@ export class MockDb {
     if (input.attachment_id) {
       // The mock "re-encodes" at once: the recording plays from the uploaded blob.
       const url = this.uploads.get(input.attachment_id)?.url ?? 'data:audio/mp4;base64,AAAA'
-      message.attachment = { kind: 'voice', status: 'ready', duration_ms: 3000, url }
+      const kind = this.uploadKinds.get(input.attachment_id) ?? 'voice'
+      message.attachment = { kind, status: 'ready', duration_ms: 3000, url }
     }
     return { message, created: true }
   }

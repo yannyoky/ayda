@@ -1301,10 +1301,13 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Get a presigned URL to upload a voice message to S3 (ADR 0019)
+         * Get a presigned URL to upload a voice message or a video circle to S3 (ADR 0019)
          * @description Upload the recording with a `PUT` to `upload_url` and the given headers before
          *     `expires_at`, then send a message with `attachment_id` set to `media_id`. The worker
-         *     re-encodes it to AAC in M4A (at most 5 minutes) and deletes the original.
+         *     re-encodes voice to AAC in M4A (at most 5 minutes) and a circle to a square 480x480
+         *     H.264 MP4 (at most 60 seconds), and deletes the original. A circle's file is deleted
+         *     30 days after sending. Voice takes `audio/*` up to 10 MB, a circle `video/*` up to
+         *     50 MB; anything else is 422.
          */
         post: operations["createChatUpload"];
         delete?: never;
@@ -2191,27 +2194,33 @@ export interface components {
             client_id: string;
             /**
              * Format: uuid
-             * @description A voice message uploaded with createChatUpload (`media_id`).
+             * @description A voice message or a circle uploaded with createChatUpload (`media_id`).
              */
             attachment_id?: string;
         };
         ChatUploadInput: {
             /** @enum {string} */
-            kind: "voice";
+            kind: "voice" | "video_note";
             /** @enum {string} */
-            content_type: "audio/webm" | "audio/ogg" | "audio/mp4" | "audio/aac" | "audio/mpeg";
+            content_type: "audio/webm" | "audio/ogg" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "video/webm" | "video/mp4" | "video/quicktime";
             size_bytes: number;
         };
         Attachment: {
-            /** @enum {string} */
-            kind: "voice";
-            /** @enum {string} */
-            status: "processing" | "ready" | "failed";
+            /**
+             * @description `video_note` is a round video ("кружок"), square 480x480.
+             * @enum {string}
+             */
+            kind: "voice" | "video_note";
+            /**
+             * @description `expired`: a circle older than 30 days; its file is deleted.
+             * @enum {string}
+             */
+            status: "processing" | "ready" | "failed" | "expired";
             /** @description Known once the recording is processed. */
             duration_ms: number | null;
             /**
              * Format: uri
-             * @description A short-lived link to play the re-encoded file (AAC in M4A), when ready.
+             * @description A short-lived link to play the re-encoded file (M4A or MP4), when ready.
              */
             url: string | null;
         };
@@ -2234,7 +2243,7 @@ export interface components {
              * @description Set once the author changed the text (within 24 hours of sending, ADR 0019).
              */
             edited_at?: string | null;
-            /** @description A voice message; its `text` is empty. */
+            /** @description A voice message or a video circle; its `text` is empty. */
             attachment?: components["schemas"]["Attachment"] | null;
         };
         MessageEdit: {

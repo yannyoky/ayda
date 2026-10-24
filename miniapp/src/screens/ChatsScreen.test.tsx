@@ -71,9 +71,9 @@ describe('Chats (US-17)', () => {
     expect(chat.messages.at(-1)!.text).toBe('Встретимся в 8')
   })
 
-  it('records and sends a voice message', async () => {
+  it('records and sends a voice message and a circle', async () => {
     class FakeRecorder {
-      static isTypeSupported = (type: string) => type === 'audio/webm;codecs=opus'
+      static isTypeSupported = (type: string) => ['audio/webm;codecs=opus', 'video/webm;codecs=vp8,opus'].includes(type)
       state: RecordingState = 'inactive'
       mimeType: string
       ondataavailable: ((e: { data: Blob }) => void) | null = null
@@ -116,6 +116,14 @@ describe('Chats (US-17)', () => {
     const sent = chat.messages.at(-1)!
     expect(sent.text).toBe('')
     expect(sent.attachment?.kind).toBe('voice')
+
+    await user.click(screen.getByRole('button', { name: 'Записать кружок' }))
+    expect(await screen.findByRole('timer')).toBeInTheDocument()
+    const getUserMedia = vi.mocked(navigator.mediaDevices.getUserMedia)
+    expect(getUserMedia).toHaveBeenLastCalledWith(expect.objectContaining({ video: expect.objectContaining({ facingMode: 'user' }) }))
+    await user.click(screen.getByRole('button', { name: 'Отправить кружок' }))
+    expect(await screen.findByRole('button', { name: 'Смотреть кружок' })).toBeInTheDocument()
+    expect(chat.messages.at(-1)!.attachment?.kind).toBe('video_note')
     vi.unstubAllGlobals()
     Reflect.deleteProperty(navigator, 'mediaDevices')
   })

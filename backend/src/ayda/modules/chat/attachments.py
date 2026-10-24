@@ -1,5 +1,6 @@
-"""Voice messages: a presigned PUT, then a worker job re-encodes the file before anyone
-can play it (ADR 0019). The original upload is always deleted."""
+"""Voice messages and video circles: a presigned PUT, then a worker job re-encodes the file
+before anyone can play it (ADR 0019). The original upload is always deleted; a circle's file
+is deleted 30 days after it was sent."""
 
 import tempfile
 import uuid
@@ -13,18 +14,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.ids import uuid7
 from ayda.core.storage import UPLOAD_TTL, ObjectMissing, Storage
-from ayda.modules.chat.audio import InvalidMedia, transcode_voice
 from ayda.modules.chat.models import Attachment, Message
+from ayda.modules.chat.transcode import InvalidMedia, transcode_video_note, transcode_voice
 
-MAX_BYTES = 10 * 1024 * 1024
 MAX_UPLOADS_PER_DAY = 200
 VOICE_TYPES = ("audio/webm", "audio/ogg", "audio/mp4", "audio/aac", "audio/mpeg")
+VIDEO_TYPES = ("video/webm", "video/mp4", "video/quicktime")
+# kind -> (accepted upload types, largest upload)
+KINDS = {
+    "voice": (VOICE_TYPES, 10 * 1024 * 1024),
+    "video_note": (VIDEO_TYPES, 50 * 1024 * 1024),
+}
 UNSENT_TTL = timedelta(days=1)
+VIDEO_NOTE_TTL = timedelta(days=30)
 PROCESS_JOB = "chat.process_attachment"
 
 
 class AttachmentLimitError(Exception):
     pass
+
+
+class UnsupportedUpload(ValueError):
+    """The content type or size does not fit the kind."""
 
 
 class AttachmentError(ValueError):
@@ -47,8 +58,13 @@ def voice_key(attachment_id: uuid.UUID) -> str:
     return f"chat/voice/{attachment_id}.m4a"
 
 
+def video_note_key(attachment_id: uuid.UUID) -> str:
+    return f"chat/video/{attachment_id}.mp4"
+
+
 def _keys(attachment: Attachment) -> set[str]:
-    return {attachment.storage_key, upload_key(attachment.id), voice_key(attachment.id)}
+    keys = {upload_key(attachment.id), voice_key(attachment.id), video_note_key(attachment.id)}
+    return keys | ({attachment.storage_key} if attachment.storage_key else set())
 
 
 async def create_upload(
@@ -56,10 +72,14 @@ async def create_upload(
     storage: Storage,
     conversation_id: uuid.UUID,
     owner_id: uuid.UUID,
+    kind: str,
     content_type: str,
     size_bytes: int,
     now: datetime,
 ) -> AttachmentSlot:
+    types, max_bytes = KINDS[kind]
+    if content_type not in types or size_bytes > max_bytes:
+        raise UnsupportedUpload(kind)
     recent = await session.scalar(
         select(func.count())
         .select_from(Attachment)
@@ -72,7 +92,7 @@ async def create_upload(
         id=attachment_id,
         conversation_id=conversation_id,
         owner_id=owner_id,
-        kind="voice",
+        kind=kind,
         status="pending",
         storage_key=upload_key(attachment_id),
         content_type=content_type,
@@ -118,22 +138,25 @@ async def process(session: AsyncSession, storage: Storage, attachment_id: uuid.U
     if attachment is None or attachment.status != "processing":
         return None
     original = upload_key(attachment.id)
-    with tempfile.TemporaryDirectory(prefix="ayda-voice-") as folder:
-        source, target = Path(folder, "upload"), Path(folder, "voice.m4a")
+    video = attachment.kind == "video_note"
+    key = video_note_key(attachment.id) if video else voice_key(attachment.id)
+    with tempfile.TemporaryDirectory(prefix="ayda-chat-") as folder:
+        source, target = Path(folder, "upload"), Path(folder, "out")
         try:
             await storage.download_file(original, str(source))
-            if source.stat().st_size > MAX_BYTES:
+            if source.stat().st_size > KINDS[attachment.kind][1]:
                 raise InvalidMedia("too large")
-            length = await transcode_voice(source, target)
+            transcode = transcode_video_note if video else transcode_voice
+            length = await transcode(source, target)
         except (ObjectMissing, InvalidMedia, OSError):
             attachment.status = "failed"
             await storage.delete([original])
             return attachment.message_id
-        await storage.upload_file(str(target), voice_key(attachment.id))
+        await storage.upload_file(str(target), key)
         size = target.stat().st_size
     await storage.delete([original])
-    attachment.storage_key = voice_key(attachment.id)
-    attachment.content_type = "audio/mp4"
+    attachment.storage_key = key
+    attachment.content_type = "video/mp4" if video else "audio/mp4"
     attachment.size_bytes = size
     attachment.duration_ms = length
     attachment.status = "ready"
@@ -190,6 +213,29 @@ async def remove_unsent(session: AsyncSession, now: datetime) -> list[str]:
         )
     )
     return await _remove(session, rows)
+
+
+async def expire_video_notes(session: AsyncSession, now: datetime) -> tuple[list[str], list[int]]:
+    """Periodic: circles older than 30 days lose their file; the message stays and says so.
+    Returns (storage keys to delete, message ids to tell the chat about)."""
+    rows = list(
+        await session.scalars(
+            select(Attachment)
+            .where(
+                Attachment.kind == "video_note",
+                Attachment.status != "expired",
+                Attachment.message_id.is_not(None),
+                Attachment.created_at < now - VIDEO_NOTE_TTL,
+            )
+            .limit(500)
+            .with_for_update(skip_locked=True)
+        )
+    )
+    keys = sorted({k for a in rows for k in _keys(a)})
+    for attachment in rows:
+        attachment.status = "expired"
+        attachment.storage_key = ""
+    return keys, [a.message_id for a in rows if a.message_id is not None]
 
 
 def play_url(storage: Storage, attachment: Attachment) -> str | None:
