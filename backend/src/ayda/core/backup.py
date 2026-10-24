@@ -72,6 +72,14 @@ async def _run(*cmd: str, env: dict[str, str]) -> None:
         raise BackupError(f"{cmd[0]} exited with {proc.returncode}: {last[0][:200]}")
 
 
+def backup_storage(settings: Settings) -> Storage:
+    """The backup bucket, with its own keys when they are set."""
+    keys = None
+    if settings.backup_s3_access_key_id and settings.backup_s3_secret_access_key:
+        keys = (settings.backup_s3_access_key_id, settings.backup_s3_secret_access_key)
+    return Storage(settings, bucket=settings.backup_bucket, keys=keys)
+
+
 def backup_key(now: datetime) -> str:
     return f"{PREFIX}{now.astimezone(UTC):%Y-%m-%dT%H%M%SZ}.dump"
 
@@ -81,7 +89,7 @@ async def create_backup(
 ) -> str:
     """Dump the database, upload it and prune old dumps; returns the new key."""
     now = now or datetime.now(UTC)
-    storage = storage or Storage(settings, bucket=settings.backup_bucket)
+    storage = storage or backup_storage(settings)
     conn = Libpq.from_url(settings.database_url)
     key = backup_key(now)
     with tempfile.TemporaryDirectory() as tmp:
@@ -102,7 +110,7 @@ async def prune(storage: Storage, older_than: datetime) -> list[str]:
 
 
 async def list_backups(settings: Settings, storage: Storage | None = None) -> list[str]:
-    storage = storage or Storage(settings, bucket=settings.backup_bucket)
+    storage = storage or backup_storage(settings)
     return sorted(k for k, _ in await storage.list_keys(PREFIX))
 
 
@@ -110,7 +118,7 @@ async def restore_backup(
     settings: Settings, key: str, target_url: str, storage: Storage | None = None
 ) -> None:
     """Restore a dump into `target_url` (an existing, preferably empty, database)."""
-    storage = storage or Storage(settings, bucket=settings.backup_bucket)
+    storage = storage or backup_storage(settings)
     conn = Libpq.from_url(target_url)
     with tempfile.TemporaryDirectory() as tmp:
         path = str(Path(tmp) / "ayda.dump")

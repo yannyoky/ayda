@@ -52,6 +52,10 @@ class Settings(BaseSettings):
 
     # Daily PostgreSQL backup (pg_dump) to a private bucket of the same S3 provider in Russia.
     backup_bucket: str = "ayda-backups"
+    # Keys for the backup bucket when the provider issues a key pair per bucket (Beget);
+    # unset: the S3 keys above.
+    backup_s3_access_key_id: SecretStr | None = None
+    backup_s3_secret_access_key: SecretStr | None = None
     backup_keep_days: int = 14
     backup_at: time = time(3, 30)
     backup_timezone: str = "Europe/Moscow"

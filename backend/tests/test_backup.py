@@ -8,7 +8,7 @@ from sqlalchemy import make_url, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from ayda.core import backup
-from ayda.core.config import Settings
+from ayda.core.config import SecretStr, Settings
 from ayda.core.db import Database
 from ayda.core.jobs import enqueue
 from ayda.core.storage import Storage
@@ -103,3 +103,23 @@ async def test_backup_failure_raises_without_uploading(s3_settings: Settings) ->
     with pytest.raises(backup.BackupError):
         await backup.create_backup(broken)
     assert await backup.list_backups(s3_settings) == []
+
+
+def _access_key(storage: Storage) -> str:
+    creds = storage._s3._request_signer._credentials  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+    return str(creds.access_key)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+
+
+def test_backup_bucket_uses_its_own_keys_when_set(s3_settings: Settings) -> None:
+    # Beget issues a key pair per bucket, so the media keys are denied on the backup bucket.
+    assert _access_key(backup.backup_storage(s3_settings)) == "test"
+    own = s3_settings.model_copy(
+        update={
+            "backup_s3_access_key_id": SecretStr("backup-id"),
+            "backup_s3_secret_access_key": SecretStr("backup-secret"),
+        }
+    )
+    storage = backup.backup_storage(own)
+    assert storage.bucket == own.backup_bucket
+    assert _access_key(storage) == "backup-id"
+    assert _access_key(Storage(own)) == "test"
