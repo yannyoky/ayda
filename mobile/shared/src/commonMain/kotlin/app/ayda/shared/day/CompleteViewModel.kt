@@ -3,8 +3,8 @@ package app.ayda.shared.day
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.ayda.api.models.CompleteQuestInput
-import app.ayda.api.models.CreateUploadRequest
 import app.ayda.api.models.Completion
+import app.ayda.api.models.CreateUploadRequest
 import app.ayda.api.models.Day
 import app.ayda.api.models.DayQuest
 import app.ayda.api.models.QuestState
