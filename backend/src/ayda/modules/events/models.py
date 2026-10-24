@@ -1,6 +1,8 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Integer, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from ayda.core.models import module_metadata
@@ -69,3 +71,13 @@ class VenueLoad(Base):
     city_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     loaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     venues: Mapped[int] = mapped_column(Integer)
+
+
+class VenueReport(Base):
+    """A user's "Не работает" on a venue; the user id is kept only to count people once."""
+
+    __tablename__ = "venue_reports"
+
+    venue_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

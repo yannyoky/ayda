@@ -146,7 +146,7 @@ async def _places(
         return AssistantCard(kind="places", note=NOTE_NO_CITY)
     local = day_clock.local_now(now, user.timezone).replace(tzinfo=None)
     found = await events.venue_candidates(
-        session, user.city_id, local, PLACE_KINDS[kind], PLACES_SHOWN
+        session, user.city_id, local, PLACE_KINDS[kind], PLACES_SHOWN, user.id, now
     )
     if not found:
         if not await events.venues_loaded(session, user.city_id):

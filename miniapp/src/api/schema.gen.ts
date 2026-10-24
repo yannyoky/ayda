@@ -745,6 +745,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/venues/{venue_id}/closed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say that a place from a card does not work now
+         * @description OpenStreetMap knows opening hours, not a place closed for a while. After this call the
+         *     place is left out of this user's place cards; once two people report it, out of
+         *     everyone's. A report lasts 30 days, then the place comes back. Repeating it only
+         *     refreshes the date.
+         */
+        post: operations["reportVenueClosed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant/messages": {
         parameters: {
             query?: never;
@@ -1742,7 +1765,10 @@ export interface components {
             distance_m: number;
             /** @description OpenStreetMap `opening_hours` as written there. */
             opening_hours: string | null;
-            /** @description Open at the planned time; null when the hours are unknown. */
+            /**
+             * @description Open at the planned time by the map's opening hours; null when they are unknown.
+             *     The map does not know a temporary closure, so clients say "по графику".
+             */
             open_now: boolean | null;
             /** Format: uri */
             osm_url: string;
@@ -1817,7 +1843,10 @@ export interface components {
             address: string | null;
             /** @description From the city center. */
             distance_m: number;
-            /** @description Null when the hours are unknown or the place has none. */
+            /**
+             * @description Open now by the map's opening hours (a temporary closure is not known); null when
+             *     the hours are unknown or the place has none.
+             */
             open_now: boolean | null;
             /** Format: uri */
             osm_url: string;
@@ -3310,6 +3339,28 @@ export interface operations {
                 };
             };
             401: components["responses"]["Problem"];
+        };
+    };
+    reportVenueClosed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                venue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reported */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
     listAssistantMessages: {

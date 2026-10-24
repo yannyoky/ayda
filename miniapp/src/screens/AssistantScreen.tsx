@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { ApiError, type Schemas } from '../api/client'
-import { useAssistantThread, useSendAssistantMessage, useTakeQuests, useToday } from '../api/queries'
+import { useAssistantThread, useReportVenueClosed, useSendAssistantMessage, useTakeQuests, useToday } from '../api/queries'
 import { EventItem } from '../features/events/EventItem'
 import { RecipeSheet } from '../features/recipes/RecipeSheet'
 import { t } from '../i18n'
@@ -185,22 +185,7 @@ function AssistantCardView({ card, onCook }: { card: Schemas['AssistantCard']; o
       {card.places.length > 0 && (
         <ul aria-label={t.assistant.title} className="m-0 flex list-none flex-col gap-2 p-0">
           {card.places.map((p) => (
-            <li key={p.id} className="flex flex-col gap-1.5 rounded-card bg-surface p-3.5">
-              <span className="text-[15px] font-bold">{p.name}</span>
-              <span className="text-xs font-semibold text-muted">
-                {[t.assistant.placeKinds[p.kind], p.address, t.assistant.distance(p.distance_m), p.open_now ? t.assistant.openNow : null].filter(Boolean).join(' · ')}
-              </span>
-              <span className="flex gap-2">
-                <a href={p.gis_url} target="_blank" rel="noreferrer" className="flex h-9 items-center gap-1 rounded-field bg-bg px-3 text-xs font-extrabold text-ink no-underline">
-                  {t.assistant.on2gis}
-                  <Icon name="external" size={14} />
-                </a>
-                <a href={p.yandex_url} target="_blank" rel="noreferrer" className="flex h-9 items-center gap-1 rounded-field bg-bg px-3 text-xs font-extrabold text-ink no-underline">
-                  {t.assistant.onYandex}
-                  <Icon name="external" size={14} />
-                </a>
-              </span>
-            </li>
+            <PlaceItem key={p.id} place={p} />
           ))}
         </ul>
       )}
@@ -262,5 +247,44 @@ function QuestIdea({ quest }: { quest: Schemas['DayQuest'] }) {
         <span className="text-sm font-bold">{t.assistant.taken}</span>
       )}
     </div>
+  )
+}
+
+function PlaceItem({ place }: { place: Schemas['AssistantPlace'] }) {
+  const report = useReportVenueClosed()
+  if (report.isSuccess) {
+    return (
+      <li role="status" className="rounded-card bg-surface p-3.5 text-xs font-bold text-muted">
+        {t.assistant.reportedClosed}
+      </li>
+    )
+  }
+  return (
+    <li className="flex flex-col gap-1.5 rounded-card bg-surface p-3.5">
+      <span className="text-[15px] font-bold">{place.name}</span>
+      <span className="text-xs font-semibold text-muted">
+        {[t.assistant.placeKinds[place.kind], place.address, t.assistant.distance(place.distance_m), place.open_now ? t.assistant.openNow : null].filter(Boolean).join(' · ')}
+      </span>
+      <span className="flex gap-2">
+        <a href={place.gis_url} target="_blank" rel="noreferrer" className="flex h-9 items-center gap-1 rounded-field bg-bg px-3 text-xs font-extrabold text-ink no-underline">
+          {t.assistant.on2gis}
+          <Icon name="external" size={14} />
+        </a>
+        <a href={place.yandex_url} target="_blank" rel="noreferrer" className="flex h-9 items-center gap-1 rounded-field bg-bg px-3 text-xs font-extrabold text-ink no-underline">
+          {t.assistant.onYandex}
+          <Icon name="external" size={14} />
+        </a>
+        <button
+          type="button"
+          aria-label={t.assistant.reportClosedFor(place.name)}
+          disabled={report.isPending}
+          onClick={() => report.mutate(place.id)}
+          className="ml-auto h-9 rounded-field bg-transparent px-2 text-xs font-bold text-muted disabled:opacity-40"
+        >
+          {t.assistant.reportClosed}
+        </button>
+      </span>
+      {report.isError && <span role="alert" className="text-xs font-semibold text-muted">{t.assistant.reportFailed}</span>}
+    </li>
   )
 }

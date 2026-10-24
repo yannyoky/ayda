@@ -181,6 +181,13 @@ export const handlers = [
       return HttpResponse.json(db.sendAssistant(body.text.trim(), questId), { status: 201 })
     }),
   ),
+  http.post<{ venue_id: string }, DefaultBodyType, DefaultBodyType>(
+    `${API}/venues/:venue_id/closed`,
+    authed(({ params }) => {
+      if (!db.reportVenueClosed(Number(params.venue_id))) return problem(404, 'Место не найдено', 'https://ayda.app/errors/venue-not-found')
+      return new HttpResponse(null, { status: 204 })
+    }),
+  ),
   http.post<never, Schemas['OwnQuestInput'], DefaultBodyType>(
     `${API}/day-quests`,
     authed(async ({ request }) => {

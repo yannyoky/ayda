@@ -8,9 +8,10 @@ the average bill are not stored: a card links to 2GIS and Yandex Maps search ins
 
 import logging
 import re
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from urllib.parse import quote
 
@@ -19,7 +20,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.modules.events.cities import city_point
-from ayda.modules.events.models import Venue, VenueLoad
+from ayda.modules.events.models import Venue, VenueLoad, VenueReport
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +32,11 @@ RELOAD_AFTER = timedelta(days=30)
 ATTRIBUTION = "© OpenStreetMap contributors"
 MAX_NAME = 120
 MAX_VENUES_PER_CITY = 3000
+# "Не работает" from users: the map knows opening hours, not that a place shut for a while.
+REPORT_TTL = timedelta(days=30)
+REPORTS_TO_HIDE = 2
+# OSM lifecycle prefixes for a place that no longer works (`disused:amenity=bar`).
+_GONE_PREFIXES = ("disused:", "abandoned:", "was:", "demolished:", "razed:", "removed:")
 
 
 @dataclass(frozen=True)
@@ -75,9 +81,16 @@ def _kind(tags: dict[str, str]) -> str | None:
     return None
 
 
+def is_closed(tags: dict[str, str]) -> bool:
+    """A place the map itself marks as closed: hours `off`/`closed` or a lifecycle prefix."""
+    if tags.get("opening_hours", "").strip().lower() in ("off", "closed"):
+        return True
+    return any(key.startswith(_GONE_PREFIXES) for key in tags)
+
+
 def parse_venues(payload: dict[str, Any]) -> list[VenueData]:
-    """Named places of the known kinds with coordinates; anything else is skipped. An
-    embankment split into several ways is kept once, by name."""
+    """Named places of the known kinds with coordinates; anything else, and a place the map
+    marks as closed, is skipped. An embankment split into several ways is kept once, by name."""
     out: list[VenueData] = []
     embankments: set[str] = set()
     for element in cast(list[dict[str, Any]], payload.get("elements", [])):
@@ -94,6 +107,7 @@ def parse_venues(payload: dict[str, Any]) -> list[VenueData]:
             or lat is None
             or lon is None
             or osm_type not in ("node", "way", "relation")
+            or is_closed(tags)
         ):
             continue
         if kind == "embankment":
@@ -230,7 +244,9 @@ async def load_venues(
     limit: int = 10,
 ) -> dict[int, int]:
     """Load the cities that are due, a few per run to stay within the light use of the public
-    instances. A failed city keeps its previous snapshot and is tried again next run."""
+    instances. A failed city keeps its previous snapshot and is tried again next run. Old
+    "Не работает" reports are forgotten on the same run."""
+    await purge_reports(session, now)
     loaded: dict[int, int] = {}
     for city_id in await cities_due(session, city_ids, now, limit):
         point = await city_point(session, city_id)
@@ -325,12 +341,16 @@ async def candidates(
     when_local: datetime,
     kinds: Sequence[str] = FOOD_KINDS,
     limit: int = 5,
+    user_id: uuid.UUID | None = None,
+    now: datetime | None = None,
 ) -> list[Candidate]:
     """Up to `limit` venues near the city center: open at the planned time first (unknown
-    hours do not disqualify), then those with an address, then the closest."""
+    hours do not disqualify), then those with an address, then the closest. A place the user
+    reported as not working is left out for them, and for everyone once enough people did."""
     wanted = [k for k in kinds if k in KINDS]
     if not wanted:
         return []
+    since = (now or datetime.now(UTC)) - REPORT_TTL
     rows = (
         await session.execute(
             text(
@@ -339,11 +359,23 @@ async def candidates(
                        ST_Distance(v.location, c.location)::int
                 FROM events.venues v JOIN events.cities c ON c.id = v.city_id
                 WHERE v.city_id = :city_id AND v.kind = ANY(:kinds)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM events.venue_reports r
+                      WHERE r.venue_id = v.id AND r.reported_at >= :since
+                      HAVING count(*) >= :to_hide
+                          OR bool_or(r.user_id = CAST(:user_id AS uuid))
+                  )
                 ORDER BY ST_Distance(v.location, c.location), v.id
                 LIMIT 200
                 """
             ),
-            {"city_id": city_id, "kinds": wanted},
+            {
+                "city_id": city_id,
+                "kinds": wanted,
+                "since": since,
+                "to_hide": REPORTS_TO_HIDE,
+                "user_id": user_id,
+            },
         )
     ).all()
     by_id = {
@@ -359,6 +391,32 @@ async def candidates(
         found.append(Candidate(venue, float(lat), float(lon), int(distance), state))
     found.sort(key=lambda c: (c.open_now is not True, c.venue.address is None, c.distance_m))
     return found[:limit]
+
+
+async def report_closed(
+    session: AsyncSession, venue_id: int, user_id: uuid.UUID, now: datetime
+) -> bool:
+    """The user says the place does not work; False if there is no such venue. A repeated
+    report refreshes its date, so one person never counts twice."""
+    if await session.get(Venue, venue_id) is None:
+        return False
+    await session.execute(
+        text(
+            "INSERT INTO events.venue_reports (venue_id, user_id, reported_at)"
+            " VALUES (:venue_id, :user_id, :now)"
+            " ON CONFLICT (venue_id, user_id) DO UPDATE SET reported_at = :now"
+        ),
+        {"venue_id": venue_id, "user_id": user_id, "now": now},
+    )
+    return True
+
+
+async def purge_reports(session: AsyncSession, now: datetime) -> int:
+    """Forget reports past their 30 days: the place may have opened again."""
+    result = await session.execute(
+        delete(VenueReport).where(VenueReport.reported_at < now - REPORT_TTL)
+    )
+    return cast(Any, result).rowcount or 0
 
 
 def map_links(name: str, city_name: str) -> dict[str, str]:

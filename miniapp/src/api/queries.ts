@@ -617,3 +617,11 @@ export function useSendAssistantMessage(questId: string | null) {
     },
   })
 }
+
+/** "Не работает" on a place card: the place leaves this user's picks (and everyone's once
+ * a second person reports it). */
+export function useReportVenueClosed() {
+  return useMutation({
+    mutationFn: (venueId: number) => unwrap(api.POST('/venues/{venue_id}/closed', { params: { path: { venue_id: venueId } } })),
+  })
+}

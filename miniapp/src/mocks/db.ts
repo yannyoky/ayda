@@ -151,10 +151,18 @@ export class MockDb {
   checkinDelayMs = 0
   assistantDelayMs = 0
   assistantMessages: Schemas['AssistantMessage'][] = []
+  closedVenues = new Set<number>()
   deletionRequested = false
 
   constructor(options: MockOptions = {}) {
     this.reset(options)
+  }
+
+  /** "Не работает": false for an unknown place id. */
+  reportVenueClosed(id: number): boolean {
+    const known = id >= 1 && id < 10 + sampleWalkPlaces.length
+    if (known) this.closedVenues.add(id)
+    return known
   }
 
   reset({ onboarded = false, poolDelayMs = 1200, withFriends = true, checkinDelayMs = 0, assistantDelayMs = 0 }: MockOptions = {}): void {
@@ -162,6 +170,7 @@ export class MockDb {
     this.checkinDelayMs = checkinDelayMs
     this.assistantDelayMs = assistantDelayMs
     this.assistantMessages = []
+    this.closedVenues = new Set()
     this.me = {
       id: uuid(),
       first_name: 'Саша',
@@ -751,10 +760,10 @@ export class MockDb {
       ]
     } else if (/гуля|прогул|парк|мест/.test(lowered)) {
       reply = 'Вот где можно погулять.'
-      cards = [card({ kind: 'places', places: sampleWalkPlaces.map((p, i) => mockPlace(p, i + 10)), attribution: '© OpenStreetMap contributors' })]
+      cards = [card({ kind: 'places', places: sampleWalkPlaces.map((p, i) => mockPlace(p, i + 10)).filter((p) => !this.closedVenues.has(p.id)), attribution: '© OpenStreetMap contributors' })]
     } else if (/ресторан|кафе|поесть|поужина/.test(lowered)) {
       reply = 'Вот места, где можно поесть.'
-      cards = [card({ kind: 'places', places: sampleVenues.map((v, i) => mockPlace(v, i + 1)), attribution: '© OpenStreetMap contributors' })]
+      cards = [card({ kind: 'places', places: sampleVenues.map((v, i) => mockPlace(v, i + 1)).filter((p) => !this.closedVenues.has(p.id)), attribution: '© OpenStreetMap contributors' })]
     } else if (/квест|идею|придумай/.test(lowered)) {
       reply = 'Вот идея на сегодня, бери, если нравится.'
       const q: StoredQuest = {

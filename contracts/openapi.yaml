@@ -1165,6 +1165,31 @@ paths:
         '401':
           $ref: '#/components/responses/Problem'
 
+  /venues/{venue_id}/closed:
+    post:
+      tags: [events]
+      operationId: reportVenueClosed
+      summary: Say that a place from a card does not work now
+      description: |
+        OpenStreetMap knows opening hours, not a place closed for a while. After this call the
+        place is left out of this user's place cards; once two people report it, out of
+        everyone's. A report lasts 30 days, then the place comes back. Repeating it only
+        refreshes the date.
+      parameters:
+        - name: venue_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Reported
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+
   /assistant/messages:
     get:
       tags: [assistant]
@@ -2993,7 +3018,9 @@ components:
           description: OpenStreetMap `opening_hours` as written there.
         open_now:
           type: [boolean, 'null']
-          description: Open at the planned time; null when the hours are unknown.
+          description: |
+            Open at the planned time by the map's opening hours; null when they are unknown.
+            The map does not know a temporary closure, so clients say "по графику".
         osm_url:
           type: string
           format: uri
@@ -3112,7 +3139,9 @@ components:
           description: From the city center.
         open_now:
           type: [boolean, 'null']
-          description: Null when the hours are unknown or the place has none.
+          description: |
+            Open now by the map's opening hours (a temporary closure is not known); null when
+            the hours are unknown or the place has none.
         osm_url:
           type: string
           format: uri

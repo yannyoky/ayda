@@ -27,6 +27,8 @@ data class AssistantState(
     val failed: String? = null,
     /** Quest ids taken from a card in this chat. */
     val taken: Set<String> = emptySet(),
+    /** Places reported here as not working ("Не работает"). */
+    val closedPlaces: Set<Long> = emptySet(),
     val error: String? = null,
 ) {
     val typing: Boolean get() = waiting != null
@@ -121,6 +123,24 @@ class AssistantViewModel(
                 onQuestTaken()
             } else {
                 mutableState.update { it.copy(error = taken.errorText()) }
+            }
+        }
+    }
+
+    /**
+     * "Не работает" on a place card: the map knows opening hours, not a place closed for a while.
+     * The server leaves it out of this user's picks, and everyone's once a second person reports it.
+     */
+    fun reportClosed(venueId: Long) {
+        if (venueId in state.value.closedPlaces) return
+        viewModelScope.launch {
+            val reported = apiCall { client.events.reportVenueClosed(venueId) }
+            mutableState.update {
+                if (reported is ApiResult.Ok) {
+                    it.copy(closedPlaces = it.closedPlaces + venueId)
+                } else {
+                    it.copy(error = reported.errorText())
+                }
             }
         }
     }

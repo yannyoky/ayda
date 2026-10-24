@@ -236,7 +236,7 @@ private fun Messages(
         items(state.messages.asReversed(), key = { it.id }) { message ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Bubble(message.text, mine = message.role == AssistantMessage.Role.user)
-                message.cards.forEach { card -> CardView(card, model, questStates, onCook) }
+                message.cards.forEach { card -> CardView(card, model, questStates, state.closedPlaces, onCook) }
             }
         }
     }
@@ -288,6 +288,7 @@ private fun CardView(
     card: AssistantCard,
     model: AssistantViewModel,
     questStates: Map<String, QuestState>,
+    closedPlaces: Set<Long>,
     onCook: (String) -> Unit,
 ) {
     val colors = LocalAydaColors.current
@@ -304,7 +305,7 @@ private fun CardView(
                         .padding(14.dp, 8.dp),
             )
         }
-        card.places.forEach { PlaceView(it) }
+        card.places.forEach { PlaceView(it, closed = it.id in closedPlaces) { model.reportClosed(it.id) } }
         card.events.forEach { EventView(it) }
         card.recipes.forEach { RecipeView(it, onCook) }
         card.quest?.let { quest ->
@@ -318,9 +319,28 @@ private fun CardView(
 }
 
 @Composable
-private fun PlaceView(place: AssistantPlace) {
+private fun PlaceView(
+    place: AssistantPlace,
+    closed: Boolean,
+    onReportClosed: () -> Unit,
+) {
     val colors = LocalAydaColors.current
     val uriHandler = LocalUriHandler.current
+    if (closed) {
+        Text(
+            stringResource(R.string.assistant_reported_closed),
+            style = small(),
+            color = colors.muted,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .background(colors.surface, MaterialTheme.shapes.large)
+                    .padding(14.dp),
+        )
+        return
+    }
+    val reportLabel = stringResource(R.string.assistant_report_closed_for, place.name)
     val meta =
         listOfNotNull(
             stringResource(place.kind.label()),
@@ -342,6 +362,14 @@ private fun PlaceView(place: AssistantPlace) {
             MapLink(
                 stringResource(R.string.assistant_on_yandex),
             ) { runCatching { uriHandler.openUri(place.yandexUrl) } }
+        }
+        // Under the links, not beside them: with a large system font three buttons don't fit a row.
+        TextButton(
+            onClick = onReportClosed,
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.semantics { contentDescription = reportLabel },
+        ) {
+            Text(stringResource(R.string.assistant_report_closed), style = small(), color = colors.muted)
         }
     }
 }
