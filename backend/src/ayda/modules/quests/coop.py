@@ -365,3 +365,18 @@ async def coop_titles(session: AsyncSession, coop_ids: Sequence[uuid.UUID]) -> d
         return {}
     rows = await session.execute(select(Coop.id, Coop.title).where(Coop.id.in_(coop_ids)))
     return {i: t for i, t in rows}
+
+
+async def coop_ends(
+    session: AsyncSession, coop_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    """When each co-op is over."""
+    if not coop_ids:
+        return {}
+    rows = await session.execute(select(Coop.id, Coop.expires_at).where(Coop.id.in_(coop_ids)))
+    return {i: e for i, e in rows}
+
+
+async def ended_before(session: AsyncSession, cutoff: datetime) -> list[uuid.UUID]:
+    """Co-ops over before `cutoff`."""
+    return list(await session.scalars(select(Coop.id).where(Coop.expires_at < cutoff)))

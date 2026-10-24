@@ -28,6 +28,8 @@ NOTIFY_KIND = "chat.message"
 NOTIFY_DELAY = timedelta(minutes=1)
 NOTIFY_BUCKET_S = 600
 COOP_TITLE = "Совместный квест"
+# A co-op chat is deleted for everyone this long after its quest is over.
+COOP_CHAT_TTL = timedelta(days=30)
 
 
 def not_found() -> Problem:
@@ -61,6 +63,13 @@ async def _can_send(
     )
 
 
+def _deletes_at(
+    conversation: chat.Conversation, ends: Mapping[uuid.UUID, datetime]
+) -> datetime | None:
+    end = ends.get(conversation.coop_id) if conversation.coop_id else None
+    return end + COOP_CHAT_TTL if end else None
+
+
 async def build_conversations(
     session: AsyncSession, user_id: uuid.UUID, rows: Sequence[tuple[chat.Conversation, chat.Member]]
 ) -> list[Conversation]:
@@ -70,9 +79,9 @@ async def build_conversations(
     unread = await chat.unread_counts(session, user_id, ids)
     people = {u for us in members.values() for u in us} | {m.author_id for m in last.values()}
     users = await auth.get_users(session, list(people))
-    titles = await quests.coop.coop_titles(
-        session, [c.coop_id for c, _ in rows if c.coop_id is not None]
-    )
+    coop_ids = [c.coop_id for c, _ in rows if c.coop_id is not None]
+    titles = await quests.coop.coop_titles(session, coop_ids)
+    ends = await quests.coop.coop_ends(session, coop_ids)
     alive = {u: users[u].deletion_requested_at is None for u in users}
     out: list[Conversation] = []
     for conversation, member in rows:
@@ -102,6 +111,7 @@ async def build_conversations(
                 unread_count=unread[conversation.id],
                 last_read_message_id=member.last_read_message_id,
                 updated_at=conversation.last_message_at or conversation.created_at,
+                deletes_at=_deletes_at(conversation, ends),
             )
         )
     return out
@@ -212,6 +222,23 @@ async def delete_message(
         MESSAGE_DELETED,
         {"conversation_id": str(conversation_id), "message_id": message_id},
     )
+
+
+async def hide_conversation(
+    session: AsyncSession, user: auth.User, conversation_id: uuid.UUID, now: datetime
+) -> None:
+    """ "Удалить у себя": the chat leaves this user's list with its messages so far; the
+    others keep it. A new message brings it back with only what came after."""
+    _, member = await get_conversation(session, user.id, conversation_id)
+    await chat.hide(session, member, now)
+    await session.commit()
+
+
+async def purge_ended_coop_chats(session: AsyncSession, now: datetime) -> int:
+    """Delete co-op chats 30 days after their quest is over, for everyone."""
+    coops = await quests.coop.ended_before(session, now - COOP_CHAT_TTL)
+    chats = await chat.conversations_for_coops(session, coops)
+    return await chat.delete_conversations(session, list(chats.values()))
 
 
 async def mark_read(

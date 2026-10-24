@@ -77,6 +77,10 @@ class ChatsViewModel(
         }
     }
 
+    /** A chat deleted for this user leaves the list without a reload. */
+    fun hidden(conversationId: String) =
+        mutableState.update { s -> s.copy(conversations = s.conversations.filterNot { it.id == conversationId }) }
+
     /** The open chat was read up to [lastReadMessageId]: clear its badge without waiting for the server. */
     fun markedRead(
         conversationId: String,

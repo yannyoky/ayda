@@ -382,6 +382,7 @@ class Conversation(BaseModel):
     unread_count: int
     last_read_message_id: int | None
     updated_at: datetime
+    deletes_at: datetime | None = None
 
 
 class DirectConversationInput(BaseModel):

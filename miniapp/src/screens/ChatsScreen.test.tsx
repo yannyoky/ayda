@@ -40,6 +40,21 @@ describe('Chats (US-17)', () => {
     expect(screen.getByRole('textbox', { name: 'Сообщение' })).toHaveValue('')
   })
 
+  it('deletes a chat for me only', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const chat = db.conversations[0]!
+    renderApp(`/chats/${chat.id}`)
+    await user.click(await screen.findByRole('button', { name: 'Удалить чат у себя' }))
+    await vi.waitFor(() => expect(chat.hiddenAt).toBeTruthy())
+    await screen.findByRole('heading', { name: 'Чаты' })
+    expect(screen.queryByRole('link', { name: /Лена/ })).not.toBeInTheDocument()
+
+    db.addMessage(chat, chat.peerId, 'Ты где?', new Date(Date.parse(chat.hiddenAt!) + 1000).toISOString())
+    expect(db.listConversations().find((c) => c.id === chat.id)?.last_message?.text).toBe('Ты где?')
+    expect(db.messages(chat, null, 30).items.map((m) => m.text)).toEqual(['Ты где?'])
+  })
+
   it('deletes an own message', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)

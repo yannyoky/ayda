@@ -1253,7 +1253,12 @@ export interface paths {
         get: operations["getConversation"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a chat for me ("Удалить у себя")
+         * @description The chat leaves the user's list with all its messages so far and is marked read; the
+         *     other members keep it. A newer message brings it back with only what came after.
+         */
+        delete: operations["hideConversation"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2140,6 +2145,11 @@ export interface components {
              * @description Time of the last message, or of creation for an empty chat.
              */
             updated_at: string;
+            /**
+             * Format: date-time
+             * @description A co-op chat is deleted for everyone 30 days after its quest is over; null for direct chats.
+             */
+            deletes_at?: string | null;
         };
         MessageInput: {
             text: string;
@@ -4295,6 +4305,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Conversation"];
                 };
+            };
+            401: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    hideConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hidden */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];

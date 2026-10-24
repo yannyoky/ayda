@@ -41,6 +41,7 @@ class ChatViewModelTest {
     private val calls = mutableListOf<String>()
     private var sendStatus = HttpStatusCode.Created
     private val read = mutableListOf<Long>()
+    private val hidden = mutableListOf<String>()
 
     @BeforeTest
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -80,6 +81,7 @@ class ChatViewModelTest {
             }
             call == "POST /conversations/c1/read" -> respond("", HttpStatusCode.NoContent)
             call == "DELETE /conversations/c1/messages/3" -> respond("", HttpStatusCode.NoContent)
+            call == "DELETE /conversations/c1" -> respond("", HttpStatusCode.NoContent)
             else -> error("unexpected $call")
         }
     }
@@ -93,7 +95,7 @@ class ChatViewModelTest {
                 },
             )
         val client = AydaClient(TEST_BASE, InMemoryTokenStore(), engine)
-        return ChatViewModel(client, Realtime(client, transport), "c1") { _, last -> read += last }
+        return ChatViewModel(client, Realtime(client, transport), "c1", { _, last -> read += last }) { hidden += it }
     }
 
     @Test
@@ -202,6 +204,26 @@ class ChatViewModelTest {
                 model.state.value.pending
                     .isEmpty(),
             )
+        }
+
+    @Test
+    fun deletingTheChatForMeAsksFirstAndClosesIt() =
+        runTest(dispatcher) {
+            val model = model()
+            advanceUntilIdle()
+            model.askHide()
+            assertTrue(model.state.value.askingHide)
+            model.cancelHide()
+            assertFalse(model.state.value.askingHide)
+            assertFalse("DELETE /conversations/c1" in calls)
+
+            model.askHide()
+            model.confirmHide()
+            advanceUntilIdle()
+            assertTrue(model.state.value.hidden)
+            assertEquals(listOf("c1"), hidden)
+            assertTrue("DELETE /conversations/c1" in calls)
+            model.viewModelScope.cancel()
         }
 
     @Test

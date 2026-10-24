@@ -47,6 +47,7 @@ import app.ayda.android.R
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.QuietButton
 import app.ayda.android.ui.day.AydaIcon
+import app.ayda.android.ui.day.Russian
 import app.ayda.android.ui.social.Avatar
 import app.ayda.api.models.ConversationKind
 import app.ayda.api.models.Message
@@ -54,8 +55,13 @@ import app.ayda.shared.chat.ChatViewModel
 import app.ayda.shared.chat.PendingMessage
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
+
+private val COOP_CHAT_TTL = 30.days
+private val dayFormat = DateTimeFormatter.ofPattern("d MMMM", Russian)
 
 private fun Message.time(): String =
     clock.format(
@@ -75,6 +81,7 @@ fun ChatScreen(
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
     val chat = state.conversation
+    LaunchedEffect(state.hidden) { if (state.hidden) onBack() }
 
     Column(
         Modifier
@@ -123,6 +130,39 @@ fun ChatScreen(
                         Text(stringResource(R.string.meetup_button), style = MaterialTheme.typography.labelLarge)
                     }
                 }
+                IconButton(
+                    onClick = model::askHide,
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(50)).background(colors.surface),
+                ) {
+                    AydaIcon(
+                        R.drawable.ic_trash,
+                        colors.ink,
+                        size = 18,
+                        contentDescription = stringResource(R.string.chats_hide),
+                    )
+                }
+            }
+        }
+        chat?.deletesAt?.let { deletesAt ->
+            // Shown once the quest is over: the chat is deleted 30 days after that.
+            if (deletesAt - Clock.System.now() < COOP_CHAT_TTL) {
+                val day =
+                    dayFormat.format(
+                        java.time.Instant
+                            .ofEpochMilli(deletesAt.toEpochMilliseconds())
+                            .atZone(ZoneId.systemDefault()),
+                    )
+                Text(
+                    stringResource(R.string.chats_deletes_at, day),
+                    style = small(),
+                    color = colors.muted,
+                    modifier =
+                        Modifier
+                            .padding(16.dp, 0.dp, 16.dp, 8.dp)
+                            .fillMaxWidth()
+                            .background(colors.surface, MaterialTheme.shapes.medium)
+                            .padding(14.dp, 8.dp),
+                )
             }
         }
         state.error?.let { error ->
@@ -169,6 +209,19 @@ fun ChatScreen(
                             .padding(16.dp),
                 )
         }
+    }
+
+    if (state.askingHide) {
+        AlertDialog(
+            onDismissRequest = model::cancelHide,
+            text = { Text(stringResource(R.string.chats_hide_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = model::confirmHide,
+                ) { Text(stringResource(R.string.chats_hide_yes)) }
+            },
+            dismissButton = { TextButton(onClick = model::cancelHide) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 
     state.deleting?.let {
