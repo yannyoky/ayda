@@ -135,6 +135,44 @@ class CompleteViewModelTest {
         }
 
     @Test
+    fun aVideoGoesAloneAndIsUploadedAsVideo() =
+        runTest(dispatcher) {
+            val model = model()
+            model.addVideo(byteArrayOf(1), "image/gif")
+            assertEquals(PhotoError.VideoUnsupported, model.state.value.photoError)
+            model.addVideo(byteArrayOf(1, 2, 3, 4), "video/quicktime")
+            assertNull(model.state.value.photoError)
+            assertFalse(model.state.value.canAddPhoto)
+            model.addPhoto(byteArrayOf(1))
+            model.addCircle(byteArrayOf(9))
+            assertTrue(model.state.value.photos.isEmpty())
+
+            model.submit()
+            advanceUntilIdle()
+
+            val slot = requests.first { it.url.encodedPath.endsWith("/media/uploads") }.bodyText()
+            assertTrue(slot.contains(""""kind":"video""""), slot)
+            assertTrue(slot.contains(""""content_type":"video/quicktime""""), slot)
+            assertTrue(requests.last().bodyText().contains(""""media_ids":["m1"]"""))
+            assertEquals(1, completed)
+        }
+
+    @Test
+    fun aCircleReplacesTheChoiceUntilRemoved() =
+        runTest(dispatcher) {
+            val model = model()
+            model.addCircle(byteArrayOf(1, 2))
+            assertEquals(
+                app.ayda.api.models.CreateUploadRequest.Kind.video_note,
+                model.state.value.clip
+                    ?.kind,
+            )
+            assertFalse(model.state.value.canAddClip)
+            model.removeClip()
+            assertTrue(model.state.value.canAddPhoto && model.state.value.canAddClip)
+        }
+
+    @Test
     fun aFeedPostCanBeTextOnly() =
         runTest(dispatcher) {
             val model = model()

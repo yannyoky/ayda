@@ -13,11 +13,27 @@ export function photoType(file: File): PhotoType | null {
   return null
 }
 
-/** US-10: get a presigned slot and PUT the file straight to storage. Returns the media id. */
-export async function uploadPhoto(file: File): Promise<string> {
-  const contentType = photoType(file)
-  if (!contentType) throw new Error('unsupported photo type')
-  const slot = await unwrap(api.POST('/media/uploads', { body: { content_type: contentType, size_bytes: file.size } }))
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024
+const VIDEO_TYPES = ['video/webm', 'video/mp4', 'video/quicktime'] as const
+type VideoType = (typeof VIDEO_TYPES)[number]
+
+/** Content type of a picked or recorded video; MediaRecorder adds codecs (`video/webm;codecs=vp8`). */
+export function videoType(file: Blob & { name?: string }): VideoType | null {
+  const declared = file.type.split(';')[0]!.trim().toLowerCase()
+  if ((VIDEO_TYPES as readonly string[]).includes(declared)) return declared as VideoType
+  if (/\.(mov|qt)$/i.test(file.name ?? '')) return 'video/quicktime'
+  if (/\.(mp4|m4v)$/i.test(file.name ?? '')) return 'video/mp4'
+  return null
+}
+
+export type UploadKind = 'photo' | 'video' | 'video_note'
+
+/** US-10: get a presigned slot and PUT the file straight to storage. Returns the media id.
+ *  A video or circle is re-encoded by the server before anyone plays it (ADR 0019). */
+export async function uploadMedia(kind: UploadKind, file: Blob & { name?: string }): Promise<string> {
+  const contentType = kind === 'photo' ? photoType(file as File) : videoType(file)
+  if (!contentType) throw new Error('unsupported file type')
+  const slot = await unwrap(api.POST('/media/uploads', { body: { kind, content_type: contentType, size_bytes: file.size } }))
   const response = await fetch(slot.upload_url, { method: 'PUT', headers: slot.headers, body: file })
   if (!response.ok) throw new Error(`upload failed: ${response.status}`)
   return slot.media_id

@@ -894,9 +894,9 @@ paths:
       operationId: completeQuest
       summary: Mark a taken quest done with a visibility level (US-09, US-15)
       description: |
-        `friends` visibility creates a proof in the feed, with 0-3 uploaded photos in `ready`
-        or `processing` state (a text-only proof is fine); `personal` creates nothing in the
-        feed. `routine` is no longer accepted (422). Allowed until the quest's `expires_at`.
+        `friends` visibility creates a proof in the feed, with 0-3 uploaded photos, or one
+        video, or one circle (a text-only proof is fine; a video can't go with photos: 422
+        `invalid-media`); `personal` creates nothing in the feed. `routine` is no longer accepted (422). Allowed until the quest's `expires_at`.
       parameters:
         - $ref: '#/components/parameters/QuestId'
       requestBody:
@@ -1625,10 +1625,14 @@ paths:
     post:
       tags: [media]
       operationId: createUpload
-      summary: Get a presigned URL to upload one photo to S3 (US-10)
+      summary: Get a presigned URL to upload one photo, video or circle to S3 (US-10)
       description: |
         Upload the file with a `PUT` to `upload_url` and the given headers before `expires_at`,
         then pass `media_id` to completeQuest. EXIF is stripped before anyone can see the photo.
+        A `video` (up to 60 s) or a `video_note` (a circle, cropped to a 480x480 square) is
+        re-encoded to MP4 without metadata, and its file is deleted 30 days later (ADR 0019).
+        A photo takes `image/*` up to 10 MB, a video or circle `video/*` up to 50 MB;
+        anything else is 422 `upload-unsupported`.
       requestBody:
         required: true
         content:
@@ -1637,13 +1641,17 @@ paths:
               type: object
               required: [content_type, size_bytes]
               properties:
+                kind:
+                  type: string
+                  enum: [photo, video, video_note]
+                  default: photo
                 content_type:
                   type: string
-                  enum: [image/jpeg, image/png, image/heic, image/webp]
+                  enum: [image/jpeg, image/png, image/heic, image/webp, video/webm, video/mp4, video/quicktime]
                 size_bytes:
                   type: integer
                   minimum: 1
-                  maximum: 10485760
+                  maximum: 52428800
       responses:
         '201':
           description: Upload slot created
@@ -2832,7 +2840,9 @@ components:
           description: Only for `friends` visibility.
         media_ids:
           type: array
-          description: Optional (0-3) for `friends` visibility, must be empty otherwise.
+          description: |
+            Optional for `friends` visibility (0-3 photos, or one video or circle), must be
+            empty otherwise.
           maxItems: 3
           uniqueItems: true
           items:
@@ -2918,6 +2928,32 @@ components:
         height:
           type: integer
 
+    PostVideo:
+      type: object
+      required: [id, kind, status, url, duration_ms, width, height]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [video, video_note]
+          description: '`video_note` is a circle: a square video shown round.'
+        status:
+          type: string
+          enum: [processing, ready, failed, expired]
+          description: '`expired`: the file was deleted 30 days after upload; the post stays.'
+        url:
+          type: [string, 'null']
+          format: uri
+          description: Short-lived signed URL to the MP4, only when `ready`.
+        duration_ms:
+          type: [integer, 'null']
+        width:
+          type: [integer, 'null']
+        height:
+          type: [integer, 'null']
+
     Post:
       type: object
       required: [id, author, kind, category, local_date, created_at, photos, like_count, liked_by_me, comment_count]
@@ -2942,6 +2978,11 @@ components:
           maxItems: 3
           items:
             $ref: '#/components/schemas/Photo'
+        video:
+          description: The proof's video or circle, if any (never together with photos).
+          oneOf:
+            - $ref: '#/components/schemas/PostVideo'
+            - type: 'null'
         local_date:
           type: string
           format: date

@@ -233,18 +233,23 @@ export const handlers = [
       if (body.visibility === 'routine') return problem(422, 'Выбери «В ленте» или «Только я»')
       if (media.length > 3) return problem(422, 'Не больше 3 фото')
       if (body.visibility !== 'friends' && media.length > 0) return problem(422, 'Фото только для друзей')
+      if (media.length > 1 && media.some((id) => (db.uploads.get(id)?.kind ?? 'photo') !== 'photo'))
+        return problem(422, 'Можно приложить до 3 фото или одно видео')
       return HttpResponse.json(db.complete(q, body))
     }),
   ),
 
   // ---- media ----
-  http.post<never, { content_type: string; size_bytes: number }, DefaultBodyType>(
+  http.post<never, { kind?: 'photo' | 'video' | 'video_note'; content_type: string; size_bytes: number }, DefaultBodyType>(
     `${API}/media/uploads`,
     authed(async ({ request }) => {
       const body = await request.json()
-      if (body.size_bytes > 10_485_760) return problem(422, 'Фото больше 10 МБ')
+      const kind = body.kind ?? 'photo'
+      const video = kind !== 'photo'
+      if (video !== body.content_type.startsWith('video/') || body.size_bytes > (video ? 52_428_800 : 10_485_760))
+        return problem(422, 'Такой файл не подходит: фото до 10 МБ, видео до 50 МБ')
       const id = uuid()
-      db.uploads.set(id, { url: null })
+      db.uploads.set(id, { url: null, kind })
       const slot: Schemas['UploadSlot'] = {
         media_id: id,
         upload_url: new URL(`/mock-s3/${id}`, request.url).href,

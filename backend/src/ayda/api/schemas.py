@@ -240,8 +240,17 @@ class Replacement(BaseModel):
 
 
 class UploadInput(BaseModel):
-    content_type: Literal["image/jpeg", "image/png", "image/heic", "image/webp"]
-    size_bytes: int = Field(ge=1, le=10 * 1024 * 1024)
+    kind: Literal["photo", "video", "video_note"] = "photo"
+    content_type: Literal[
+        "image/jpeg",
+        "image/png",
+        "image/heic",
+        "image/webp",
+        "video/webm",
+        "video/mp4",
+        "video/quicktime",
+    ]
+    size_bytes: int = Field(ge=1, le=50 * 1024 * 1024)
 
 
 class UploadSlot(BaseModel):
@@ -289,6 +298,16 @@ class Photo(BaseModel):
     height: int
 
 
+class PostVideo(BaseModel):
+    id: uuid.UUID
+    kind: Literal["video", "video_note"]
+    status: Literal["processing", "ready", "failed", "expired"]
+    url: str | None
+    duration_ms: int | None
+    width: int | None
+    height: int | None
+
+
 class Post(BaseModel):
     id: uuid.UUID
     author: UserSummary
@@ -297,6 +316,7 @@ class Post(BaseModel):
     category: Category
     caption: str | None
     photos: list[Photo]
+    video: PostVideo | None = None
     local_date: date
     created_at: datetime
     like_count: int

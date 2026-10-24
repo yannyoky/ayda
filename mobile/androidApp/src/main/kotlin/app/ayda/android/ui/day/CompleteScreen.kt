@@ -2,6 +2,7 @@ package app.ayda.android.ui.day
 
 import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.ContentResolver
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -32,7 +33,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,18 +60,31 @@ import app.ayda.android.R
 import app.ayda.android.media.PhotoCompressor
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
+import app.ayda.android.ui.chat.CircleCamera
+import app.ayda.android.ui.chat.CircleRecorder
+import app.ayda.android.ui.chat.formatSeconds
 import app.ayda.api.models.Completion
+import app.ayda.api.models.CreateUploadRequest
 import app.ayda.api.models.Visibility
 import app.ayda.shared.day.CompleteState
 import app.ayda.shared.day.CompleteViewModel
 import app.ayda.shared.day.PhotoError
+import app.ayda.shared.day.PickedClip
 import app.ayda.shared.day.PickedPhoto
+import app.ayda.shared.media.MAX_VIDEO_BYTES
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
+import java.io.InputStream
 
-/** US-09/US-10: mark a taken quest done, choose who sees it, attach 1-3 photos for friends. */
+/**
+ * US-09/US-10: mark a taken quest done, choose who sees it, attach 1-3 photos, a video or a
+ * circle for friends.
+ */
 @Composable
 fun CompleteScreen(
     model: CompleteViewModel,
@@ -121,7 +137,9 @@ fun CompleteScreen(
         state.error?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
         val upload = state.uploading
         PrimaryButton(
-            if (upload != null) {
+            if (upload != null && state.clip != null) {
+                stringResource(R.string.complete_uploading_video)
+            } else if (upload != null) {
                 stringResource(R.string.complete_uploading, upload.current, upload.total)
             } else {
                 stringResource(R.string.complete_submit)
@@ -246,6 +264,46 @@ private fun PhotoSection(
             if (granted) shoot() else model.photoFailed()
         }
 
+    val videos =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val mime = context.contentResolver.getType(uri)
+                val bytes = withContext(Dispatchers.IO) { readVideo(context.contentResolver, uri) }
+                if (bytes != null) model.addVideo(bytes, mime) else model.photoFailed()
+            }
+        }
+
+    // A circle is being recorded; null when not, else whether the sound is recorded too.
+    val circles = remember { CircleRecorder(context) }
+    var circleAudio by remember { mutableStateOf<Boolean?>(null) }
+    var seconds by remember { mutableIntStateOf(0) }
+    LaunchedEffect(circleAudio) {
+        seconds = 0
+        while (circleAudio != null) {
+            delay(1000)
+            seconds += 1
+        }
+    }
+    val askCircle =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+            if (granted[Manifest.permission.CAMERA] == true) {
+                circleAudio = granted[Manifest.permission.RECORD_AUDIO] == true
+            } else {
+                model.photoFailed()
+            }
+        }
+
+    fun startCircle() {
+        val camera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+        val mic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+        if (camera == PackageManager.PERMISSION_GRANTED && mic == PackageManager.PERMISSION_GRANTED) {
+            circleAudio = true
+        } else {
+            askCircle.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+        }
+    }
+
     Column(
         Modifier.fillMaxWidth().background(colors.surface, MaterialTheme.shapes.large).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -256,7 +314,45 @@ private fun PhotoSection(
                 repeat(CompleteViewModel.MAX_PHOTOS - state.photos.size) { Box(Modifier.weight(1f)) }
             }
         }
-        if (state.canAddPhoto) {
+        circleAudio?.let { withAudio ->
+            CircleCamera(circles, withAudio) { bytes ->
+                circleAudio = null
+                bytes?.let(model::addCircle)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(
+                    onClick = {
+                        circles.cancel()
+                        circleAudio = null
+                    },
+                    modifier = Modifier.size(48.dp).background(colors.bg, CircleShape),
+                ) {
+                    AydaIcon(
+                        R.drawable.ic_close,
+                        colors.ink,
+                        contentDescription = stringResource(R.string.chats_cancel_recording),
+                    )
+                }
+                Text(
+                    stringResource(R.string.chats_recording, formatSeconds(seconds)),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = { circles.stop() },
+                    modifier = Modifier.size(48.dp).background(colors.accent, CircleShape),
+                ) {
+                    AydaIcon(
+                        R.drawable.ic_check,
+                        colors.onAccent,
+                        contentDescription = stringResource(R.string.complete_circle_done),
+                    )
+                }
+            }
+        }
+        state.clip?.let { clip -> ClipRow(clip, model::removeClip) }
+        if (state.canAddPhoto && circleAudio == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PhotoButton(stringResource(R.string.complete_gallery)) {
                     gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -269,11 +365,24 @@ private fun PhotoSection(
                 }
             }
         }
+        if (state.canAddClip && circleAudio == null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PhotoButton(stringResource(R.string.complete_video), R.drawable.ic_play) {
+                    videos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                }
+                PhotoButton(stringResource(R.string.complete_circle)) { startCircle() }
+            }
+        }
         Text(
             when (state.photoError) {
                 PhotoError.TooBig -> stringResource(R.string.complete_photo_too_big)
                 PhotoError.Unreadable -> stringResource(R.string.complete_photo_unreadable)
-                null -> stringResource(R.string.complete_photos_hint)
+                PhotoError.VideoTooBig -> stringResource(R.string.complete_video_too_big)
+                PhotoError.VideoUnsupported -> stringResource(R.string.complete_video_unsupported)
+                null ->
+                    stringResource(
+                        if (state.clip != null) R.string.complete_video_hint else R.string.complete_photos_hint,
+                    )
             },
             style = MaterialTheme.typography.bodyMedium,
             color = colors.muted,
@@ -327,9 +436,68 @@ private fun androidx.compose.foundation.layout.RowScope.Thumbnail(
     }
 }
 
+/** The attached video or circle, with a button to drop it. */
+@Composable
+private fun ClipRow(
+    clip: PickedClip,
+    onRemove: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    val circle = clip.kind == CreateUploadRequest.Kind.video_note
+    Row(
+        Modifier.fillMaxWidth().background(colors.bg, MaterialTheme.shapes.medium).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        AydaIcon(if (circle) R.drawable.ic_camera else R.drawable.ic_play, colors.ink)
+        Text(
+            stringResource(if (circle) R.string.complete_circle_attached else R.string.complete_video_attached),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onRemove, modifier = Modifier.size(32.dp).background(colors.plate, CircleShape)) {
+            AydaIcon(
+                R.drawable.ic_close,
+                colors.onPlate,
+                size = 16,
+                contentDescription =
+                    stringResource(if (circle) R.string.complete_remove_circle else R.string.complete_remove_video),
+            )
+        }
+    }
+}
+
+/** The picked video, or just over the limit when it is longer: the view model rejects that. */
+private fun readVideo(
+    resolver: ContentResolver,
+    uri: Uri,
+): ByteArray? =
+    try {
+        resolver.openInputStream(uri)?.use { readAtMost(it, MAX_VIDEO_BYTES + 1) }
+    } catch (_: IOException) {
+        null
+    } catch (_: SecurityException) {
+        null
+    }
+
+private fun readAtMost(
+    input: InputStream,
+    limit: Int,
+): ByteArray {
+    val out = ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    while (out.size() < limit) {
+        val read = input.read(buffer, 0, minOf(buffer.size, limit - out.size()))
+        if (read < 0) break
+        out.write(buffer, 0, read)
+    }
+    return out.toByteArray()
+}
+
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.PhotoButton(
     text: String,
+    icon: Int = R.drawable.ic_camera,
     onClick: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
@@ -339,7 +507,7 @@ private fun androidx.compose.foundation.layout.RowScope.PhotoButton(
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(containerColor = colors.bg, contentColor = colors.ink),
     ) {
-        AydaIcon(R.drawable.ic_camera, colors.ink, size = 18)
+        AydaIcon(icon, colors.ink, size = 18)
         Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 6.dp))
     }
 }

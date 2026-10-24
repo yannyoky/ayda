@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -197,7 +198,31 @@ fun VideoNoteContent(
         }
         return
     }
-    val total = (attachment.durationMs ?: 0) / 1000f
+    PlayableVideo(
+        url,
+        attachment.durationMs,
+        CircleShape,
+        stringResource(R.string.chats_circle_play),
+        onExpired,
+        modifier = Modifier.size(200.dp),
+    )
+}
+
+/**
+ * A video that plays with sound on tap, clipped to [shape]. The play link is short-lived:
+ * [onExpired] asks for a fresh one when playback fails.
+ */
+@Composable
+fun PlayableVideo(
+    url: String,
+    durationMs: Int?,
+    shape: Shape,
+    playLabel: String,
+    onExpired: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalAydaColors.current
+    val total = (durationMs ?: 0) / 1000f
     var player by remember(url) { mutableStateOf<MediaPlayer?>(null) }
     var surface by remember { mutableStateOf<Surface?>(null) }
     var playing by remember(url) { mutableStateOf(false) }
@@ -264,11 +289,10 @@ fun VideoNoteContent(
         }
     }
 
-    val label = stringResource(if (playing) R.string.chats_circle_pause else R.string.chats_circle_play)
+    val label = if (playing) stringResource(R.string.chats_circle_pause) else playLabel
     Box(
-        Modifier
-            .size(200.dp)
-            .clip(CircleShape)
+        modifier
+            .clip(shape)
             .background(colors.surface)
             .clickable(role = Role.Button, onClickLabel = label, onClick = ::toggle),
         contentAlignment = Alignment.Center,

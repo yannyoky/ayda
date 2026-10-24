@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.ids import uuid7
 from ayda.core.storage import UPLOAD_TTL, ObjectMissing, Storage
+from ayda.core.transcode import InvalidMedia, transcode_video_note, transcode_voice
 from ayda.modules.chat.models import Attachment, Message
-from ayda.modules.chat.transcode import InvalidMedia, transcode_video_note, transcode_voice
 
 MAX_UPLOADS_PER_DAY = 200
 VOICE_TYPES = ("audio/webm", "audio/ogg", "audio/mp4", "audio/aac", "audio/mpeg")

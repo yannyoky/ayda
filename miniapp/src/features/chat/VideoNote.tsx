@@ -5,7 +5,8 @@ import { Icon } from '../../ui/Icon'
 import { formatSeconds } from './useRecorder'
 
 interface Props {
-  attachment: Schemas['Attachment']
+  /** A chat attachment or a feed post's circle. */
+  attachment: Pick<Schemas['Attachment'], 'status' | 'url' | 'duration_ms'>
   /** The play link is short-lived: ask for fresh messages when it stops working. */
   onExpired: () => void
 }

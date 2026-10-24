@@ -247,6 +247,7 @@ Partitioning by month can be added when the table grows; not needed for the MVP.
 | Check-in text | quests.checkins.text | 30 days, then set to null |
 | Assistant chat text | assistant.messages | deleted after the local day |
 | Photos | S3 in Russia | until the proof or account is deleted; EXIF removed |
+| Proof videos and circles | S3 in Russia, social.media | file 30 days, the post stays; re-encoded (H.264 up to 720 px, a circle 480x480), metadata removed, the original upload deleted (ADR 0019) |
 | Comments, messages | social.comments, chat.messages | until deleted or account deletion; a co-op chat 30 days after its quest is over (ADR 0019) |
 | Voice messages, circles | S3 in Russia, chat.attachments | voice as long as the message, a circle's file 30 days; re-encoded (AAC, H.264 480x480), metadata removed, the original upload deleted (ADR 0019) |
 | Behavior events | analytics.events | kept, anonymized on account deletion |

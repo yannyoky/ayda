@@ -18,10 +18,22 @@ async def create_upload(
     storage: Storage = request.app.state.storage
     try:
         slot = await social.create_upload(
-            session, storage, user.id, body.content_type, body.size_bytes, datetime.now(UTC)
+            session,
+            storage,
+            user.id,
+            body.content_type,
+            body.size_bytes,
+            datetime.now(UTC),
+            body.kind,
         )
+    except social.UnsupportedUpload:
+        raise Problem(
+            422,
+            "upload-unsupported",
+            detail="Такой файл не подходит: фото до 10 МБ, видео до 50 МБ",
+        ) from None
     except social.UploadLimitError:
-        raise Problem(429, "too-many-uploads", detail="Слишком много фото за сутки") from None
+        raise Problem(429, "too-many-uploads", detail="Слишком много файлов за сутки") from None
     await session.commit()
     return UploadSlot(
         media_id=slot.media.id,

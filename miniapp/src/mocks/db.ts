@@ -143,7 +143,7 @@ export class MockDb {
   pointsToday = 0
   pointsWeek = 0
   streak: Schemas['Streak'] = { current_days: 0, best_days: 0, freeze_available: true }
-  uploads = new Map<string, { url: string | null }>()
+  uploads = new Map<string, { url: string | null; kind?: 'photo' | 'video' | 'video_note' }>()
   uploadKinds = new Map<string, Schemas['Attachment']['kind']>()
   posts: StoredPost[] = []
   friends: (Friend & { points: number; streak_days: number })[] = []
@@ -957,8 +957,9 @@ export class MockDb {
         quest_title: proof ? q.title : null,
         category: q.category,
         caption: proof ? input.caption?.trim() || null : null,
+        video: proof ? this.proofVideo(input.media_ids ?? []) : null,
         photos: proof
-          ? (input.media_ids ?? []).map((id, i) => {
+          ? (input.media_ids ?? []).filter((id) => (this.uploads.get(id)?.kind ?? 'photo') === 'photo').map((id, i) => {
               const upload = this.uploads.get(id)
               return upload?.url ? { id, url: upload.url, width: 600, height: 440 } : { ...placeholderPhoto(i), id }
             })
@@ -981,6 +982,14 @@ export class MockDb {
       post_id: postId,
       coop_bonus: coopBonus,
     }
+  }
+
+  private proofVideo(ids: string[]): Schemas['PostVideo'] | null {
+    const id = ids.find((x) => (this.uploads.get(x)?.kind ?? 'photo') !== 'photo')
+    const upload = id ? this.uploads.get(id) : undefined
+    if (!id || !upload) return null
+    const note = upload.kind === 'video_note'
+    return { id, kind: note ? 'video_note' : 'video', status: 'ready', url: upload.url, duration_ms: 8000, width: note ? 480 : 720, height: note ? 480 : 404 }
   }
 
   // ---- social ----

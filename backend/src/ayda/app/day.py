@@ -529,7 +529,8 @@ async def complete_quest(
     body: CompleteQuestInput,
     now: datetime,
 ) -> Completion:
-    """Visibility `friends` posts a proof to the feed, with up to 3 photos or just text;
+    """Visibility `friends` posts a proof to the feed, with up to 3 photos, one video or
+    circle, or just text;
     `personal` posts nothing. `routine` is no longer offered. Points stay even
     if the post is deleted. In a co-op, the last one to complete brings everyone the bonus
     (committed here, then published)."""
@@ -560,9 +561,13 @@ async def complete_quest(
                 media_ids=body.media_ids,
                 now=now,
             )
+        except social.MediaMixError:
+            raise Problem(
+                422, "invalid-media", detail="Можно приложить до 3 фото или одно видео"
+            ) from None
         except social.MediaError:
             raise Problem(
-                422, "invalid-media", detail="Фото не найдено или уже использовано"
+                422, "invalid-media", detail="Файл не найден или уже использован"
             ) from None
         for media_id in to_process:
             await jobs.enqueue(session, social.PROCESS_JOB, {"media_id": str(media_id)})

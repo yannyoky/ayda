@@ -5,11 +5,24 @@ from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.api.schemas import Comment, Photo, Post, UserSummary
+from ayda.api.schemas import Comment, Photo, Post, PostVideo, UserSummary
 from ayda.core.storage import Storage
 from ayda.modules import auth, social
 
 DELETED_NAME = "Удалённый пользователь"
+
+
+def video_schema(storage: Storage, media: social.Media) -> PostVideo:
+    status = "processing" if media.status == "pending" else media.status
+    return PostVideo(
+        id=media.id,
+        kind=media.kind,  # pyright: ignore[reportArgumentType]
+        status=status,  # pyright: ignore[reportArgumentType]
+        url=social.photo_url(storage, media),
+        duration_ms=media.duration_ms,
+        width=media.width,
+        height=media.height,
+    )
 
 
 def user_summary(user: auth.User | None, user_id: uuid.UUID) -> UserSummary:
@@ -25,10 +38,12 @@ async def build_posts(
     authors = await auth.get_users(session, list({p.author_id for p in posts}))
     stats = await social.post_stats(session, viewer_id, ids)
     photos = await social.post_photos(session, ids)
+    videos = await social.post_videos(session, ids)
     out: list[Post] = []
     for post in posts:
         proof = post.kind == "proof"
         urls = [(m, social.photo_url(storage, m)) for m in photos.get(post.id, []) if proof]
+        video = videos.get(post.id) if proof else None
         out.append(
             Post(
                 id=post.id,
@@ -42,6 +57,7 @@ async def build_posts(
                     for m, url in urls
                     if url is not None
                 ],
+                video=video_schema(storage, video) if video is not None else None,
                 local_date=post.local_date,
                 created_at=post.created_at,
                 like_count=stats[post.id].like_count,
