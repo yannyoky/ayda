@@ -305,7 +305,6 @@
     <string name="chats_recording">Запись %1$s</string>
     <string name="chats_stop_and_send">Отправить голосовое</string>
     <string name="chats_cancel_recording">Отменить запись</string>
-    <string name="chats_slide_cancel">Отмена</string>
     <string name="chats_mic_denied">Нет доступа к микрофону. Разреши его в настройках</string>
     <string name="chats_voice_play">Слушать</string>
     <string name="chats_voice_pause">Пауза</string>
