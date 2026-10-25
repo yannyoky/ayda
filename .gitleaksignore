@@ -1,0 +1,3 @@
+# Known false positives for gitleaks, one fingerprint per line (commit:file:rule:line).
+# Fake Telegram bot token from the Bot API docs, used as a log redaction fixture.
+4c3d1ccaee8190d31607c9644b6ab8e519b616f2:backend/tests/test_privacy.py:generic-api-key:32

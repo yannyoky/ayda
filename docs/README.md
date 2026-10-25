@@ -11,6 +11,7 @@ English · [Русский](ru/README.md)
 - `recipe-sources.md`: recipe sources and the curated catalog (ADR 0012)
 - `decisions/`: architecture decision records, `NNNN-title.md`
 - `design/themes.md`: color tokens, fonts and radii for the Graphite and Plum themes
+- `security.md`: secret leak checks (gitleaks in CI, pre-commit hook, GitHub push protection)
 - `ru/`: Russian versions of all docs, same structure
 
 Every doc exists in English and in Russian (`ru/`). A change to one version updates the other in the same PR.

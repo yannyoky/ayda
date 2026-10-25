@@ -30,7 +30,7 @@ SECRET = "Сдать анализы в поликлинике"
         (make_init_data(), "auth_date=1"),
         ('{"init_data": "query_id=AAH1&user=%7B%22id%22"}', "AAH1"),
         ("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl", "eyJ"),
-        ("token 123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw1 failed", "AAHdq"),
+        ("token 123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw1 failed", "AAHdq"),  # gitleaks:allow
         ("GET /api/v1/cities?lat=54.7104&lon=20.4522 200", "54.71"),
         ('{"latitude": 54.7104, "longitude": 20.4522}', "20.45"),
         (f'{{"text": "{SECRET}", "mood": "tired"}}', "поликлиник"),
