@@ -305,7 +305,8 @@
     <string name="chats_recording">Запись %1$s</string>
     <string name="chats_slide_cancel">← Сдвиньте влево, чтобы отменить</string>
     <string name="chats_release_cancel">Отпустите, чтобы отменить</string>
-    <string name="chats_hold_hint">Удерживайте кнопку, чтобы записать. Нажмите, чтобы переключить голосовое и кружок</string>
+    <string name="chats_hint_voice">Удерживайте, чтобы записать голосовое. Нажмите, чтобы переключить на кружок</string>
+    <string name="chats_hint_circle">Удерживайте, чтобы записать кружок. Нажмите, чтобы переключить на голосовое</string>
     <string name="chats_mode_voice">Голосовое. Нажмите, чтобы переключить на кружок</string>
     <string name="chats_mode_circle">Кружок. Нажмите, чтобы переключить на голосовое</string>
     <string name="chats_mic_denied">Нет доступа к микрофону. Разреши его в настройках</string>

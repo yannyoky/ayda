@@ -546,7 +546,14 @@ private fun Composer(
     var willCancel by remember { mutableStateOf(false) }
     // What a hold on the button records; a tap switches it, like in Telegram.
     var circleMode by rememberSaveable { mutableStateOf(false) }
+    // A short tooltip about the current mode, shown after a tap or a hold that was too short.
     var holdHint by remember { mutableStateOf(false) }
+    LaunchedEffect(holdHint, circleMode) {
+        if (holdHint) {
+            delay(3000)
+            holdHint = false
+        }
+    }
     DisposableEffect(Unit) { onDispose { recorder.cancel() } }
 
     fun startRecording() {
@@ -643,7 +650,7 @@ private fun Composer(
     }
     if (holdHint) {
         Text(
-            stringResource(R.string.chats_hold_hint),
+            stringResource(if (circleMode) R.string.chats_hint_circle else R.string.chats_hint_voice),
             style = small(),
             color = colors.muted,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -678,7 +685,10 @@ private fun Composer(
             HoldRecordButton(
                 circleMode = circleMode,
                 recording = active,
-                onTap = { circleMode = !circleMode },
+                onTap = {
+                    circleMode = !circleMode
+                    holdHint = true
+                },
                 onPress = {
                     holdHint = false
                     val has = { permission: String ->
