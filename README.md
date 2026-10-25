@@ -16,3 +16,7 @@ Social quest app: every morning an AI assistant turns your day into a few quests
 Stack and architecture: `docs/decisions/0002-tech-stack.md`, `docs/decisions/0003-modular-monolith.md`.
 
 Each component gets its own README when its code lands.
+
+## License
+
+AGPL-3.0, see `LICENSE`. Anyone who runs a modified version as a network service must publish their changes under the same license.
