@@ -24,7 +24,7 @@ flowchart LR
 
 Realtime (M2, ADR 0007): each user has one personal Centrifugo channel `personal:#<user id>` that only their connection can subscribe to (`POST /realtime/token` issues a 1-hour connection token). The API saves a change in PostgreSQL, commits, then broadcasts an event to the personal channels of the people who should see it (`ayda.app.realtime`); if Centrifugo is down, a `realtime.publish` job retries with ids only. Centrifugo keeps 1 hour of history per channel for recovery after a dropped connection; REST is the source of truth after that.
 
-API, worker and bot are three entry points of one Python package. The job queue lives in PostgreSQL. Everything that stores personal data (PostgreSQL, S3, backups) runs on servers in Russia.
+API, worker and bot are three entry points of one Python package. The job queue lives in PostgreSQL. The worker runs two loops over the same queue: a media lane that only takes photo, video, voice and circle processing (polls every 0.3 s) and a lane for everything else, so a slow job never delays a voice message. Everything that stores personal data (PostgreSQL, S3, backups) runs on servers in Russia.
 
 ## Modules and ownership
 

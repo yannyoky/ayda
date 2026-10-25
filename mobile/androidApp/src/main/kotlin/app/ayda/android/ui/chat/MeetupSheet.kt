@@ -135,7 +135,8 @@ fun MeetupSheet(
                                             .atZone(ZoneId.systemDefault())
                                             .toInstant()
                                             .toEpochMilli()
-                                    model.setTime(Instant.fromEpochMilliseconds(maxOf(chosen, System.currentTimeMillis())))
+                                    val at = maxOf(chosen, System.currentTimeMillis())
+                                    model.setTime(Instant.fromEpochMilliseconds(at))
                                 },
                                 hour,
                                 minute,

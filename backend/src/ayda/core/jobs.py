@@ -18,6 +18,7 @@ from sqlalchemy import BigInteger, DateTime, SmallInteger, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.sql.selectable import TextualSelect
 
 from ayda.core.models import core_metadata
 
@@ -92,19 +93,27 @@ def retry_delay(attempts: int) -> timedelta:
     return timedelta(seconds=min(30 * 2 ** (attempts - 1), 3600))
 
 
-_CLAIM = text(
-    """
-    UPDATE jobs.jobs SET status = 'running', locked_at = :now, attempts = attempts + 1
-    WHERE id = (
-        SELECT id FROM jobs.jobs
-        WHERE status = 'queued' AND run_at <= :now
-        ORDER BY run_at, id
-        FOR UPDATE SKIP LOCKED
-        LIMIT 1
+def _claim(kind_filter: str) -> TextualSelect:
+    return text(
+        f"""
+        UPDATE jobs.jobs SET status = 'running', locked_at = :now, attempts = attempts + 1
+        WHERE id = (
+            SELECT id FROM jobs.jobs
+            WHERE status = 'queued' AND run_at <= :now {kind_filter}
+            ORDER BY run_at, id
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+        )
+        RETURNING id, kind, payload, attempts, max_attempts
+        """
+    ).columns(
+        id=BigInteger, kind=Text, payload=JSONB, attempts=SmallInteger, max_attempts=SmallInteger
     )
-    RETURNING id, kind, payload, attempts, max_attempts
-    """
-).columns(id=BigInteger, kind=Text, payload=JSONB, attempts=SmallInteger, max_attempts=SmallInteger)
+
+
+_CLAIM = _claim("")
+_CLAIM_ONLY = _claim("AND kind = ANY(CAST(:kinds AS text[]))")
+_CLAIM_SKIP = _claim("AND kind <> ALL(CAST(:kinds AS text[]))")
 
 
 class Worker:
@@ -114,19 +123,28 @@ class Worker:
         handlers: Mapping[str, Handler],
         periodic: Sequence[Periodic] = (),
         poll_s: float = 1.0,
+        only: Sequence[str] | None = None,
+        skip: Sequence[str] | None = None,
     ) -> None:
+        """`only` / `skip` make a lane: a worker that takes just those kinds, or all but
+        them, so slow or urgent jobs (media) don't wait behind each other."""
         self._sessionmaker = sessionmaker
         self._handlers = dict(handlers)
         self._periodic = list(periodic)
         self._last_run: dict[str, float] = {}
         self._poll_s = poll_s
+        self._claim = _CLAIM_ONLY if only is not None else _CLAIM_SKIP if skip else _CLAIM
+        self._kinds = list(only if only is not None else skip or [])
         self._stopping = asyncio.Event()
 
     async def run_one(self, now: datetime | None = None) -> bool:
         """Claim and run one due job; False when there is none."""
         now = now or datetime.now(UTC)
         async with self._sessionmaker() as session:
-            row = (await session.execute(_CLAIM, {"now": now})).first()
+            params: dict[str, Any] = {"now": now}
+            if self._claim is not _CLAIM:
+                params["kinds"] = self._kinds
+            row = (await session.execute(self._claim, params)).first()
             await session.commit()
         if row is None:
             return False

@@ -21,13 +21,20 @@ import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,13 +48,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.ayda.android.R
@@ -123,6 +134,7 @@ class CircleRecorder(
 fun CircleCamera(
     recorder: CircleRecorder,
     withAudio: Boolean,
+    size: Dp = 220.dp,
     onFinished: (ByteArray?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -161,7 +173,7 @@ fun CircleCamera(
                     preview.surfaceProvider = surfaceProvider
                 }
             },
-            modifier = Modifier.size(220.dp).clip(CircleShape).background(colors.surface),
+            modifier = Modifier.size(size).clip(CircleShape).background(colors.surface),
         )
     }
 }
@@ -179,22 +191,27 @@ fun VideoNoteContent(
             when (attachment.status) {
                 Attachment.Status.expired -> R.string.chats_circle_expired
                 Attachment.Status.failed -> R.string.chats_circle_failed
-                else -> R.string.chats_circle_processing
+                else -> null
             }
-        Box(
-            Modifier
-                .size(200.dp)
-                .clip(CircleShape)
-                .background(colors.surface)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                stringResource(text),
-                style = MaterialTheme.typography.labelLarge,
-                color = colors.muted,
-                textAlign = TextAlign.Center,
-            )
+        if (text == null) {
+            // Still being prepared: a round placeholder with a spinner, like Telegram.
+            PendingCircle()
+        } else {
+            Box(
+                Modifier
+                    .size(200.dp)
+                    .clip(CircleShape)
+                    .background(colors.surface)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    stringResource(text),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.muted,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
         return
     }
@@ -206,6 +223,18 @@ fun VideoNoteContent(
         onExpired,
         modifier = Modifier.size(200.dp),
     )
+}
+
+/** A circle that is being sent or prepared: the round shape is there at once, with a spinner. */
+@Composable
+fun PendingCircle() {
+    val colors = LocalAydaColors.current
+    Box(
+        Modifier.size(200.dp).clip(CircleShape).background(colors.surface),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(color = colors.accent, modifier = Modifier.size(36.dp))
+    }
 }
 
 /**
@@ -351,5 +380,67 @@ fun PlayableVideo(
                     .background(colors.plate.copy(alpha = 0.7f), RoundedCornerShape(50))
                     .padding(8.dp, 2.dp),
         )
+    }
+}
+
+/** Telegram-style circle recording: the chat is covered, the round preview sits in the centre. */
+@Composable
+fun CircleRecordingScreen(
+    recorder: CircleRecorder,
+    withAudio: Boolean,
+    seconds: Int,
+    onCancel: () -> Unit,
+    onSend: () -> Unit,
+    onFinished: (ByteArray?) -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    Dialog(
+        onDismissRequest = onCancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(colors.bg)
+                .safeDrawingPadding()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.weight(1f))
+            CircleCamera(recorder, withAudio, size = 300.dp, onFinished = onFinished)
+            Row(
+                Modifier.padding(top = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE5484D)))
+                Text(formatSeconds(seconds), style = MaterialTheme.typography.titleMedium, color = colors.ink)
+            }
+            Spacer(Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                IconButton(
+                    onClick = onCancel,
+                    modifier = Modifier.size(64.dp).clip(CircleShape).background(colors.surface),
+                ) {
+                    AydaIcon(
+                        R.drawable.ic_close,
+                        colors.ink,
+                        size = 24,
+                        contentDescription = stringResource(R.string.chats_cancel_recording),
+                    )
+                }
+                IconButton(
+                    onClick = onSend,
+                    modifier = Modifier.size(64.dp).clip(CircleShape).background(colors.accent),
+                ) {
+                    AydaIcon(
+                        R.drawable.ic_arrow,
+                        colors.onAccent,
+                        size = 24,
+                        contentDescription = stringResource(R.string.chats_stop_and_send_circle),
+                    )
+                }
+            }
+        }
     }
 }

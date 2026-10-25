@@ -108,3 +108,25 @@ async def test_periodic_runs_at_its_interval(database: Database) -> None:
 
 def test_retry_delay_grows_and_caps() -> None:
     assert [retry_delay(n).total_seconds() for n in (1, 2, 3, 10)] == [30, 60, 120, 3600]
+
+
+async def test_a_lane_takes_only_its_own_kinds(database: Database) -> None:
+    seen: list[str] = []
+
+    async def handler(session: AsyncSession, payload: dict[str, Any]) -> None:
+        seen.append(str(payload["n"]))
+
+    handlers = {"slow": handler, "fast": handler}
+    async with database.sessionmaker() as session:
+        await enqueue(session, "slow", {"n": "slow"})
+        await enqueue(session, "fast", {"n": "fast"})
+        await session.commit()
+
+    fast_lane = Worker(database.sessionmaker, handlers, only=["fast"])
+    other_lane = Worker(database.sessionmaker, handlers, skip=["fast"])
+    assert await fast_lane.run_one()
+    assert not await fast_lane.run_one()
+    assert seen == ["fast"]
+    assert await other_lane.run_one()
+    assert not await other_lane.run_one()
+    assert seen == ["fast", "slow"]

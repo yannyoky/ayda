@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -116,18 +117,15 @@ fun VoiceBubbleContent(
     val tint = if (mine) colors.onPlate else colors.ink
     val url = attachment.url
     if (attachment.status != Attachment.Status.ready || url == null) {
+        val failed = attachment.status == Attachment.Status.failed
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AydaIcon(R.drawable.ic_mic, muted, size = 18)
+            if (failed) {
+                AydaIcon(R.drawable.ic_mic, muted, size = 18)
+            } else {
+                CircularProgressIndicator(color = colors.accent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+            }
             Text(
-                stringResource(
-                    if (attachment.status ==
-                        Attachment.Status.failed
-                    ) {
-                        R.string.chats_voice_failed
-                    } else {
-                        R.string.chats_voice_processing
-                    },
-                ),
+                stringResource(if (failed) R.string.chats_voice_failed else R.string.chats_voice_processing),
                 style = MaterialTheme.typography.labelLarge,
                 color = muted,
             )

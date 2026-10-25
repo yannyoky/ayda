@@ -130,21 +130,6 @@ fun ChatScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                if (chat.canSend) {
-                    // The meetup is the chat's main action, so it is an accent pill, not a quiet link.
-                    Button(
-                        onClick = onMeetup,
-                        shape = RoundedCornerShape(50),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = colors.accent,
-                                contentColor = colors.onAccent,
-                            ),
-                        contentPadding = PaddingValues(16.dp, 10.dp),
-                    ) {
-                        Text(stringResource(R.string.meetup_button), style = MaterialTheme.typography.labelLarge)
-                    }
-                }
                 IconButton(
                     onClick = model::askHide,
                     modifier = Modifier.size(44.dp).clip(RoundedCornerShape(50)).background(colors.surface),
@@ -156,6 +141,23 @@ fun ChatScreen(
                         contentDescription = stringResource(R.string.chats_hide),
                     )
                 }
+            }
+        }
+        if (chat != null && chat.canSend) {
+            // The meetup is the chat's main action, so it is an accent pill, not a quiet link.
+            // It sits under the header so a long chat title is never squeezed out.
+            Button(
+                onClick = onMeetup,
+                shape = RoundedCornerShape(50),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = colors.accent,
+                        contentColor = colors.onAccent,
+                    ),
+                contentPadding = PaddingValues(16.dp, 10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) {
+                Text(stringResource(R.string.meetup_button), style = MaterialTheme.typography.labelLarge)
             }
         }
         chat?.deletesAt?.let { deletesAt ->
@@ -427,35 +429,67 @@ private fun Pending(
 ) {
     val colors = LocalAydaColors.current
     val label = stringResource(if (message.failed) R.string.chats_failed else R.string.chats_sending)
-    val text =
-        when (message.recording?.kind) {
-            ChatUploadInput.Kind.voice -> "🎤 " + stringResource(R.string.chats_voice)
-            ChatUploadInput.Kind.video_note -> "⭕ " + stringResource(R.string.chats_circle)
-            null -> message.text
-        }
+    val text = message.text
+    val kind = message.recording?.kind
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (message.failed) colors.ink else colors.onPlate,
-            modifier =
-                Modifier
-                    .widthIn(max = 300.dp)
-                    .semantics { contentDescription = "$label: $text" }
-                    .clip(RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp))
-                    .then(
-                        if (message.failed) {
-                            Modifier
-                                .background(colors.surface)
-                                .border(
-                                    BorderStroke(2.dp, colors.accent),
-                                    RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp),
-                                ).clickable(role = Role.Button, onClick = onRetry)
-                        } else {
-                            Modifier.background(colors.plate).alpha(0.6f)
-                        },
-                    ).padding(14.dp, 8.dp),
-        )
+        if (kind == ChatUploadInput.Kind.video_note && !message.failed) {
+            // A circle that is on its way: the round shape is there at once, with a spinner.
+            PendingCircle()
+        } else if (kind != null) {
+            Row(
+                modifier =
+                    Modifier
+                        .semantics { contentDescription = label }
+                        .clip(RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp))
+                        .then(
+                            if (message.failed) {
+                                Modifier.background(colors.surface).clickable(role = Role.Button, onClick = onRetry)
+                            } else {
+                                Modifier.background(colors.plate)
+                            },
+                        ).padding(14.dp, 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (message.failed) {
+                    AydaIcon(R.drawable.ic_close, colors.ink, size = 18)
+                } else {
+                    CircularProgressIndicator(
+                        color = colors.onPlate,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (message.failed) colors.ink else colors.onPlate,
+                )
+            }
+        } else {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (message.failed) colors.ink else colors.onPlate,
+                modifier =
+                    Modifier
+                        .widthIn(max = 300.dp)
+                        .semantics { contentDescription = "$label: $text" }
+                        .clip(RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp))
+                        .then(
+                            if (message.failed) {
+                                Modifier
+                                    .background(colors.surface)
+                                    .border(
+                                        BorderStroke(2.dp, colors.accent),
+                                        RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp),
+                                    ).clickable(role = Role.Button, onClick = onRetry)
+                            } else {
+                                Modifier.background(colors.plate).alpha(0.6f)
+                            },
+                        ).padding(14.dp, 8.dp),
+            )
+        }
         if (message.failed) {
             Text(
                 label,
@@ -535,7 +569,13 @@ private fun Composer(model: ChatViewModel) {
         }
     }
     circleAudio?.let { withAudio ->
-        CircleCamera(circles, withAudio) { bytes ->
+        CircleRecordingScreen(
+            recorder = circles,
+            withAudio = withAudio,
+            seconds = seconds,
+            onCancel = ::cancelRecording,
+            onSend = ::finishRecording,
+        ) { bytes ->
             circleAudio = null
             bytes?.let { model.sendRecording(ChatUploadInput.Kind.video_note, it) }
         }
@@ -576,7 +616,7 @@ private fun Composer(model: ChatViewModel) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (active) {
+        if (recording) {
             ComposerButton(
                 R.drawable.ic_close,
                 stringResource(R.string.chats_cancel_recording),
@@ -595,15 +635,7 @@ private fun Composer(model: ChatViewModel) {
             )
             ComposerButton(
                 R.drawable.ic_arrow,
-                stringResource(
-                    if (circleAudio !=
-                        null
-                    ) {
-                        R.string.chats_stop_and_send_circle
-                    } else {
-                        R.string.chats_stop_and_send
-                    },
-                ),
+                stringResource(R.string.chats_stop_and_send),
                 onClick = ::finishRecording,
             )
             return@Row
@@ -617,7 +649,7 @@ private fun Composer(model: ChatViewModel) {
             modifier = Modifier.weight(1f),
         )
         if (state.editing == null && state.text.isBlank()) {
-            ComposerButton(R.drawable.ic_camera, stringResource(R.string.chats_record_circle), accent = false) {
+            ComposerButton(R.drawable.ic_video_note, stringResource(R.string.chats_record_circle), accent = false) {
                 val has = { permission: String ->
                     ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
                 }
