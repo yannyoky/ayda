@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +76,7 @@ import app.ayda.api.models.Message
 import app.ayda.shared.chat.ChatViewModel
 import app.ayda.shared.chat.PendingMessage
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.time.Clock
@@ -99,6 +101,22 @@ fun ChatScreen(
     meId: String,
     onBack: () -> Unit,
     onMeetup: () -> Unit,
+) {
+    // Circle recording covers the whole chat, in the same window so the held finger keeps recording.
+    var overlay by remember { mutableStateOf<(@Composable () -> Unit)?>(null) }
+    Box(Modifier.fillMaxSize()) {
+        ChatContent(model, meId, onBack, onMeetup, onOverlay = { overlay = it })
+        overlay?.invoke()
+    }
+}
+
+@Composable
+private fun ChatContent(
+    model: ChatViewModel,
+    meId: String,
+    onBack: () -> Unit,
+    onMeetup: () -> Unit,
+    onOverlay: ((@Composable () -> Unit)?) -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
@@ -219,7 +237,7 @@ fun ChatScreen(
         }
         when {
             chat == null -> {}
-            chat.canSend -> Composer(model)
+            chat.canSend -> Composer(model, onOverlay)
             else ->
                 Text(
                     stringResource(R.string.chats_closed),
@@ -509,7 +527,10 @@ private fun Pending(
 }
 
 @Composable
-private fun Composer(model: ChatViewModel) {
+private fun Composer(
+    model: ChatViewModel,
+    onOverlay: ((@Composable () -> Unit)?) -> Unit,
+) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
     val context = LocalContext.current
@@ -523,7 +544,16 @@ private fun Composer(model: ChatViewModel) {
     var cameraDenied by remember { mutableStateOf(false) }
     // The finger is dragged far enough to the left that releasing cancels the voice message.
     var willCancel by remember { mutableStateOf(false) }
+    // What a hold on the button records; a tap switches it, like in Telegram.
+    var circleMode by rememberSaveable { mutableStateOf(false) }
+    // A short tooltip about the current mode, shown after a tap or a hold that was too short.
     var holdHint by remember { mutableStateOf(false) }
+    LaunchedEffect(holdHint, circleMode) {
+        if (holdHint) {
+            delay(3000)
+            holdHint = false
+        }
+    }
     DisposableEffect(Unit) { onDispose { recorder.cancel() } }
 
     fun startRecording() {
@@ -578,17 +608,22 @@ private fun Composer(model: ChatViewModel) {
             if (recording && seconds >= MAX_VOICE_SECONDS) finishRecording()
         }
     }
-    circleAudio?.let { withAudio ->
-        CircleRecordingScreen(
-            recorder = circles,
-            withAudio = withAudio,
-            seconds = seconds,
-            onCancel = ::cancelRecording,
-            onSend = ::finishRecording,
-        ) { bytes ->
-            circleAudio = null
-            bytes?.let { model.sendRecording(ChatUploadInput.Kind.video_note, it) }
+    val circleActive = circleAudio != null
+    DisposableEffect(circleActive) {
+        if (circleActive) {
+            onOverlay {
+                CircleRecordingScreen(
+                    recorder = circles,
+                    withAudio = circleAudio ?: true,
+                    seconds = seconds,
+                    willCancel = willCancel,
+                ) { bytes ->
+                    circleAudio = null
+                    bytes?.let { model.sendRecording(ChatUploadInput.Kind.video_note, it) }
+                }
+            }
         }
+        onDispose { onOverlay(null) }
     }
 
     if (state.editing != null) {
@@ -615,7 +650,7 @@ private fun Composer(model: ChatViewModel) {
     }
     if (holdHint) {
         Text(
-            stringResource(R.string.chats_hold_hint),
+            stringResource(if (circleMode) R.string.chats_hint_circle else R.string.chats_hint_voice),
             style = small(),
             color = colors.muted,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -646,28 +681,28 @@ private fun Composer(model: ChatViewModel) {
                 modifier = Modifier.weight(1f),
             )
         }
-        if (recording || (state.editing == null && state.text.isBlank())) {
-            if (!recording) {
-                ComposerButton(R.drawable.ic_video_note, stringResource(R.string.chats_record_circle), accent = false) {
+        if (active || (state.editing == null && state.text.isBlank())) {
+            HoldRecordButton(
+                circleMode = circleMode,
+                recording = active,
+                onTap = {
+                    circleMode = !circleMode
+                    holdHint = true
+                },
+                onPress = {
+                    holdHint = false
                     val has = { permission: String ->
                         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
                     }
-                    if (has(Manifest.permission.CAMERA) && has(Manifest.permission.RECORD_AUDIO)) {
-                        startCircle(withAudio = true)
-                    } else {
-                        askCamera.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
-                    }
-                }
-            }
-            HoldMicButton(
-                label = stringResource(R.string.chats_record),
-                recording = recording,
-                onPress = {
-                    holdHint = false
-                    val granted =
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                            PackageManager.PERMISSION_GRANTED
-                    if (granted) {
+                    if (circleMode) {
+                        if (has(Manifest.permission.CAMERA) && has(Manifest.permission.RECORD_AUDIO)) {
+                            startCircle(withAudio = true)
+                            true
+                        } else {
+                            askCamera.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+                            false
+                        }
+                    } else if (has(Manifest.permission.RECORD_AUDIO)) {
                         startRecording()
                         recording
                     } else {
@@ -752,21 +787,25 @@ private fun RecordingBar(
 }
 
 /**
- * Hold to record, release to send, slide left to cancel (like Telegram). [onPress] starts the
- * recording and says whether it started; [onDrag] reports whether releasing now would cancel.
+ * Telegram-style record button: a tap switches between voice and circle mode, a hold records in the
+ * current mode, release sends, sliding left cancels. [onPress] starts the recording and says whether
+ * it started; [onDrag] reports whether releasing now would cancel.
  */
 @Composable
-private fun HoldMicButton(
-    label: String,
+private fun HoldRecordButton(
+    circleMode: Boolean,
     recording: Boolean,
+    onTap: () -> Unit,
     onPress: () -> Boolean,
     onDrag: (Boolean) -> Unit,
     onRelease: (cancelled: Boolean) -> Unit,
 ) {
     val colors = LocalAydaColors.current
+    val tap by rememberUpdatedState(onTap)
     val press by rememberUpdatedState(onPress)
     val drag by rememberUpdatedState(onDrag)
     val release by rememberUpdatedState(onRelease)
+    val label = stringResource(if (circleMode) R.string.chats_mode_circle else R.string.chats_mode_voice)
     Box(
         Modifier
             .size(if (recording) 64.dp else 52.dp)
@@ -777,6 +816,11 @@ private fun HoldMicButton(
                 val cancelDistance = 80.dp.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) { waitForUpOrCancellation() }
+                    if (up != null) {
+                        tap()
+                        return@awaitEachGesture
+                    }
                     if (!press()) {
                         waitForUpOrCancellation()
                         return@awaitEachGesture
@@ -793,6 +837,6 @@ private fun HoldMicButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        AydaIcon(R.drawable.ic_mic, colors.onAccent, size = 20)
+        AydaIcon(if (circleMode) R.drawable.ic_video_note else R.drawable.ic_mic, colors.onAccent, size = 22)
     }
 }
