@@ -399,7 +399,11 @@ fun CircleRecordingScreen(
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
     ) {
         Column(
-            Modifier.fillMaxSize().background(colors.bg).safeDrawingPadding().padding(24.dp),
+            Modifier
+                .fillMaxSize()
+                .background(colors.bg)
+                .safeDrawingPadding()
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(1f))
