@@ -8,6 +8,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,11 +45,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -514,6 +521,9 @@ private fun Composer(model: ChatViewModel) {
     var seconds by remember { mutableIntStateOf(0) }
     var micDenied by remember { mutableStateOf(false) }
     var cameraDenied by remember { mutableStateOf(false) }
+    // The finger is dragged far enough to the left that releasing cancels the voice message.
+    var willCancel by remember { mutableStateOf(false) }
+    var holdHint by remember { mutableStateOf(false) }
     DisposableEffect(Unit) { onDispose { recorder.cancel() } }
 
     fun startRecording() {
@@ -550,7 +560,7 @@ private fun Composer(model: ChatViewModel) {
     }
     val askMic =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) startRecording() else micDenied = true
+            if (!granted) micDenied = true
         }
     val askCamera =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
@@ -603,6 +613,14 @@ private fun Composer(model: ChatViewModel) {
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
+    if (holdHint) {
+        Text(
+            stringResource(R.string.chats_hold_hint),
+            style = small(),
+            color = colors.muted,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
     if (micDenied || cameraDenied) {
         Text(
             stringResource(if (cameraDenied) R.string.chats_camera_denied else R.string.chats_mic_denied),
@@ -617,54 +635,59 @@ private fun Composer(model: ChatViewModel) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (recording) {
-            ComposerButton(
-                R.drawable.ic_close,
-                stringResource(R.string.chats_cancel_recording),
-                accent = false,
-                onClick = ::cancelRecording,
+            RecordingBar(seconds, willCancel, Modifier.weight(1f))
+        } else {
+            OutlinedTextField(
+                value = state.text,
+                onValueChange = model::onTextChange,
+                placeholder = { Text(stringResource(R.string.chats_placeholder)) },
+                shape = MaterialTheme.shapes.medium,
+                maxLines = 5,
+                modifier = Modifier.weight(1f),
             )
-            Text(
-                stringResource(R.string.chats_recording, formatSeconds(seconds)),
-                style = MaterialTheme.typography.titleMedium,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(colors.surface)
-                        .padding(16.dp, 14.dp),
-            )
-            ComposerButton(
-                R.drawable.ic_arrow,
-                stringResource(R.string.chats_stop_and_send),
-                onClick = ::finishRecording,
-            )
-            return@Row
         }
-        OutlinedTextField(
-            value = state.text,
-            onValueChange = model::onTextChange,
-            placeholder = { Text(stringResource(R.string.chats_placeholder)) },
-            shape = MaterialTheme.shapes.medium,
-            maxLines = 5,
-            modifier = Modifier.weight(1f),
-        )
-        if (state.editing == null && state.text.isBlank()) {
-            ComposerButton(R.drawable.ic_video_note, stringResource(R.string.chats_record_circle), accent = false) {
-                val has = { permission: String ->
-                    ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
-                }
-                if (has(Manifest.permission.CAMERA) && has(Manifest.permission.RECORD_AUDIO)) {
-                    startCircle(withAudio = true)
-                } else {
-                    askCamera.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+        if (recording || (state.editing == null && state.text.isBlank())) {
+            if (!recording) {
+                ComposerButton(R.drawable.ic_video_note, stringResource(R.string.chats_record_circle), accent = false) {
+                    val has = { permission: String ->
+                        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+                    }
+                    if (has(Manifest.permission.CAMERA) && has(Manifest.permission.RECORD_AUDIO)) {
+                        startCircle(withAudio = true)
+                    } else {
+                        askCamera.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
+                    }
                 }
             }
-            ComposerButton(R.drawable.ic_mic, stringResource(R.string.chats_record)) {
-                val granted =
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                        PackageManager.PERMISSION_GRANTED
-                if (granted) startRecording() else askMic.launch(Manifest.permission.RECORD_AUDIO)
-            }
+            HoldMicButton(
+                label = stringResource(R.string.chats_record),
+                recording = recording,
+                onPress = {
+                    holdHint = false
+                    val granted =
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                            PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        startRecording()
+                        recording
+                    } else {
+                        askMic.launch(Manifest.permission.RECORD_AUDIO)
+                        false
+                    }
+                },
+                onDrag = { willCancel = it },
+                onRelease = { cancelled ->
+                    willCancel = false
+                    when {
+                        cancelled -> cancelRecording()
+                        seconds < 1 -> {
+                            cancelRecording()
+                            holdHint = true
+                        }
+                        else -> finishRecording()
+                    }
+                },
+            )
         } else {
             ComposerButton(
                 R.drawable.ic_arrow,
@@ -696,5 +719,80 @@ private fun ComposerButton(
                 .alpha(if (enabled) 1f else 0.4f),
     ) {
         AydaIcon(icon, if (accent) colors.onAccent else colors.ink, size = 20, contentDescription = label)
+    }
+}
+
+/** The bar that replaces the text field while a voice message is being recorded. */
+@Composable
+private fun RecordingBar(
+    seconds: Int,
+    willCancel: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalAydaColors.current
+    Row(
+        modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(colors.surface)
+            .padding(16.dp, 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE5484D)))
+        Text(formatSeconds(seconds), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(if (willCancel) R.string.chats_release_cancel else R.string.chats_slide_cancel),
+            style = small(),
+            color = if (willCancel) colors.accent else colors.muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/**
+ * Hold to record, release to send, slide left to cancel (like Telegram). [onPress] starts the
+ * recording and says whether it started; [onDrag] reports whether releasing now would cancel.
+ */
+@Composable
+private fun HoldMicButton(
+    label: String,
+    recording: Boolean,
+    onPress: () -> Boolean,
+    onDrag: (Boolean) -> Unit,
+    onRelease: (cancelled: Boolean) -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    val press by rememberUpdatedState(onPress)
+    val drag by rememberUpdatedState(onDrag)
+    val release by rememberUpdatedState(onRelease)
+    Box(
+        Modifier
+            .size(if (recording) 64.dp else 52.dp)
+            .clip(if (recording) CircleShape else MaterialTheme.shapes.medium)
+            .background(colors.accent)
+            .semantics { contentDescription = label }
+            .pointerInput(Unit) {
+                val cancelDistance = 80.dp.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (!press()) {
+                        waitForUpOrCancellation()
+                        return@awaitEachGesture
+                    }
+                    var cancelled = false
+                    while (true) {
+                        val change = awaitPointerEvent().changes.first()
+                        cancelled = change.position.x - down.position.x < -cancelDistance
+                        drag(cancelled)
+                        if (!change.pressed) break
+                    }
+                    release(cancelled)
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        AydaIcon(R.drawable.ic_mic, colors.onAccent, size = 20)
     }
 }

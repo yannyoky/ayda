@@ -302,9 +302,11 @@
     <string name="chats_deletes_at">Квест закончился, чат удалится у всех %1$s</string>
     <string name="chats_voice">Голосовое сообщение</string>
     <string name="chats_record">Записать голосовое</string>
-    <string name="chats_recording">Запись %1$s</string>
-    <string name="chats_stop_and_send">Отправить голосовое</string>
     <string name="chats_cancel_recording">Отменить запись</string>
+    <string name="chats_recording">Запись %1$s</string>
+    <string name="chats_slide_cancel">← Сдвиньте влево, чтобы отменить</string>
+    <string name="chats_release_cancel">Отпустите, чтобы отменить</string>
+    <string name="chats_hold_hint">Удерживайте кнопку, чтобы записать голосовое</string>
     <string name="chats_mic_denied">Нет доступа к микрофону. Разреши его в настройках</string>
     <string name="chats_voice_play">Слушать</string>
     <string name="chats_voice_pause">Пауза</string>
