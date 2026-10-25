@@ -1,0 +1,6 @@
+# Local git hooks, see docs/security.md. Install once: `uv tool install pre-commit` then `pre-commit install`.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

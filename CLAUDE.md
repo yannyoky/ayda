@@ -8,7 +8,7 @@
 - Decided stack (ADR 0002, 0003): backend is a Python FastAPI modular monolith that includes the AI assistant; PostgreSQL + PostGIS + pgvector; Centrifugo for realtime; Telegram Mini App on React + TypeScript first, then Kotlin Multiplatform with Compose (Android) and SwiftUI (iOS). Modules in backend/src/ayda/modules/ never import each other. LLM providers are pluggable and FREE (no paid APIs). LLM ranks, phrases and chats, but every fact (quest, place, recipe) comes from code; output validated against a JSON schema (ADR 0013).
 - Log quest events from day one (append-only `events` table).
 - Personal data (location, photos, habits) is minimal and never logged in raw form; 152-FZ applies (Russian users' data stored in Russia).
-- Secrets only from environment variables, never in the repo.
+- Secrets only from environment variables, never in the repo. gitleaks checks every PR (workflow `Secrets`, docs/security.md); a fake value in code gets a `# gitleaks:allow` comment.
 - Before pushing run the checks for the component you touched:
   - backend: `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run lint-imports && uv run pytest`
   - miniapp: `npm run lint && npm test`
