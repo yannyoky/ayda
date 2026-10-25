@@ -14,12 +14,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Instant
 
 data class MeetupState(
     val loading: Boolean = true,
     val offer: MeetupOffer? = null,
     val picking: Boolean = false,
     val error: String? = null,
+    /** The start time the user typed over the offered one; null while the offer's is kept. */
+    val startsAt: Instant? = null,
 )
 
 /**
@@ -51,13 +54,18 @@ class MeetupViewModel(
         }
     }
 
+    /** The user changed the proposed time (still today; the screen keeps it from the past). */
+    fun setTime(startsAt: Instant) {
+        mutableState.update { it.copy(startsAt = startsAt) }
+    }
+
     /** Picks a venue from the offer, or the online activity when [venueId] is null. */
     fun pick(
         venueId: Long?,
         onCreated: (Coop) -> Unit,
     ) {
         val offer = state.value.offer ?: return
-        val startsAt = offer.startsAt ?: return
+        val startsAt = state.value.startsAt ?: offer.startsAt ?: return
         if (state.value.picking) return
         mutableState.update { it.copy(picking = true, error = null) }
         viewModelScope.launch {

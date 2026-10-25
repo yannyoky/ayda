@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 MESSAGES_READ = 8
 MESSAGE_CHARS = 300
 VENUES_SHOWN = 5
+NAMED_SHOWN = 2
 LEAD = timedelta(minutes=30)
 ROUND_TO = 15
 DEFAULT_TIME = time(19, 0)
@@ -39,6 +40,7 @@ MAX_FRIENDS = 3
 NOTE_TOO_LATE = "На сегодня уже поздно: план живёт до конца дня. Попробуйте завтра."
 NOTE_UNCLEAR = "Не поняла, о какой встрече речь. Напишите, где и когда хотите увидеться."
 NOTE_NO_CITY = "Укажи город в профиле, и я подберу места рядом."
+NOTE_NAME_NOT_FOUND = "Не нашла «{name}» на карте, вот похожие места."
 NOTE_NO_VENUES = "В вашем городе в карте пока мало подходящих мест. Выберите место сами."
 
 
@@ -92,7 +94,7 @@ async def suggest(
     if result is not None:
         intent, source = result.value, "llm"
     else:
-        intent, source = assistant.MeetupIntent(kind="venue"), "code"
+        intent, source = assistant.guess_meetup(texts), "code"
     kinds = list(intent.venue_kinds) or list(DEFAULT_KINDS)
 
     def offer(**fields: object) -> MeetupOffer:
@@ -134,16 +136,29 @@ async def suggest(
     if user.city_id is None:
         return await record(offer(note=NOTE_NO_CITY))
     local_start = starts_at.astimezone(ZoneInfo(user.timezone)).replace(tzinfo=None)
+    named: list[events.Candidate] = []
+    if intent.place_name:
+        named = await events.find_named_venue(
+            session, user.city_id, intent.place_name, local_start, NAMED_SHOWN, user.id, now
+        )
     found = await events.venue_candidates(
         session, user.city_id, local_start, kinds, VENUES_SHOWN, user.id, now
     )
+    taken = {c.venue.id for c in named}
+    found = [*named, *(c for c in found if c.venue.id not in taken)][:VENUES_SHOWN]
     city = await events.get_city(session, user.city_id)
     city_name = city.name if city else ""
     return await record(
         offer(
             starts_at=starts_at,
             venues=[_venue(c, city_name) for c in found],
-            note=None if found else NOTE_NO_VENUES,
+            note=(
+                NOTE_NO_VENUES
+                if not found
+                else NOTE_NAME_NOT_FOUND.format(name=intent.place_name)
+                if intent.place_name and not named
+                else None
+            ),
             attribution=events.ATTRIBUTION if found else None,
         )
     )

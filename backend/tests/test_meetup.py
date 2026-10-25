@@ -20,7 +20,7 @@ from tests.contract import assert_matches
 from tests.helpers import SignedIn
 from tests.test_day import TZ, forecast, onboarded, use_tools
 from tests.test_feed import befriend
-from tests.test_venues import Overpass, ok
+from tests.test_venues import PAYLOAD, Overpass, node, ok
 
 TODAY = datetime.now(ZoneInfo(TZ)).date()
 NOW = datetime.combine(TODAY, time(10, 0), ZoneInfo(TZ)).astimezone(UTC)
@@ -40,7 +40,10 @@ def intent(**fields: Any) -> str:
 
 
 async def chat_between(
-    client: httpx.AsyncClient, database: Database, *texts: str
+    client: httpx.AsyncClient,
+    database: Database,
+    *texts: str,
+    payload: dict[str, Any] | None = None,
 ) -> tuple[SignedIn, SignedIn, str]:
     alice = await onboarded(client, 1001)
     bob = await onboarded(client, 2002)
@@ -58,7 +61,9 @@ async def chat_between(
         )
         assert sent.status_code == 201, sent.text
     async with database.sessionmaker() as session:
-        await events.load_venues(session, Overpass(ok()).source(), [KALININGRAD], 7000, NOW)
+        await events.load_venues(
+            session, Overpass(ok(payload or PAYLOAD)).source(), [KALININGRAD], 7000, NOW
+        )
         await session.commit()
     return alice, bob, conversation
 
@@ -216,3 +221,100 @@ async def test_picking_rules(app: FastAPI, client: httpx.AsyncClient, database: 
     )
     assert online.status_code == 201
     assert online.json()["title"] == "Онлайн: Дота вдвоём" and online.json()["place"] is None
+
+
+def with_places(*elements: dict[str, Any]) -> dict[str, Any]:
+    return {"elements": [*PAYLOAD["elements"], *elements]}
+
+
+PARK = {
+    "type": "way",
+    "id": 20,
+    "center": {"lat": 54.72, "lon": 20.5},
+    "tags": {"leisure": "park", "name": "Центральный парк"},
+}
+
+
+async def test_a_place_named_in_the_chat_comes_first(
+    app: FastAPI, client: httpx.AsyncClient, database: Database
+) -> None:
+    llm = FakeProvider(
+        answers=[intent(venue_kinds=["restaurant"], place_name="Ростерхит", time="19:00")]
+    )
+    use_tools(app, [llm], forecast())
+    payload = with_places(node(30, "Roasterhit", "restaurant"))
+    alice, _, conversation = await chat_between(
+        client, database, "Пошли в ресторан Ростерхит", payload=payload
+    )
+    response = await suggest(client, alice, conversation)
+    assert_matches(response, "suggestMeetup")
+    offer = response.json()
+    assert offer["venues"][0]["name"] == "Roasterhit"
+    assert offer["note"] is None
+    assert "Ресторан у моря" in [v["name"] for v in offer["venues"]]
+
+
+async def test_an_unknown_named_place_is_said_so_and_similar_ones_follow(
+    app: FastAPI, client: httpx.AsyncClient, database: Database
+) -> None:
+    llm = FakeProvider(answers=[intent(venue_kinds=["restaurant"], place_name="Тратторияна")])
+    use_tools(app, [llm], forecast())
+    alice, _, conversation = await chat_between(client, database, "Пошли в Тратторияна")
+    offer = (await suggest(client, alice, conversation)).json()
+    assert "Тратторияна" in offer["note"]
+    assert [v["name"] for v in offer["venues"]] == ["Ресторан у моря"]
+
+
+async def test_the_latest_intent_wins_a_walk_in_a_park_at_three(
+    app: FastAPI, client: httpx.AsyncClient, database: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    llm = FakeProvider(answers=[intent(venue_kinds=["park"], time="15:00")])
+    use_tools(app, [llm], forecast())
+    alice, _, conversation = await chat_between(
+        client,
+        database,
+        "го в ресторан?",
+        "пошли погуляем в парк в 15:00",
+        payload=with_places(PARK),
+    )
+    offer = (await suggest(client, alice, conversation)).json()
+    assert [v["name"] for v in offer["venues"]] == ["Центральный парк"]
+    assert offer["venues"][0]["kind"] == "park"
+    assert datetime.fromisoformat(offer["starts_at"]) == datetime.combine(
+        TODAY, time(15, 0), ZoneInfo(TZ)
+    )
+
+
+async def test_without_the_assistant_code_reads_the_latest_kind_and_time(
+    app: FastAPI, client: httpx.AsyncClient, database: Database
+) -> None:
+    use_tools(app, [FakeProvider(answers=[ProviderError("rate_limited")])], forecast())
+    alice, _, conversation = await chat_between(
+        client,
+        database,
+        "го в ресторан?",
+        "лучше погуляем в парке в 15:00",
+        payload=with_places(PARK),
+    )
+    offer = (await suggest(client, alice, conversation)).json()
+    assert offer["source"] == "code"
+    assert [v["name"] for v in offer["venues"]] == ["Центральный парк"]
+    assert datetime.fromisoformat(offer["starts_at"]) == datetime.combine(
+        TODAY, time(15, 0), ZoneInfo(TZ)
+    )
+
+
+def test_guessing_without_the_assistant() -> None:
+    from ayda.modules.assistant import guess_meetup
+
+    walk = guess_meetup(["го в ресторан", "пошли погуляем в парк к 16"])
+    assert walk.venue_kinds == ["park"] and walk.time == "16:00"
+    assert guess_meetup(["увидимся?"]).venue_kinds == []
+
+
+def test_names_are_compared_across_alphabets() -> None:
+    from ayda.modules.events.venues import name_score
+
+    assert name_score("Ростерхит", "Roasterhit") >= 0.78
+    assert name_score("ростер хит", "РОСТЕРХИТ") == 1.0
+    assert name_score("Ростерхит", "Кофейня на углу") < 0.78

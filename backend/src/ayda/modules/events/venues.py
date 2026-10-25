@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from difflib import SequenceMatcher
 from typing import Any, cast
 from urllib.parse import quote
 
@@ -343,12 +344,16 @@ async def candidates(
     limit: int = 5,
     user_id: uuid.UUID | None = None,
     now: datetime | None = None,
+    only_ids: Sequence[int] | None = None,
 ) -> list[Candidate]:
     """Up to `limit` venues near the city center: open at the planned time first (unknown
     hours do not disqualify), then those with an address, then the closest. A place the user
-    reported as not working is left out for them, and for everyone once enough people did."""
+    reported as not working is left out for them, and for everyone once enough people did.
+    `only_ids` limits the search to those venues of any kind."""
     wanted = [k for k in kinds if k in KINDS]
-    if not wanted:
+    if only_ids is not None:
+        wanted = list(KINDS)
+    if not wanted or (only_ids is not None and not only_ids):
         return []
     since = (now or datetime.now(UTC)) - REPORT_TTL
     rows = (
@@ -359,6 +364,7 @@ async def candidates(
                        ST_Distance(v.location, c.location)::int
                 FROM events.venues v JOIN events.cities c ON c.id = v.city_id
                 WHERE v.city_id = :city_id AND v.kind = ANY(:kinds)
+                  AND (CAST(:ids AS bigint[]) IS NULL OR v.id = ANY(CAST(:ids AS bigint[])))
                   AND NOT EXISTS (
                       SELECT 1 FROM events.venue_reports r
                       WHERE r.venue_id = v.id AND r.reported_at >= :since
@@ -375,6 +381,7 @@ async def candidates(
                 "since": since,
                 "to_hide": REPORTS_TO_HIDE,
                 "user_id": user_id,
+                "ids": list(only_ids) if only_ids is not None else None,
             },
         )
     ).all()
@@ -386,11 +393,66 @@ async def candidates(
     for venue_id, lat, lon, distance in rows:
         venue = by_id[venue_id]
         state = is_open_at(venue.opening_hours, when_local)
-        if state is False:
+        if state is False and only_ids is None:
             continue
         found.append(Candidate(venue, float(lat), float(lon), int(distance), state))
     found.sort(key=lambda c: (c.open_now is not True, c.venue.address is None, c.distance_m))
     return found[:limit]
+
+
+_LATIN = {
+    "shch": "щ", "sch": "щ", "sh": "ш", "ch": "ч", "zh": "ж", "kh": "х", "ts": "ц", "ya": "я",
+    "yu": "ю", "yo": "е", "oo": "у", "ee": "и", "ph": "ф", "ck": "к", "a": "а", "b": "б",
+    "c": "к", "d": "д", "e": "е", "f": "ф", "g": "г", "h": "х", "i": "и", "j": "ж", "k": "к",
+    "l": "л", "m": "м", "n": "н", "o": "о", "p": "п", "q": "к", "r": "р", "s": "с", "t": "т",
+    "u": "у", "v": "в", "w": "в", "x": "кс", "y": "и", "z": "з",
+}  # fmt: skip
+_LATIN_RE = re.compile("|".join(sorted(_LATIN, key=len, reverse=True)))
+NAME_MATCH = 0.78
+
+
+def normalize_name(name: str) -> str:
+    """A place name for comparing: lower case, Latin letters read as Russian ones, no spaces,
+    quotes or double letters, so «Rosterhit», «Ростерхит» and «ростер хит» are close."""
+    lowered = name.lower().replace("ё", "е")
+    cyrillic = _LATIN_RE.sub(lambda m: _LATIN[m[0]], lowered)
+    letters = "".join(ch for ch in cyrillic if ch.isalnum())
+    return re.sub(r"(.)\1+", r"\1", letters).replace("оа", "о")
+
+
+def name_score(wanted: str, venue_name: str) -> float:
+    a, b = normalize_name(wanted), normalize_name(venue_name)
+    if not a or not b:
+        return 0.0
+    if len(a) >= 4 and (a in b or b in a):
+        return 1.0
+    return SequenceMatcher(None, a, b).ratio()
+
+
+async def find_named(
+    session: AsyncSession,
+    city_id: int,
+    wanted: str,
+    when_local: datetime,
+    limit: int = 3,
+    user_id: uuid.UUID | None = None,
+    now: datetime | None = None,
+) -> list[Candidate]:
+    """Venues of the city whose name is what the chat named, best match first. A place
+    named in the chat is never dropped for being closed: the friends know where they go, and
+    the card still shows the hours."""
+    rows = (
+        await session.execute(select(Venue.id, Venue.name).where(Venue.city_id == city_id))
+    ).all()
+    scored = sorted(((name_score(wanted, name), venue_id) for venue_id, name in rows), reverse=True)
+    ids = [venue_id for score, venue_id in scored if score >= NAME_MATCH][:limit]
+    if not ids:
+        return []
+    found = await candidates(
+        session, city_id, when_local, KINDS, len(ids), user_id, now, only_ids=ids
+    )
+    order = {venue_id: i for i, venue_id in enumerate(ids)}
+    return sorted(found, key=lambda c: order[c.venue.id])
 
 
 async def report_closed(

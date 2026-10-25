@@ -1,7 +1,9 @@
 package app.ayda.android.ui.chat
 
+import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -15,7 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -24,12 +28,15 @@ import app.ayda.android.R
 import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
+import app.ayda.android.ui.QuietButton
 import app.ayda.api.models.Coop
 import app.ayda.api.models.MeetupOffer
 import app.ayda.api.models.MeetupVenue
 import app.ayda.shared.plans.MeetupViewModel
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.time.Instant
 
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -42,6 +49,11 @@ private fun MeetupVenue.Kind.label(): String =
             MeetupVenue.Kind.bar -> R.string.meetup_kind_bar
             MeetupVenue.Kind.pub -> R.string.meetup_kind_pub
             MeetupVenue.Kind.fast_food -> R.string.meetup_kind_fast_food
+            MeetupVenue.Kind.park -> R.string.meetup_kind_park
+            MeetupVenue.Kind.garden -> R.string.meetup_kind_garden
+            MeetupVenue.Kind.embankment -> R.string.meetup_kind_embankment
+            MeetupVenue.Kind.viewpoint -> R.string.meetup_kind_viewpoint
+            MeetupVenue.Kind.square -> R.string.meetup_kind_square
         },
     )
 
@@ -70,8 +82,10 @@ fun MeetupSheet(
     val colors = LocalAydaColors.current
     val uri = LocalUriHandler.current
     val offer = state.offer
+    val context = LocalContext.current
+    val shown = state.startsAt ?: offer?.startsAt
     val time =
-        offer?.startsAt?.let {
+        shown?.let {
             clock.format(
                 java.time.Instant
                     .ofEpochMilli(it.toEpochMilliseconds())
@@ -102,7 +116,34 @@ fun MeetupSheet(
             }
             offer?.note?.let { Card { Text(it, style = MaterialTheme.typography.labelLarge) } }
             if (offer != null && time != null && offer.kind != MeetupOffer.Kind.unclear) {
-                Text(stringResource(R.string.meetup_when, time), style = MaterialTheme.typography.titleMedium)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(stringResource(R.string.meetup_when, time), style = MaterialTheme.typography.titleMedium)
+                    QuietButton(
+                        stringResource(R.string.meetup_change_time),
+                        onClick = {
+                            val (hour, minute) = time.split(":").map(String::toInt)
+                            TimePickerDialog(
+                                context,
+                                { _, h, m ->
+                                    val chosen =
+                                        LocalDate
+                                            .now()
+                                            .atTime(h, m)
+                                            .atZone(ZoneId.systemDefault())
+                                            .toInstant()
+                                            .toEpochMilli()
+                                    model.setTime(Instant.fromEpochMilliseconds(maxOf(chosen, System.currentTimeMillis())))
+                                },
+                                hour,
+                                minute,
+                                true,
+                            ).show()
+                        },
+                    )
+                }
             }
             if (offer?.kind == MeetupOffer.Kind.online && offer.activity != null) {
                 Card {
@@ -122,7 +163,7 @@ fun MeetupSheet(
                     Text(venue.name, style = MaterialTheme.typography.titleMedium)
                     Text(venue.details(), style = MaterialTheme.typography.bodyMedium, color = colors.muted)
                     Text(stringResource(R.string.meetup_reviews), style = MaterialTheme.typography.labelLarge)
-                    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(
                             onClick = { uri.openUri(venue.gisUrl) },
                         ) { Text(stringResource(R.string.meetup_gis)) }

@@ -565,7 +565,18 @@ class Coop(BaseModel):
 class MeetupVenue(BaseModel):
     id: int
     name: str
-    kind: Literal["restaurant", "cafe", "bar", "pub", "fast_food"]
+    kind: Literal[
+        "restaurant",
+        "cafe",
+        "bar",
+        "pub",
+        "fast_food",
+        "park",
+        "garden",
+        "embankment",
+        "viewpoint",
+        "square",
+    ]
     address: str | None
     distance_m: int
     opening_hours: str | None

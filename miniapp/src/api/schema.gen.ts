@@ -605,6 +605,10 @@ export interface paths {
          *     the caller's city from OpenStreetMap, open at the planned time first. Cards for
          *     venues carry links to 2GIS and Yandex Maps search, where reviews and the average
          *     bill are, and must show `attribution`. Plans last one day, so the time is today.
+         *     The latest suggestion in the chat wins over earlier talk: a walk in a park at 15:00
+         *     gives parks at 15:00, not restaurants. A place named in the chat comes first (the
+         *     venues may also be parks, gardens and other walk places). `starts_at` is only a
+         *     proposal: clients let the user change the time before `pickMeetup`.
          *     Without a working assistant, code suggests cafes at 19:00 (`source` is `code`).
          */
         post: operations["suggestMeetup"];
@@ -1828,7 +1832,7 @@ export interface components {
             id: number;
             name: string;
             /** @enum {string} */
-            kind: "restaurant" | "cafe" | "bar" | "pub" | "fast_food";
+            kind: "restaurant" | "cafe" | "bar" | "pub" | "fast_food" | "park" | "garden" | "embankment" | "viewpoint" | "square";
             address: string | null;
             /** @description From the city center. */
             distance_m: number;
