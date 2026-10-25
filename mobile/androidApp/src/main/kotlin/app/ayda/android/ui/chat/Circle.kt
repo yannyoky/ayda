@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,8 +56,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.ayda.android.R
@@ -383,64 +380,46 @@ fun PlayableVideo(
     }
 }
 
-/** Telegram-style circle recording: the chat is covered, the round preview sits in the centre. */
+/**
+ * Telegram-style circle recording: covers the whole chat, the round preview sits in the centre.
+ * The finger is still on the record button, so there are no buttons here: release sends, a slide
+ * to the left cancels.
+ */
 @Composable
 fun CircleRecordingScreen(
     recorder: CircleRecorder,
     withAudio: Boolean,
     seconds: Int,
-    onCancel: () -> Unit,
-    onSend: () -> Unit,
+    willCancel: Boolean,
     onFinished: (ByteArray?) -> Unit,
 ) {
     val colors = LocalAydaColors.current
-    Dialog(
-        onDismissRequest = onCancel,
-        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(colors.bg)
+            .safeDrawingPadding()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(colors.bg)
-                .safeDrawingPadding()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Spacer(Modifier.weight(1f))
+        CircleCamera(recorder, withAudio, size = 300.dp, onFinished = onFinished)
+        Row(
+            Modifier.padding(top = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Spacer(Modifier.weight(1f))
-            CircleCamera(recorder, withAudio, size = 300.dp, onFinished = onFinished)
-            Row(
-                Modifier.padding(top = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE5484D)))
-                Text(formatSeconds(seconds), style = MaterialTheme.typography.titleMedium, color = colors.ink)
-            }
-            Spacer(Modifier.weight(1f))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                IconButton(
-                    onClick = onCancel,
-                    modifier = Modifier.size(64.dp).clip(CircleShape).background(colors.surface),
-                ) {
-                    AydaIcon(
-                        R.drawable.ic_close,
-                        colors.ink,
-                        size = 24,
-                        contentDescription = stringResource(R.string.chats_cancel_recording),
-                    )
-                }
-                IconButton(
-                    onClick = onSend,
-                    modifier = Modifier.size(64.dp).clip(CircleShape).background(colors.accent),
-                ) {
-                    AydaIcon(
-                        R.drawable.ic_arrow,
-                        colors.onAccent,
-                        size = 24,
-                        contentDescription = stringResource(R.string.chats_stop_and_send_circle),
-                    )
-                }
-            }
+            Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE5484D)))
+            Text(formatSeconds(seconds), style = MaterialTheme.typography.titleMedium, color = colors.ink)
         }
+        Text(
+            stringResource(if (willCancel) R.string.chats_release_cancel else R.string.chats_slide_cancel),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (willCancel) colors.accent else colors.muted,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Spacer(Modifier.weight(1f))
+        // Keeps the preview clear of the record button that the finger is holding.
+        Spacer(Modifier.size(64.dp))
     }
 }

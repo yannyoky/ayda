@@ -301,12 +301,13 @@
     <string name="chats_hide_yes">Удалить</string>
     <string name="chats_deletes_at">Квест закончился, чат удалится у всех %1$s</string>
     <string name="chats_voice">Голосовое сообщение</string>
-    <string name="chats_record">Записать голосовое</string>
     <string name="chats_cancel_recording">Отменить запись</string>
     <string name="chats_recording">Запись %1$s</string>
     <string name="chats_slide_cancel">← Сдвиньте влево, чтобы отменить</string>
     <string name="chats_release_cancel">Отпустите, чтобы отменить</string>
-    <string name="chats_hold_hint">Удерживайте кнопку, чтобы записать голосовое</string>
+    <string name="chats_hold_hint">Удерживайте кнопку, чтобы записать. Нажмите, чтобы переключить голосовое и кружок</string>
+    <string name="chats_mode_voice">Голосовое. Нажмите, чтобы переключить на кружок</string>
+    <string name="chats_mode_circle">Кружок. Нажмите, чтобы переключить на голосовое</string>
     <string name="chats_mic_denied">Нет доступа к микрофону. Разреши его в настройках</string>
     <string name="chats_voice_play">Слушать</string>
     <string name="chats_voice_pause">Пауза</string>
@@ -314,8 +315,6 @@
     <string name="chats_voice_failed">Не получилось обработать голосовое</string>
     <string name="chats_camera_denied">Нет доступа к камере. Разреши её в настройках</string>
     <string name="chats_circle">Кружок</string>
-    <string name="chats_record_circle">Записать кружок</string>
-    <string name="chats_stop_and_send_circle">Отправить кружок</string>
     <string name="chats_circle_play">Смотреть кружок</string>
     <string name="chats_circle_pause">Пауза</string>
     <string name="chats_circle_processing">Отправляется…</string>
