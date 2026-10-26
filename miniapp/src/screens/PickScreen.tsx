@@ -107,7 +107,7 @@ export function PickScreen() {
           type="button"
           onClick={() => setOwnOpen(true)}
           disabled={left === 0}
-          className="flex h-14 items-center gap-2 rounded-[20px] bg-surface px-4.5 text-sm font-extrabold disabled:opacity-50"
+          className="flex h-14 items-center gap-2 rounded-field bg-surface px-4.5 text-sm font-extrabold disabled:opacity-50"
         >
           <Icon name="plus" size={18} strokeWidth={2.2} />
           {t.today.own}
@@ -116,10 +116,10 @@ export function PickScreen() {
           type="button"
           disabled={chosen.length === 0 || take.isPending}
           onClick={takeSelected}
-          className="flex h-14 flex-1 items-center justify-center gap-2.5 rounded-[20px] bg-plate text-base font-extrabold text-on-plate disabled:opacity-50"
+          className="flex h-14 flex-1 items-center justify-center gap-2.5 rounded-field bg-plate text-base font-extrabold text-on-plate disabled:opacity-50"
         >
           {t.pick.take(chosen.length)}
-          {points > 0 && <span className="rounded-[10px] bg-accent px-2 py-1 text-[13px] text-on-accent">+{points}</span>}
+          {points > 0 && <span className="rounded-chip bg-accent px-2 py-1 text-[13px] text-on-accent">+{points}</span>}
         </button>
       </div>
 
@@ -160,16 +160,16 @@ function QuestCard({
   onReplace: () => void
 }) {
   return (
-    <li className={`relative flex min-h-40 flex-col rounded-3xl ${selected ? 'bg-accent text-on-accent' : 'bg-surface text-ink'}`}>
+    <li className={`relative flex min-h-40 min-w-0 flex-col rounded-card ${selected ? 'bg-accent text-on-accent' : 'bg-surface text-ink'}`}>
       <button
         type="button"
         aria-pressed={selected}
         disabled={disabled && !selected}
         onClick={onToggle}
-        className="flex flex-1 flex-col justify-between gap-2 rounded-3xl p-3.5 text-left disabled:opacity-60"
+        className="flex flex-1 flex-col gap-2 rounded-card p-3.5 text-left hyphens-auto [overflow-wrap:anywhere] disabled:opacity-60"
       >
         <span className="flex w-full items-center justify-between">
-          <span className={`rounded-lg px-2 py-1 text-[11px] font-extrabold uppercase ${selected ? 'bg-surface text-ink' : 'bg-bg'}`}>
+          <span className={`rounded-chip px-2 py-1 text-[11px] font-extrabold uppercase ${selected ? 'bg-surface text-ink' : 'bg-bg'}`}>
             {t.quest.categories[quest.category]}
           </span>
           {selected ? (
@@ -177,13 +177,13 @@ function QuestCard({
               <Icon name="check" size={16} strokeWidth={3} />
             </span>
           ) : (
-            <span className="size-7 rounded-full border-2 border-track" />
+            <span className="size-7 rounded-full border-2 border-muted/60" />
           )}
         </span>
         <span className="text-base leading-tight font-extrabold">{quest.title}</span>
         {quest.why && <span className={`text-xs leading-snug font-semibold ${selected ? '' : 'text-muted'}`}>{quest.why}</span>}
         {quest.event && <span className="text-xs leading-snug font-bold">{eventSummary(quest.event)}</span>}
-        <span className={`text-xs font-bold ${selected ? '' : 'text-muted'}`}>
+        <span className={`mt-auto text-xs font-bold ${selected ? '' : 'text-muted'}`}>
           {t.quest.minutes(quest.duration_min)} · {t.quest.points(quest.base_points)}
         </span>
       </button>
@@ -191,7 +191,7 @@ function QuestCard({
       <Link
         to={`/assistant?quest=${quest.id}`}
         aria-label={t.assistant.discussQuest(quest.title)}
-        className={`mx-2 mb-1 flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-extrabold no-underline ${selected ? 'text-on-accent' : 'text-ink'} bg-[rgb(0_0_0/0.06)]`}
+        className={`mx-2 mb-1 flex h-11 items-center justify-center gap-1.5 rounded-field text-xs font-extrabold no-underline ${selected ? 'text-on-accent' : 'text-ink'} bg-ink/6`}
       >
         <Icon name="chat" size={14} strokeWidth={2.4} />
         {t.assistant.discuss}
@@ -201,7 +201,7 @@ function QuestCard({
           type="button"
           aria-label={t.pick.notTodayFor(quest.title)}
           onClick={onReplace}
-          className="mx-2 mb-2 flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[rgb(0_0_0/0.06)] text-xs font-extrabold"
+          className="mx-2 mb-2 flex h-11 items-center justify-center gap-1.5 rounded-field bg-ink/6 text-xs font-extrabold"
         >
           <Icon name="refresh" size={14} strokeWidth={2.4} />
           {t.pick.notToday}

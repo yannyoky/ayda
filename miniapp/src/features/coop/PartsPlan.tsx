@@ -75,7 +75,7 @@ function Part({
           </h3>
           <span className="text-xs font-bold text-muted">{mine ? t.coop.plan.you : t.coop.plan.assignee(part.assignee.first_name)}</span>
         </div>
-        <span className="shrink-0 rounded-[10px] bg-bg px-2.5 py-1 text-xs font-extrabold">{t.coop.plan.state[part.state]}</span>
+        <span className="shrink-0 rounded-chip bg-bg px-2.5 py-1 text-xs font-extrabold">{t.coop.plan.state[part.state]}</span>
       </div>
 
       {part.place && (
@@ -106,7 +106,7 @@ function Part({
       )}
 
       {handoff?.for_me && (
-        <div className="flex flex-col gap-2 rounded-[14px] bg-bg p-3">
+        <div className="flex flex-col gap-2 rounded-tile bg-bg p-3">
           <p className="m-0 text-sm font-extrabold">{t.coop.plan.incoming(part.assignee.first_name)}</p>
           <div className="flex gap-2">
             <button type="button" onClick={() => onAnswer(true)} className="h-11 flex-1 rounded-field bg-plate text-sm font-extrabold text-on-plate">
@@ -160,7 +160,7 @@ function Part({
         <button
           type="button"
           onClick={() => navigate(`/quest/${part.my_quest_id}/done`)}
-          className="flex h-12 items-center justify-center gap-2 rounded-[16px] bg-plate text-sm font-extrabold text-on-plate"
+          className="flex h-12 items-center justify-center gap-2 rounded-field bg-plate text-sm font-extrabold text-on-plate"
         >
           <Icon name="check" size={18} strokeWidth={3} />
           {t.coop.plan.complete}

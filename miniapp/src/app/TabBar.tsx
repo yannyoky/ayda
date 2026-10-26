@@ -34,8 +34,8 @@ export function TabBar() {
             onClick={() => haptic('tap')}
             className={({ isActive }) =>
               isActive
-                ? 'flex h-12 items-center gap-1.5 rounded-3xl bg-accent px-4 text-sm font-extrabold text-on-accent no-underline'
-                : 'relative flex size-12 items-center justify-center rounded-3xl text-on-plate'
+                ? 'flex h-12 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-extrabold text-on-accent no-underline'
+                : 'relative flex size-12 items-center justify-center rounded-full text-on-plate'
             }
           >
             {({ isActive }) => (

@@ -1,16 +1,40 @@
-/** Telegram avatar, or the first letter on a plate when there is none. */
-export function Avatar({ user, size = 40 }: { user: { first_name: string; avatar_url?: string | null }; size?: number }) {
+import { useState } from 'react'
+import { initial, tintOf, type AvatarUser } from './avatarTint'
+
+/** Telegram avatar, or the first letter on a tinted tile when there is none or it fails to load. */
+export function Avatar({ user, size = 40 }: { user: AvatarUser; size?: number }) {
   const radius = Math.round(size * 0.35)
-  if (user.avatar_url) {
-    return <img src={user.avatar_url} alt="" width={size} height={size} className="shrink-0 object-cover" style={{ borderRadius: radius }} />
+  const [broken, setBroken] = useState<string | null>(null)
+  if (user.avatar_url && broken !== user.avatar_url) {
+    const url = user.avatar_url
+    return (
+      <img
+        src={url}
+        alt=""
+        width={size}
+        height={size}
+        onError={() => setBroken(url)}
+        className="shrink-0 object-cover"
+        style={{ width: size, height: size, borderRadius: radius }}
+      />
+    )
   }
+  const tint = tintOf(user)
   return (
     <span
       aria-hidden="true"
-      className="flex shrink-0 items-center justify-center bg-plate font-display font-bold text-accent"
-      style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.36 }}
+      data-tint={tint}
+      className="flex shrink-0 items-center justify-center font-display font-bold"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        fontSize: size * 0.4,
+        background: `var(--color-avatar-${tint})`,
+        color: `var(--color-avatar-${tint}-ink)`,
+      }}
     >
-      {user.first_name.charAt(0).toUpperCase()}
+      {initial(user.first_name)}
     </span>
   )
 }

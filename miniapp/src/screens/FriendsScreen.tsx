@@ -19,11 +19,17 @@ export function FriendsScreen() {
     <>
       <ScreenHeader eyebrow={data ? t.friends.weekFrom(weekStart.format(new Date(data.week_start))) : undefined} title={t.friends.title} />
       {today.data && <StatsRow day={today.data} />}
-      <div role="radiogroup" aria-label={t.friends.title} className="flex gap-1.5 rounded-[20px] bg-surface p-1">
+      <div role="radiogroup" aria-label={t.friends.title} className="relative flex gap-1.5 rounded-field bg-surface p-1">
+        {/* One pill that slides between the options instead of jumping */}
+        <span
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 left-1 w-[calc(50%-7px)] rounded-segment bg-plate transition-transform duration-250 ease-out"
+          style={{ transform: week === 'previous' ? 'translateX(calc(100% + 6px))' : 'none' }}
+        />
         {weeks.map((w) => (
           <label
             key={w}
-            className="flex h-10 flex-1 items-center justify-center rounded-field text-sm font-bold text-muted has-[:checked]:bg-plate has-[:checked]:text-on-plate has-[:focus-visible]:outline-2"
+            className="relative flex h-10 flex-1 items-center justify-center rounded-segment text-sm font-bold text-muted transition-colors duration-250 has-[:checked]:text-on-plate has-[:focus-visible]:outline-2"
           >
             <input type="radio" name="week" checked={week === w} onChange={() => setWeek(w)} className="sr-only" />
             {t.friends.weeks[w]}

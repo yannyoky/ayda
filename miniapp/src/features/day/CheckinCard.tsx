@@ -15,10 +15,7 @@ export function CheckinCard({ checkin }: { checkin: Schemas['Checkin'] | null })
   const [editing, setEditing] = useState(checkin === null)
   if (!editing && checkin) {
     return (
-      <section className="flex items-center gap-3 rounded-card bg-plate p-4 text-on-plate">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-tile bg-plate-2 text-accent">
-          <Icon name="check" size={20} strokeWidth={2.6} />
-        </span>
+      <section className="relative z-10 flex items-center gap-3 rounded-card bg-plate p-4 text-on-plate">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[15px] font-bold">{t.today.checkinDone(t.today.moods[checkin.mood].toLowerCase())}</span>
           {checkin.text && <span className="truncate text-xs font-semibold opacity-70">{checkin.text}</span>}
@@ -28,9 +25,9 @@ export function CheckinCard({ checkin }: { checkin: Schemas['Checkin'] | null })
           aria-label={t.assistant.open}
           className="flex size-11 shrink-0 items-center justify-center rounded-field bg-accent text-on-accent no-underline"
         >
-          <Icon name="chat" size={20} strokeWidth={2.4} />
+          <Icon name="spark" size={20} strokeWidth={2.2} filled />
         </Link>
-        <button type="button" onClick={() => setEditing(true)} className="h-11 shrink-0 rounded-field bg-plate-2 px-4 text-sm font-extrabold text-on-plate">
+        <button type="button" onClick={() => setEditing(true)} className="h-11 shrink-0 rounded-field bg-plate-2 px-3.5 text-sm font-extrabold text-on-plate">
           {t.today.checkinRedo}
         </button>
       </section>
@@ -65,7 +62,7 @@ function CheckinForm({ initial, onDone }: { initial: Schemas['Checkin'] | null; 
   }
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="flex flex-col gap-3 rounded-card bg-plate p-4 text-on-plate">
+    <form onSubmit={onSubmit} aria-busy={busy} className="relative z-10 flex flex-col gap-3 rounded-card bg-plate p-4 text-on-plate">
       <label htmlFor={textId} className="font-display text-[17px] font-bold">
         {t.today.checkinTitle}
       </label>
@@ -78,13 +75,13 @@ function CheckinForm({ initial, onDone }: { initial: Schemas['Checkin'] | null; 
         rows={3}
         placeholder={t.today.checkinPlaceholder}
         onChange={(e) => setText(e.target.value)}
-        className="min-h-24 resize-none rounded-field border-0 bg-plate-2 p-3.5 text-[15px] leading-snug font-medium text-on-plate placeholder:text-on-plate/50"
+        className="min-h-24 resize-none rounded-field border-0 bg-plate-2 p-3.5 text-[15px] leading-snug font-medium text-on-plate placeholder:text-on-plate/60"
       />
       <div role="radiogroup" aria-label={t.today.mood} className="grid grid-cols-3 gap-1.5 rounded-field bg-plate-2 p-1">
         {moods.map((m) => (
           <label
             key={m}
-            className="flex h-10 items-center justify-center rounded-xl text-sm font-bold text-on-plate/70 has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2"
+            className="flex h-10 items-center justify-center rounded-segment text-sm font-bold text-on-plate/70 has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2"
           >
             <input type="radio" name="mood" value={m} checked={mood === m} disabled={busy} onChange={() => setMood(m)} className="sr-only" />
             {t.today.moods[m]}
@@ -113,7 +110,7 @@ function CheckinForm({ initial, onDone }: { initial: Schemas['Checkin'] | null; 
       </div>
       {submit.isError && (
         <p role="alert" className="m-0 text-sm font-bold">
-          {submit.error.message}
+          {t.common.errorGeneric}
         </p>
       )}
     </form>

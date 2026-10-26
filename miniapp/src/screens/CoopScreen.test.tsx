@@ -21,7 +21,9 @@ describe('Co-op quests (US-18)', () => {
     await user.click(within(invites).getByRole('button', { name: 'Принять' }))
 
     // The quest joins the day, marked as a co-op, and the invitation is gone
-    expect(await screen.findByRole('link', { name: `Совместный квест «${WALK}»` })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: new RegExp(`^${WALK}`) }))
+    expect(within(screen.getByRole('dialog')).getByRole('link', { name: `Совместный квест «${WALK}»` })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
     await vi.waitFor(() => expect(screen.queryByRole('region', { name: 'Тебя зовут вместе' })).not.toBeInTheDocument())
     expect(screen.getByText(/Вместе · 60 мин/)).toBeInTheDocument()
 
@@ -40,11 +42,8 @@ describe('Co-op quests (US-18)', () => {
       duration_min: 60,
     })
     renderApp('/')
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'Позвать друзей на «Час английского»',
-      }),
-    )
+    await user.click(await screen.findByRole('button', { name: /^Час английского/ }))
+    await user.click(screen.getByRole('button', { name: 'Позвать друзей на «Час английского»' }))
     const sheet = await screen.findByRole('dialog', { name: 'Сделать вместе' })
     await user.click(await within(sheet).findByText('Лена'))
     await user.click(within(sheet).getByText('Дима'))

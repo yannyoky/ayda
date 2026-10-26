@@ -12,6 +12,22 @@ describe('Friends ladder (US-16)', () => {
     expect(screen.getByRole('region', { name: 'За неделю' })).toHaveTextContent('185')
   })
 
+  it('turns a zero streak into an invitation to start one', async () => {
+    db.streak = { current_days: 0, best_days: 3, freeze_available: true }
+    renderApp('/friends')
+    const tile = await screen.findByRole('region', { name: 'Серия' })
+    expect(tile).toHaveTextContent('Начни серию сегодня')
+    expect(within(tile).getByRole('link', { name: /К квестам/ })).toHaveAttribute('href', '/')
+  })
+
+  it('fits a four-digit streak in the tile', async () => {
+    db.streak = { current_days: 1000, best_days: 1000, freeze_available: true }
+    renderApp('/friends')
+    const tile = await screen.findByRole('region', { name: 'Серия' })
+    expect(tile).toHaveTextContent('1000дней')
+    expect(within(tile).getByText('1000')).toHaveClass('text-[36px]')
+  })
+
   it('ranks friends by weekly points with me highlighted', async () => {
     renderApp('/friends')
     const ladder = await screen.findByRole('list', { name: 'Рейтинг друзей' })
@@ -67,7 +83,7 @@ describe('Friends and invites (US-12)', () => {
   it('ignores reminder launches', async () => {
     fakeTelegram('query_id=AAE&user=%7B%7D&hash=abc', 'r-morning')
     renderApp()
-    expect(await screen.findByRole('heading', { name: 'Квесты дня' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Начнём день' })).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 

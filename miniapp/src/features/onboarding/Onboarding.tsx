@@ -108,7 +108,7 @@ export function Onboarding() {
       {failed && <InlineError />}
       <div className="mt-auto flex gap-2 pt-2">
         {current.skippable && (
-          <button type="button" onClick={advance} disabled={busy} className="h-14 rounded-[20px] bg-surface px-5 text-sm font-extrabold">
+          <button type="button" onClick={advance} disabled={busy} className="h-14 rounded-field bg-surface px-5 text-sm font-extrabold">
             {t.onboarding.skip}
           </button>
         )}

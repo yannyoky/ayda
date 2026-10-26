@@ -7,6 +7,7 @@ import { RecipeSheet } from '../features/recipes/RecipeSheet'
 import { t } from '../i18n'
 import { useBackButton } from '../telegram/useBackButton'
 import { haptic } from '../telegram/webapp'
+import { AydaMark } from '../ui/AydaMark'
 import { Icon } from '../ui/Icon'
 import { InlineError, Splash } from '../ui/states'
 
@@ -80,9 +81,10 @@ export function AssistantScreen() {
   return (
     <main className="mx-auto flex h-dvh max-w-[480px] flex-col">
       <header className="flex items-center gap-3 px-4 pt-[max(16px,env(safe-area-inset-top))] pb-3">
-        <button type="button" aria-label={t.assistant.back} onClick={back} className="flex size-11 items-center justify-center rounded-full bg-surface">
+        <button type="button" aria-label={t.assistant.back} onClick={back} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
           <Icon name="back" size={20} />
         </button>
+        <AydaMark size={40} />
         <div className="flex min-w-0 flex-1 flex-col">
           <h1 className="m-0 truncate font-display text-lg font-bold">{t.assistant.title}</h1>
           {quest && <span className="truncate text-xs font-semibold text-muted">{t.assistant.about(quest.title)}</span>}
@@ -94,15 +96,21 @@ export function AssistantScreen() {
           <p className="m-0 mt-auto rounded-card bg-surface p-4 text-sm font-semibold text-muted">{questId ? t.assistant.emptyQuest : t.assistant.empty}</p>
         )}
         <ul aria-label={t.assistant.title} className="m-0 mt-auto flex list-none flex-col gap-2 p-0">
-          {items.map((m) => (
+          {items.map((m, i) => (
             <li key={m.id} className={`flex flex-col gap-2 ${m.role === 'user' ? 'max-w-[80%] items-end self-end' : 'items-start self-stretch'}`}>
-              <p
-                className={`m-0 max-w-[85%] rounded-[20px] px-3.5 py-2 text-[15px] font-medium break-words whitespace-pre-wrap ${
-                  m.role === 'user' ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'
-                }`}
-              >
-                {m.text}
-              </p>
+              {m.role === 'user' ? (
+                <p className="m-0 max-w-[85%] rounded-bubble rounded-br-md bg-plate px-3.5 py-2 text-[15px] font-medium break-words whitespace-pre-wrap text-on-plate">
+                  {m.text}
+                </p>
+              ) : (
+                <div className="flex max-w-[92%] items-end gap-2">
+                  {/* The mark sits by the last bubble of her run, like a chat avatar */}
+                  {items[i + 1]?.role === 'assistant' ? <span className="w-7 shrink-0" /> : <AydaMark size={28} />}
+                  <p className="m-0 min-w-0 rounded-bubble rounded-bl-md bg-surface px-3.5 py-2 text-[15px] font-medium break-words whitespace-pre-wrap text-ink">
+                    {m.text}
+                  </p>
+                </div>
+              )}
               {m.cards.map((card, i) => (
                 <AssistantCardView key={i} card={card} onCook={setRecipeId} />
               ))}
@@ -110,15 +118,18 @@ export function AssistantScreen() {
           ))}
           {waiting && (
             <li className="flex max-w-[80%] flex-col items-end self-end">
-              <p className="m-0 rounded-[20px] rounded-br-md bg-plate px-3.5 py-2 text-[15px] font-medium break-words whitespace-pre-wrap text-on-plate opacity-60">
+              <p className="m-0 rounded-bubble rounded-br-md bg-plate px-3.5 py-2 text-[15px] font-medium break-words whitespace-pre-wrap text-on-plate opacity-60">
                 {waiting}
               </p>
             </li>
           )}
           {send.isPending && (
-            <li role="status" className="flex items-center gap-2 self-start rounded-[20px] rounded-bl-md bg-surface px-3.5 py-2.5 text-sm font-semibold text-muted">
-              <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-accent" />
-              {t.assistant.typing}
+            <li role="status" className="flex items-end gap-2 self-start">
+              <AydaMark size={28} />
+              <span className="flex items-center gap-2 rounded-bubble rounded-bl-md bg-surface px-3.5 py-2.5 text-sm font-semibold text-muted">
+                <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-accent" />
+                {t.assistant.typing}
+              </span>
             </li>
           )}
         </ul>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import type { Schemas } from '../api/client'
 import { MAX_PHOTO_BYTES, MAX_VIDEO_BYTES, photoType, uploadMedia, videoType } from '../api/media'
@@ -345,26 +345,76 @@ function PhotoSection({
   )
 }
 
+/** Counts up to the earned points; instant when motion is reduced or unavailable. */
+function useCountUp(target: number, ms = 700): number {
+  const [value, setValue] = useState(() => (motionAllowed() ? 0 : target))
+  useEffect(() => {
+    if (!motionAllowed()) return
+    let frame = 0
+    const start = performance.now()
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / ms)
+      // Strong ease-out: most of the number lands quickly, the last digits settle
+      setValue(Math.round(target * (1 - Math.pow(1 - p, 4))))
+      if (p < 1) frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [target, ms])
+  return value
+}
+
+function motionAllowed(): boolean {
+  return typeof window.matchMedia === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/** Eight sparks fly out of the check once: a small celebration for a rare moment. */
+const SPARKS = Array.from({ length: 8 }, (_, i) => {
+  const angle = (i / 8) * Math.PI * 2
+  return { dx: `${Math.round(Math.cos(angle) * 64)}px`, dy: `${Math.round(Math.sin(angle) * 64)}px` }
+})
+
 function Success({ result }: { result: Schemas['Completion'] }) {
   const b = result.points_breakdown
+  const points = useCountUp(result.points_awarded)
   return (
     <main className="mx-auto flex min-h-dvh max-w-[480px] flex-col gap-3 px-4 pt-[max(20px,env(safe-area-inset-top))] pb-8">
-      <section role="status" className="flex flex-1 flex-col items-center justify-center gap-4 rounded-card bg-accent p-6 text-center text-on-accent">
-        <span className="font-display text-lg font-bold">{t.complete.successTitle}</span>
-        <span className="font-display text-[88px] leading-none font-extrabold tracking-[-4px]">+{result.points_awarded}</span>
-        <span className="text-sm font-bold">{t.complete.breakdown(b.base, b.visibility_multiplier, b.streak_multiplier)}</span>
-        {(result.coop_bonus ?? 0) > 0 && <span className="text-base font-extrabold">{t.complete.coopBonus(result.coop_bonus ?? 0)}</span>}
-        <span className="rounded-[10px] bg-surface px-3 py-1.5 text-sm font-extrabold text-ink">
+      <section role="status" className="flex flex-1 flex-col items-center justify-center gap-4 overflow-hidden rounded-card bg-accent p-6 text-center text-on-accent">
+        <span className="relative flex size-20 items-center justify-center">
+          {SPARKS.map((s, i) => (
+            <span
+              key={i}
+              aria-hidden="true"
+              className="animate-spark absolute size-2.5 rounded-full bg-plate"
+              style={{ '--dx': s.dx, '--dy': s.dy, animationDelay: '120ms' } as CSSProperties}
+            />
+          ))}
+          <span className="animate-pop flex size-20 items-center justify-center rounded-full bg-plate text-accent">
+            <Icon name="check" size={40} strokeWidth={3} />
+          </span>
+        </span>
+        <span className="animate-rise font-display text-lg font-bold" style={{ animationDelay: '80ms' }}>
+          {t.complete.successTitle}
+        </span>
+        <span aria-hidden="true" className="font-display text-[88px] leading-none font-extrabold tracking-[-4px] tabular-nums">
+          +{points}
+        </span>
+        <span className="sr-only">+{result.points_awarded}</span>
+        <span className="animate-rise text-sm font-bold" style={{ animationDelay: '160ms' }}>
+          {t.complete.breakdown(b.base, b.visibility_multiplier, b.streak_multiplier)}
+        </span>
+        {(result.coop_bonus ?? 0) > 0 && <span className="animate-rise text-base font-extrabold" style={{ animationDelay: '200ms' }}>{t.complete.coopBonus(result.coop_bonus ?? 0)}</span>}
+        <span className="animate-rise rounded-chip bg-surface px-3 py-1.5 text-sm font-extrabold text-ink" style={{ animationDelay: '240ms' }}>
           {t.complete.streak(result.streak.current_days, plural(result.streak.current_days, t.today.days))}
         </span>
       </section>
       <div className="flex gap-2">
         {result.post_id && (
-          <Link to="/feed" className="flex h-14 flex-1 items-center justify-center rounded-[20px] bg-surface text-base font-extrabold text-ink no-underline">
+          <Link to="/feed" className="flex h-14 flex-1 items-center justify-center rounded-field bg-surface text-base font-extrabold text-ink no-underline">
             {t.complete.toFeed}
           </Link>
         )}
-        <Link to="/" className="flex h-14 flex-1 items-center justify-center rounded-[20px] bg-plate text-base font-extrabold text-on-plate no-underline">
+        <Link to="/" className="flex h-14 flex-1 items-center justify-center rounded-field bg-plate text-base font-extrabold text-on-plate no-underline">
           {t.complete.toToday}
         </Link>
       </div>

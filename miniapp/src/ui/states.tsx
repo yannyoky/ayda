@@ -44,7 +44,7 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-14 items-center justify-center gap-2.5 rounded-[20px] bg-plate px-6 text-base font-extrabold text-on-plate disabled:opacity-50 ${className}`}
+      className={`flex h-14 items-center justify-center gap-2.5 rounded-field bg-plate px-6 text-base font-extrabold text-on-plate disabled:opacity-50 ${className}`}
     >
       {children}
     </button>
