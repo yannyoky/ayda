@@ -52,5 +52,6 @@ A new service is added to this table before any data is sent to it.
 ## Your rights
 
 - You can delete the account in the profile. Sign-out on every device is immediate, data is erased within 30 days, events are anonymized.
+- The accepted consent text and this policy are in the profile, section «Данные и приватность».
 - Withdrawing consent means deleting the account: the service does not work without consent.
 - When the data or the purposes change, we show a new consent, and the app does not open further without it.

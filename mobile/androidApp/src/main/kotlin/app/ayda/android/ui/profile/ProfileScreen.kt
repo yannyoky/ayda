@@ -40,6 +40,8 @@ import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.QuietButton
+import app.ayda.android.ui.onboarding.ConsentText
+import app.ayda.android.ui.onboarding.PRIVACY_URL
 import app.ayda.api.models.NotificationChannel
 import app.ayda.api.models.SignInIdentity
 import app.ayda.shared.profile.ProfileState
@@ -55,6 +57,7 @@ fun ProfileScreen(model: ProfileViewModel) {
     val colors = LocalAydaColors.current
     val uriHandler = LocalUriHandler.current
     var open by rememberSaveable { mutableStateOf<Section?>(null) }
+    var showConsent by rememberSaveable { mutableStateOf(false) }
     val toggle = { section: Section -> open = if (open == section) null else section }
 
     LaunchedEffect(state.telegramUrl) {
@@ -154,10 +157,38 @@ fun ProfileScreen(model: ProfileViewModel) {
 
         SignInMethods(state, model)
 
+        PrivacyCard(
+            onShowConsent = { showConsent = true },
+            onOpenPolicy = { runCatching { uriHandler.openUri(PRIVACY_URL) } },
+        )
+
         Card {
             QuietButton(stringResource(R.string.sign_out), onClick = model::signOut)
             QuietButton(stringResource(R.string.profile_delete), onClick = model::askDeletion, color = colors.muted)
         }
+    }
+
+    if (showConsent) {
+        AlertDialog(
+            onDismissRequest = { showConsent = false },
+            title = { Text(stringResource(R.string.profile_consent)) },
+            text = {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ConsentText()
+                    Text(
+                        stringResource(R.string.profile_consent_version, stringResource(R.string.consent_version)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.muted,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showConsent = false }) { Text(stringResource(R.string.profile_consent_close)) }
+            },
+        )
     }
 
     if (state.confirmDeletion) {
@@ -170,6 +201,25 @@ fun ProfileScreen(model: ProfileViewModel) {
             },
             dismissButton = { TextButton(onClick = model::cancelDeletion) { Text(stringResource(R.string.cancel)) } },
         )
+    }
+}
+
+/** 152-FZ: the accepted consent and the privacy policy stay reachable after onboarding. */
+@Composable
+private fun PrivacyCard(
+    onShowConsent: () -> Unit,
+    onOpenPolicy: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    Card {
+        Text(stringResource(R.string.profile_privacy), style = MaterialTheme.typography.headlineSmall)
+        Text(
+            stringResource(R.string.consent_storage),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.muted,
+        )
+        QuietButton(stringResource(R.string.profile_consent), onClick = onShowConsent)
+        QuietButton(stringResource(R.string.consent_policy_link), onClick = onOpenPolicy)
     }
 }
 

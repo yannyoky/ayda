@@ -33,7 +33,7 @@ import app.ayda.android.ui.PrimaryButton
 import app.ayda.shared.onboarding.ConsentViewModel
 
 /** The privacy policy page Caddy serves next to the Mini App (docs/privacy.md is the source). */
-private val PRIVACY_URL = "https://${BuildConfig.INVITE_HOST}/privacy.html"
+internal val PRIVACY_URL = "https://${BuildConfig.INVITE_HOST}/privacy.html"
 
 /** Consent to personal data processing, before anything else (152-FZ). */
 @Composable
@@ -55,34 +55,7 @@ fun ConsentScreen(model: ConsentViewModel) {
             style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.padding(4.dp),
         )
-        Card {
-            Text(stringResource(R.string.consent_intro), style = MaterialTheme.typography.bodyLarge)
-            stringArrayResource(R.array.consent_items).forEach {
-                Text("•  $it", style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-        Card(color = colors.plate) {
-            Text(
-                stringResource(R.string.consent_llm),
-                style = MaterialTheme.typography.bodyLarge,
-                color = colors.onPlate,
-            )
-            Text(
-                stringResource(R.string.consent_storage),
-                style = MaterialTheme.typography.bodyLarge,
-                color = colors.onPlate,
-            )
-        }
-        val uriHandler = LocalUriHandler.current
-        Text(
-            stringResource(R.string.consent_policy),
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.muted,
-            modifier = Modifier.padding(horizontal = 4.dp),
-        )
-        TextButton(onClick = { runCatching { uriHandler.openUri(PRIVACY_URL) } }) {
-            Text(stringResource(R.string.consent_policy_link), color = colors.ink)
-        }
+        ConsentText()
         Card(
             modifier =
                 Modifier.toggleable(value = state.agreed, role = Role.Checkbox, onValueChange = model::onAgreedChange),
@@ -98,5 +71,39 @@ fun ConsentScreen(model: ConsentViewModel) {
         }
         state.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         PrimaryButton(stringResource(R.string.consent_continue), onClick = model::accept, enabled = state.canContinue)
+    }
+}
+
+/** The consent text itself, shared by the consent screen and the profile. */
+@Composable
+fun ConsentText() {
+    val colors = LocalAydaColors.current
+    Card {
+        Text(stringResource(R.string.consent_intro), style = MaterialTheme.typography.bodyLarge)
+        stringArrayResource(R.array.consent_items).forEach {
+            Text("•  $it", style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+    Card(color = colors.plate) {
+        Text(
+            stringResource(R.string.consent_llm),
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.onPlate,
+        )
+        Text(
+            stringResource(R.string.consent_storage),
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.onPlate,
+        )
+    }
+    val uriHandler = LocalUriHandler.current
+    Text(
+        stringResource(R.string.consent_policy),
+        style = MaterialTheme.typography.bodyMedium,
+        color = colors.muted,
+        modifier = Modifier.padding(horizontal = 4.dp),
+    )
+    TextButton(onClick = { runCatching { uriHandler.openUri(PRIVACY_URL) } }) {
+        Text(stringResource(R.string.consent_policy_link), color = colors.ink)
     }
 }

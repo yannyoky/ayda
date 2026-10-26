@@ -426,6 +426,9 @@ export const ru = {
     habits: 'Свои привычки',
     reminders: 'Напоминания',
     privacy: 'Данные и приватность',
+    consentText: 'Согласие на обработку данных',
+    consentHide: 'Скрыть согласие',
+    consentVersion: (date: string) => `Версия от ${date}, ты её принял.`,
     deleteAccount: 'Удалить аккаунт',
     deleteConfirm: 'Удалить аккаунт? Профиль, фото и чек-ины сотрём в течение 30 дней. Отменить нельзя.',
     deleteDone: 'Аккаунт поставлен на удаление. Можно закрыть приложение.',
@@ -435,6 +438,8 @@ export const ru = {
   },
   consent: {
     title: 'Пара слов о данных',
+    /** Date of this text; change it together with CURRENT_CONSENT_VERSION in the backend. */
+    version: '26 октября 2026',
     intro: 'Чтобы собирать квесты под твой день, Ayda обрабатывает немного персональных данных. Вот что именно:',
     items: [
       'Имя и аватар из Telegram, чтобы друзья тебя узнали.',
