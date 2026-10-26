@@ -2,13 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.schemas import City, Interest, Items
 from ayda.app.profile import city_schema
 from ayda.core.problems import Problem
 from ayda.modules import events, habits
 
-router = APIRouter(tags=["reference"])
+router = APIRouter(tags=["reference"], dependencies=[Consented])
 
 
 @router.get("/cities", operation_id="searchCities")

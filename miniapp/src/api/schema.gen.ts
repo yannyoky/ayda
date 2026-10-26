@@ -1456,7 +1456,11 @@ export interface components {
             timezone: string;
             theme: components["schemas"]["Theme"];
             reminders: components["schemas"]["Reminders"];
-            /** @description Consent version the user must accept before anything else, or null. */
+            /**
+             * @description Consent version the user must accept before anything else, or null. While it is
+             *     set, the rest of the API answers 409 `consent-required`; a new version (the text
+             *     changed) makes it set again for everyone.
+             */
             consent_required: string | null;
             onboarded: boolean;
             notification_channel?: components["schemas"]["NotificationChannel"];

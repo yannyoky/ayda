@@ -67,3 +67,14 @@ async def get_optional_user(
 
 
 OptionalUser = Annotated[auth.User | None, Depends(get_optional_user)]
+
+
+async def require_consent(user: CurrentUser, session: DbSession) -> None:
+    """152-FZ: no processing of personal data before the current consent is accepted.
+    Clients show the consent screen when `Me.consent_required` is set."""
+    if await auth.consent_required(session, user.id) is not None:
+        raise Problem(409, "consent-required", detail="Сначала нужно принять согласие")
+
+
+# Router or route dependency for everything except sign-in, `GET /me`, consents and deletion.
+Consented = Depends(require_consent)

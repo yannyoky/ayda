@@ -2,13 +2,13 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.schemas import UploadInput, UploadSlot
 from ayda.core.problems import Problem
 from ayda.core.storage import Storage
 from ayda.modules import social
 
-router = APIRouter(tags=["media"])
+router = APIRouter(tags=["media"], dependencies=[Consented])
 
 
 @router.post("/media/uploads", operation_id="createUpload", status_code=201)

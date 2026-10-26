@@ -3,12 +3,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from ayda.api.deps import AppSettings, CurrentUser
+from ayda.api.deps import AppSettings, Consented, CurrentUser
 from ayda.api.schemas import RealtimeToken
 from ayda.core.problems import Problem
 from ayda.core.realtime import Realtime, RealtimeUnavailable, connection_token
 
-router = APIRouter(tags=["chat"])
+router = APIRouter(tags=["chat"], dependencies=[Consented])
 
 
 def get_realtime(request: Request) -> Realtime:

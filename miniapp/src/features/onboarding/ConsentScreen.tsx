@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { useAcceptConsent } from '../../api/queries'
 import { t } from '../../i18n'
+import { openExternal } from '../../telegram/webapp'
 import { InlineError, PrimaryButton } from '../../ui/states'
+
+/** Served by Caddy from miniapp/public (docs/privacy.md is the source). */
+export const PRIVACY_PATH = '/privacy.html'
 
 /** Consent to personal data processing, shown before anything else (152-FZ). */
 export function ConsentScreen({ version }: { version: string }) {
@@ -22,6 +26,12 @@ export function ConsentScreen({ version }: { version: string }) {
         <p className="m-0">{t.consent.llm}</p>
         <p className="m-0">{t.consent.storage}</p>
       </section>
+      <p className="m-0 px-1 text-[13px] font-medium text-muted">
+        {t.consent.policy}{' '}
+        <button type="button" onClick={() => openExternal(new URL(PRIVACY_PATH, window.location.origin).href)} className="cursor-pointer border-0 bg-transparent p-0 font-bold text-ink underline">
+          {t.consent.policyLink}
+        </button>
+      </p>
       <label className="flex items-start gap-3 rounded-card bg-surface p-4 text-[15px] font-bold">
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--color-ink)]" />
         {t.consent.accept}

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from ayda.modules.auth import CURRENT_CONSENT_VERSION
 from ayda.modules.auth.telegram import sign
 
 TEST_BOT_TOKEN = "123456:TEST-TOKEN"
@@ -38,12 +39,27 @@ class SignedIn:
     headers: dict[str, str]
 
 
+async def accept_consent(client: httpx.AsyncClient, headers: dict[str, str]) -> None:
+    response = await client.post(
+        "/me/consents", json={"version": CURRENT_CONSENT_VERSION}, headers=headers
+    )
+    assert response.status_code == 204, response.text
+
+
 async def sign_in(
-    client: httpx.AsyncClient, telegram_id: int = 1001, name: str = "Саша"
+    client: httpx.AsyncClient,
+    telegram_id: int = 1001,
+    name: str = "Саша",
+    *,
+    consent: bool = True,
 ) -> SignedIn:
+    """Signs in through the Mini App; accepts the current consent unless `consent=False`."""
     response = await client.post(
         "/auth/telegram", json={"init_data": make_init_data(telegram_id, name)}
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    return SignedIn(body["user"]["id"], {"Authorization": f"Bearer {body['access_token']}"})
+    headers = {"Authorization": f"Bearer {body['access_token']}"}
+    if consent and body["user"]["consent_required"] is not None:
+        await accept_consent(client, headers)
+    return SignedIn(body["user"]["id"], headers)

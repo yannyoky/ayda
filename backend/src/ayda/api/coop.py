@@ -3,12 +3,12 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.realtime import RealtimeDep
 from ayda.api.schemas import Coop, CoopCreateInput, CoopInput, CoopItemInput, HandoffInput, Items
 from ayda.app import coop as coop_app
 
-router = APIRouter(tags=["coop"])
+router = APIRouter(tags=["coop"], dependencies=[Consented])
 
 
 def _now() -> datetime:

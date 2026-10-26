@@ -19,7 +19,7 @@ from ayda.modules import auth
 from ayda.modules.auth.models import Device
 from tests.conftest import FakeMailer
 from tests.contract import assert_matches
-from tests.helpers import sign_in
+from tests.helpers import accept_consent, sign_in
 from tests.test_bot import FakeSender
 from tests.test_email_auth import email_session
 
@@ -141,6 +141,7 @@ async def test_email_user_without_app_gets_nothing(
     assert result.reason == "no-telegram"
 
     h = {"Authorization": f"Bearer {session['access_token']}"}
+    await accept_consent(client, h)
     await client.patch("/me/profile", json={"notification_channel": "push"}, headers=h)
     async with database.sessionmaker() as s:
         result = await notifications.send(s, FakeSender(), payload, FakePush())

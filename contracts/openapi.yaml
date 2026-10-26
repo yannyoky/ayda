@@ -12,6 +12,9 @@ info:
     - Errors use RFC 9457 problem details (`application/problem+json`).
     - Lists use opaque cursors: pass `next_cursor` back as `cursor`.
     - All user-facing text from the server is in Russian.
+    - Until the user accepts the current consent (`Me.consent_required` is set), every
+      endpoint except sign-in, `getMe`, `acceptConsent`, `requestAccountDeletion`, sign-in
+      methods and devices answers 409 `consent-required` (152-FZ).
     - Local development serves the same paths at `http://localhost:8000/api/v1`.
   license:
     name: Proprietary
@@ -2487,7 +2490,10 @@ components:
           $ref: '#/components/schemas/Reminders'
         consent_required:
           type: [string, 'null']
-          description: Consent version the user must accept before anything else, or null.
+          description: |
+            Consent version the user must accept before anything else, or null. While it is
+            set, the rest of the API answers 409 `consent-required`; a new version (the text
+            changed) makes it set again for everyone.
         onboarded:
           type: boolean
         notification_channel:

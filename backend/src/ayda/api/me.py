@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Response
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.schemas import (
     ConsentInput,
     Habit,
@@ -31,14 +31,14 @@ async def request_account_deletion(user: CurrentUser, session: DbSession) -> Res
     return Response(status_code=202)
 
 
-@router.patch("/me/profile", operation_id="updateProfile")
+@router.patch("/me/profile", operation_id="updateProfile", dependencies=[Consented])
 async def update_profile(body: ProfileUpdate, user: CurrentUser, session: DbSession) -> Me:
     await profile.update_profile(session, user, body)
     await session.commit()
     return await profile.build_me(session, user)
 
 
-@router.post("/me/onboarding/complete", operation_id="completeOnboarding")
+@router.post("/me/onboarding/complete", operation_id="completeOnboarding", dependencies=[Consented])
 async def complete_onboarding(user: CurrentUser, session: DbSession) -> Me:
     await profile.complete_onboarding(session, user)
     await session.commit()
@@ -54,7 +54,7 @@ async def accept_consent(body: ConsentInput, user: CurrentUser, session: DbSessi
     return Response(status_code=204)
 
 
-@router.get("/me/interests", operation_id="listMyInterests")
+@router.get("/me/interests", operation_id="listMyInterests", dependencies=[Consented])
 async def list_my_interests(user: CurrentUser, session: DbSession) -> InterestSelection:
     return InterestSelection(
         codes=await habits.list_interests(session, user.id),
@@ -62,7 +62,7 @@ async def list_my_interests(user: CurrentUser, session: DbSession) -> InterestSe
     )
 
 
-@router.put("/me/interests", operation_id="setMyInterests")
+@router.put("/me/interests", operation_id="setMyInterests", dependencies=[Consented])
 async def set_my_interests(
     body: InterestSelection, user: CurrentUser, session: DbSession
 ) -> InterestSelection:
@@ -78,12 +78,12 @@ def _habit(h: habits.UserHabit) -> Habit:
     return Habit(id=h.id, direction="more" if h.direction == "more" else "less", text=h.text)
 
 
-@router.get("/me/habits", operation_id="listMyHabits")
+@router.get("/me/habits", operation_id="listMyHabits", dependencies=[Consented])
 async def list_my_habits(user: CurrentUser, session: DbSession) -> Items[Habit]:
     return Items(items=[_habit(h) for h in await habits.list_habits(session, user.id)])
 
 
-@router.post("/me/habits", operation_id="addMyHabit", status_code=201)
+@router.post("/me/habits", operation_id="addMyHabit", dependencies=[Consented], status_code=201)
 async def add_my_habit(body: HabitCreate, user: CurrentUser, session: DbSession) -> Habit:
     try:
         habit = await habits.add_habit(session, user.id, body.direction, body.text)
@@ -93,7 +93,9 @@ async def add_my_habit(body: HabitCreate, user: CurrentUser, session: DbSession)
     return _habit(habit)
 
 
-@router.delete("/me/habits/{habit_id}", operation_id="deleteMyHabit", status_code=204)
+@router.delete(
+    "/me/habits/{habit_id}", operation_id="deleteMyHabit", dependencies=[Consented], status_code=204
+)
 async def delete_my_habit(habit_id: uuid.UUID, user: CurrentUser, session: DbSession) -> Response:
     if not await habits.delete_habit(session, user.id, habit_id):
         raise Problem(404, "habit-not-found")

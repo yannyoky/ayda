@@ -1,5 +1,10 @@
+import uuid
+
 import httpx
 
+from ayda.core.db import Database
+from ayda.modules import auth
+from ayda.modules.auth import CURRENT_CONSENT_VERSION
 from tests.contract import assert_matches
 from tests.helpers import sign_in
 
@@ -48,17 +53,19 @@ async def test_city_search_needs_query_or_point(client: httpx.AsyncClient) -> No
 
 
 async def test_onboarding_flow(client: httpx.AsyncClient) -> None:
-    me = await sign_in(client)
+    me = await sign_in(client, consent=False)
     h = me.headers
 
     blocked = await client.post("/me/onboarding/complete", headers=h)
     assert blocked.status_code == 409
     assert_matches(blocked, "completeOnboarding")
 
-    consent = await client.post("/me/consents", json={"version": "2026-10-23"}, headers=h)
+    consent = await client.post(
+        "/me/consents", json={"version": CURRENT_CONSENT_VERSION}, headers=h
+    )
     assert consent.status_code == 204
     assert_matches(consent, "acceptConsent")
-    again = await client.post("/me/consents", json={"version": "2026-10-23"}, headers=h)
+    again = await client.post("/me/consents", json={"version": CURRENT_CONSENT_VERSION}, headers=h)
     assert again.status_code == 204
 
     no_city = await client.post("/me/onboarding/complete", headers=h)
@@ -163,3 +170,34 @@ async def test_habits_are_stored_as_worded(client: httpx.AsyncClient) -> None:
     deleted = await client.delete(f"/me/habits/{habit['id']}", headers=me.headers)
     assert deleted.status_code == 204
     assert_matches(deleted, "deleteMyHabit")
+
+
+async def test_api_waits_for_the_current_consent(client: httpx.AsyncClient) -> None:
+    me = await sign_in(client, consent=False)
+    for path in ("/days/today", "/feed", "/friends", "/me/habits", "/coops"):
+        blocked = await client.get(path, headers=me.headers)
+        assert blocked.status_code == 409, path
+        assert blocked.json()["type"].endswith("consent-required"), path
+    # Profile, consent and deletion stay open, so the client can show the consent screen.
+    profile = await client.get("/me", headers=me.headers)
+    assert profile.status_code == 200
+    assert profile.json()["consent_required"] == CURRENT_CONSENT_VERSION
+
+    accepted = await client.post(
+        "/me/consents", json={"version": CURRENT_CONSENT_VERSION}, headers=me.headers
+    )
+    assert accepted.status_code == 204
+    assert (await client.get("/feed", headers=me.headers)).status_code == 200
+
+
+async def test_an_older_consent_is_not_enough(
+    client: httpx.AsyncClient, database: Database
+) -> None:
+    me = await sign_in(client, consent=False)
+    async with database.sessionmaker() as session:
+        await auth.accept_consent(session, uuid.UUID(me.user_id), "2026-10-23")
+        await session.commit()
+    blocked = await client.get("/feed", headers=me.headers)
+    assert blocked.status_code == 409
+    profile = await client.get("/me", headers=me.headers)
+    assert profile.json()["consent_required"] == CURRENT_CONSENT_VERSION

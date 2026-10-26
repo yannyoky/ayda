@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.realtime import RealtimeDep
 from ayda.api.schemas import (
     ChatUploadInput,
@@ -28,7 +28,7 @@ from ayda.core.problems import Problem
 from ayda.core.storage import Storage
 from ayda.modules import chat
 
-router = APIRouter(tags=["chat"])
+router = APIRouter(tags=["chat"], dependencies=[Consented])
 
 Cursor = Annotated[str | None, Query(max_length=200)]
 Limit = Annotated[int, Query(ge=1, le=50)]

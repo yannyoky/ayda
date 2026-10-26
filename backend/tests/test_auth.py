@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 
-from ayda.modules.auth import InitDataError, validate_init_data
+from ayda.modules.auth import CURRENT_CONSENT_VERSION, InitDataError, validate_init_data
 from tests.contract import assert_matches
 from tests.helpers import TEST_BOT_TOKEN, make_init_data, sign_in
 
@@ -56,7 +56,7 @@ async def test_first_sign_in_creates_user_and_later_finds_it(client: httpx.Async
     body = first.json()
     assert body["user"]["first_name"] == "Саша"
     assert body["user"]["onboarded"] is False
-    assert body["user"]["consent_required"] == "2026-10-23"
+    assert body["user"]["consent_required"] == CURRENT_CONSENT_VERSION
     assert body["user"]["theme"] == "graphite"
 
     second = await client.post("/auth/telegram", json={"init_data": make_init_data(7, "Саня")})

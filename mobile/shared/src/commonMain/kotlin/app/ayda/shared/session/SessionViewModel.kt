@@ -39,6 +39,10 @@ class SessionViewModel(
             // The refresh token was rejected somewhere in the app: back to sign-in.
             client.signedOut.collect { mutableState.value = SessionState.SignedOut }
         }
+        viewModelScope.launch {
+            // A 409 may be `consent-required`: the profile then says which consent to show.
+            client.conflicts.collect { recheckConsent() }
+        }
         restore()
     }
 
@@ -57,6 +61,12 @@ class SessionViewModel(
                         if (client.isSignedIn()) SessionState.Offline else SessionState.SignedOut
                 }
         }
+    }
+
+    private suspend fun recheckConsent() {
+        val current = mutableState.value as? SessionState.SignedIn ?: return
+        val fresh = (apiCall { client.profile.getMe() } as? ApiResult.Ok)?.value ?: return
+        if (fresh.consentRequired != current.me.consentRequired) mutableState.value = SessionState.SignedIn(fresh)
     }
 
     fun onSignedIn(me: Me) {

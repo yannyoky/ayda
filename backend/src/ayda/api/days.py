@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.realtime import RealtimeDep
 from ayda.api.schemas import (
     CheckinInput,
@@ -19,7 +19,7 @@ from ayda.api.schemas import (
 from ayda.app import day
 from ayda.app.day import DayTools
 
-router = APIRouter(tags=["day"])
+router = APIRouter(tags=["day"], dependencies=[Consented])
 
 
 def get_day_tools(request: Request) -> DayTools:

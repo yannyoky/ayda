@@ -14,20 +14,26 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.ayda.android.BuildConfig
 import app.ayda.android.R
 import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.shared.onboarding.ConsentViewModel
+
+/** The privacy policy page Caddy serves next to the Mini App (docs/privacy.md is the source). */
+private val PRIVACY_URL = "https://${BuildConfig.INVITE_HOST}/privacy.html"
 
 /** Consent to personal data processing, before anything else (152-FZ). */
 @Composable
@@ -66,6 +72,16 @@ fun ConsentScreen(model: ConsentViewModel) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = colors.onPlate,
             )
+        }
+        val uriHandler = LocalUriHandler.current
+        Text(
+            stringResource(R.string.consent_policy),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.muted,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        TextButton(onClick = { runCatching { uriHandler.openUri(PRIVACY_URL) } }) {
+            Text(stringResource(R.string.consent_policy_link), color = colors.ink)
         }
         Card(
             modifier =
