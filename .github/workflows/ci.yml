@@ -86,8 +86,18 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.13'
-      # Voice messages are re-encoded with ffmpeg (ADR 0019)
-      - run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
+      # Voice messages are re-encoded with ffmpeg (ADR 0019). The Azure Ubuntu mirror can be
+      # very slow (25 min for ffmpeg), so the .deb files are cached and apt only downloads on a miss.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/apt-ffmpeg
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
+      - run: |
+          mkdir -p ~/.cache/apt-ffmpeg/partial
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends -o Dir::Cache::Archives="$HOME/.cache/apt-ffmpeg" ffmpeg
+          sudo chown -R "$USER" ~/.cache/apt-ffmpeg
+          ffmpeg -hide_banner -encoders | grep -q libx264
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
