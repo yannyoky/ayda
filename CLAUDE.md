@@ -5,6 +5,7 @@
 - Source of truth: docs/prd.md, docs/roadmap.md, docs/architecture.md, docs/decisions/ (ADR: context, decision, consequences). A new architectural decision = a new ADR.
 - Docs are kept in two languages: English in docs/, Russian in the mirrored docs/ru/ tree (same file names). Any change to a doc, including a new ADR, updates both versions in the same PR. Code, commands, paths and API names stay untranslated.
 - Design: docs/design/themes.md (tokens for the two themes, Graphite and Plum). Layout: bento widgets, Unbounded + Manrope.
+- Design skills (vendored, see .claude/skills/README.md): `/impeccable` (audit, critique, polish, harden), `review-animations`, `mobile-native`, `break-ui`. Use them for UI work in miniapp/ and mobile/.
 - Decided stack (ADR 0002, 0003): backend is a Python FastAPI modular monolith that includes the AI assistant; PostgreSQL + PostGIS + pgvector; Centrifugo for realtime; Telegram Mini App on React + TypeScript first, then Kotlin Multiplatform with Compose (Android) and SwiftUI (iOS). Modules in backend/src/ayda/modules/ never import each other. LLM providers are pluggable and FREE (no paid APIs). LLM ranks, phrases and chats, but every fact (quest, place, recipe) comes from code; output validated against a JSON schema (ADR 0013).
 - Log quest events from day one (append-only `events` table).
 - Personal data (location, photos, habits) is minimal and never logged in raw form; 152-FZ applies (Russian users' data stored in Russia).
