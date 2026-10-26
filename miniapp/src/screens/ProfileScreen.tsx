@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import type { Schemas } from '../api/client'
 import { useInterestCatalog, useMe, useMyHabits, useMyInterests, useRequestDeletion, useSetInterests, useUpdateProfile } from '../api/queries'
+import { ConsentText } from '../features/onboarding/ConsentText'
+import { openPrivacyPolicy } from '../features/onboarding/privacy'
 import { CityPicker } from '../features/profile/CityPicker'
 import { HabitsEditor } from '../features/profile/HabitsEditor'
 import { InterestsPicker } from '../features/profile/InterestsPicker'
@@ -112,12 +114,27 @@ function RemindersSection({ me, open, onToggle }: { me: Schemas['Me']; open: boo
   )
 }
 
+const linkButton = 'h-12 rounded-field bg-bg px-4 text-left text-sm font-extrabold text-ink'
+
 function PrivacySection() {
   const deletion = useRequestDeletion()
+  const [consentOpen, setConsentOpen] = useState(false)
   return (
     <Card className="flex flex-col gap-3">
       <h2 className="m-0 font-display text-base font-bold">{t.profile.privacy}</h2>
       <p className="m-0 text-sm font-medium text-muted">{t.consent.storage}</p>
+      <button type="button" aria-expanded={consentOpen} onClick={() => setConsentOpen((v) => !v)} className={linkButton}>
+        {consentOpen ? t.profile.consentHide : t.profile.consentText}
+      </button>
+      {consentOpen && (
+        <div className="-mx-1 flex flex-col gap-3 rounded-card bg-bg p-2">
+          <ConsentText />
+          <p className="m-0 px-1 text-[13px] font-medium text-muted">{t.profile.consentVersion(t.consent.version)}</p>
+        </div>
+      )}
+      <button type="button" onClick={openPrivacyPolicy} className={linkButton}>
+        {t.consent.policyLink}
+      </button>
       {deletion.isSuccess ? (
         <p role="status" className="m-0 text-[15px] font-bold">
           {t.profile.deleteDone}

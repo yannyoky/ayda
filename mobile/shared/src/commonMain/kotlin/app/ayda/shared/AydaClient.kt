@@ -16,6 +16,7 @@ import app.ayda.api.models.Session
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.authProvider
@@ -56,6 +57,14 @@ class AydaClient(
     /** Fires when the session ended on the server side (refresh token expired or revoked). */
     val signedOut: SharedFlow<Unit> = signedOutEvents.asSharedFlow()
 
+    private val conflictEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /**
+     * Fires on every 409. One of them is `consent-required`: a new consent version went live
+     * while the app was open, so the session reloads the profile and shows the consent again.
+     */
+    val conflicts: SharedFlow<Unit> = conflictEvents.asSharedFlow()
+
     val http: HttpClient =
         HttpClient(engine) {
             expectSuccess = false
@@ -66,6 +75,11 @@ class AydaClient(
                 connectTimeoutMillis = 10_000
                 socketTimeoutMillis = 30_000
                 requestTimeoutMillis = 30_000
+            }
+            HttpResponseValidator {
+                validateResponse { response ->
+                    if (response.status == HttpStatusCode.Conflict) conflictEvents.tryEmit(Unit)
+                }
             }
             install(Auth) {
                 bearer {

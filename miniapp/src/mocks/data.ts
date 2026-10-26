@@ -1,7 +1,7 @@
 // Seed data for the mock API. Shapes follow contracts/openapi.yaml.
 import type { Schemas } from '../api/client'
 
-export const CONSENT_VERSION = '2026-10-23'
+export const CONSENT_VERSION = '2026-10-26'
 
 export const cities: Schemas['City'][] = [
   { id: 1, name: 'Москва', region_name: 'Москва', timezone: 'Europe/Moscow' },

@@ -24,6 +24,22 @@ describe('Profile', () => {
     expect(db.me.reminders.morning_at).toBeNull()
   })
 
+  it('shows the accepted consent and opens the privacy policy (152-FZ)', async () => {
+    const user = userEvent.setup()
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    renderApp('/profile')
+
+    await user.click(await screen.findByRole('button', { name: 'Согласие на обработку данных' }))
+    expect(screen.getByText(/включая сообщения собеседника/)).toBeInTheDocument()
+    expect(screen.getByText('Версия от 26 октября 2026, ты её принял.')).toBeInTheDocument()
+
+    await user.click(screen.getAllByRole('button', { name: 'Политика конфиденциальности' }).at(-1)!)
+    expect(open).toHaveBeenCalledWith(`${window.location.origin}/privacy.html`, '_blank', 'noopener')
+
+    await user.click(screen.getByRole('button', { name: 'Скрыть согласие' }))
+    expect(screen.queryByText(/включая сообщения собеседника/)).not.toBeInTheDocument()
+  })
+
   it('requests account deletion after a confirmation (152-FZ)', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)

@@ -136,4 +136,31 @@ class SessionViewModelTest {
             assertEquals(SessionState.SignedOut, model.state.value)
             assertNull(store.load())
         }
+
+    @Test
+    fun aNewConsentWhileTheAppIsOpenShowsTheConsentAgain() =
+        runTest(dispatcher) {
+            var consent = "null"
+            val client =
+                client(InMemoryTokenStore(Tokens("a1", "r1"))) { request ->
+                    if (request.url.encodedPath.endsWith("/me")) {
+                        json(ME_JSON.replace(NO_CONSENT, "\"consent_required\":$consent"))
+                    } else {
+                        problem(HttpStatusCode.Conflict, "consent-required", "Сначала нужно принять согласие")
+                    }
+                }
+            val model = SessionViewModel(client)
+            advanceUntilIdle()
+            assertNull(assertIs<SessionState.SignedIn>(model.state.value).me.consentRequired)
+
+            consent = "\"2026-10-26\""
+            runCatching { client.day.getToday() }
+            advanceUntilIdle()
+
+            assertEquals("2026-10-26", assertIs<SessionState.SignedIn>(model.state.value).me.consentRequired)
+        }
+
+    private companion object {
+        const val NO_CONSENT = "\"consent_required\":null"
+    }
 }

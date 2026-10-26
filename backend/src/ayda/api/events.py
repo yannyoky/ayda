@@ -2,13 +2,13 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Response
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.schemas import TopEvents
 from ayda.app import assistant_chat, top_events
 from ayda.core.problems import Problem
 from ayda.modules import events
 
-router = APIRouter(tags=["events"])
+router = APIRouter(tags=["events"], dependencies=[Consented])
 
 
 @router.get("/events/top", operation_id="listTopEvents")

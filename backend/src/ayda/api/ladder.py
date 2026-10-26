@@ -3,11 +3,11 @@ from typing import Literal
 
 from fastapi import APIRouter
 
-from ayda.api.deps import CurrentUser, DbSession
+from ayda.api.deps import Consented, CurrentUser, DbSession
 from ayda.api.schemas import Ladder
 from ayda.app.ladder import build_ladder
 
-router = APIRouter(tags=["social"])
+router = APIRouter(tags=["social"], dependencies=[Consented])
 
 
 @router.get("/ladder", operation_id="getLadder")

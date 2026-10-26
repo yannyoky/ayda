@@ -1,4 +1,4 @@
-import { QueryCache, QueryClient } from '@tanstack/react-query'
+import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { ApiError, setAccessToken } from '../api/client'
 import { keys } from '../api/queries'
 
@@ -11,6 +11,14 @@ export function createQueryClient(): QueryClient {
           setAccessToken(undefined)
           void client.resetQueries({ queryKey: keys.session })
         }
+        // A new consent version went live while the app was open: reload the profile,
+        // and Bootstrap shows the consent screen again
+        if (isConsentRequired(error)) void client.invalidateQueries({ queryKey: keys.me })
+      },
+    }),
+    mutationCache: new MutationCache({
+      onError: (error) => {
+        if (isConsentRequired(error)) void client.invalidateQueries({ queryKey: keys.me })
       },
     }),
     defaultOptions: {
@@ -22,4 +30,8 @@ export function createQueryClient(): QueryClient {
     },
   })
   return client
+}
+
+function isConsentRequired(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && (error.problem?.type ?? '').endsWith('consent-required')
 }

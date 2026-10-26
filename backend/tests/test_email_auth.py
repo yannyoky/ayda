@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 
 from ayda.core.db import Database
 from ayda.modules.analytics.models import Event
+from ayda.modules.auth import CURRENT_CONSENT_VERSION
 from ayda.modules.auth.models import EmailCode, EmailSend, UserIdentity
 from tests.conftest import FakeMailer
 from tests.contract import assert_matches
@@ -185,7 +186,7 @@ async def test_email_user_sets_a_name_before_finishing_onboarding(
 ) -> None:
     session = await email_session(client, mailer)
     h = {"Authorization": f"Bearer {session['access_token']}"}
-    await client.post("/me/consents", json={"version": "2026-10-23"}, headers=h)
+    await client.post("/me/consents", json={"version": CURRENT_CONSENT_VERSION}, headers=h)
     await client.patch("/me/profile", json={"city_id": KALININGRAD}, headers=h)
 
     no_name = await client.post("/me/onboarding/complete", headers=h)

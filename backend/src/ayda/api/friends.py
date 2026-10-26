@@ -4,12 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Response
 
-from ayda.api.deps import AppSettings, CurrentUser, DbSession
+from ayda.api.deps import AppSettings, Consented, CurrentUser, DbSession
 from ayda.api.schemas import Friend, Invite, Items
 from ayda.core.problems import Problem
 from ayda.modules import auth, social
 
-router = APIRouter(tags=["social"])
+router = APIRouter(tags=["social"], dependencies=[Consented])
 
 INVITE_PROBLEMS = {
     "invite-not-found": (404, "Приглашение не найдено"),
