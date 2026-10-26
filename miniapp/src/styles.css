@@ -23,6 +23,30 @@
   --radius-tile: 14px;
   --radius-field: 16px;
   --radius-bar: 32px;
+  --radius-media: 20px;
+  --radius-bubble: 20px;
+  --radius-segment: 12px;
+  --radius-chip: 10px;
+
+  /* Motion, see docs/design/themes.md */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root {
+  /* Letter avatar tints (tile + letter), picked per user by ui/Avatar.tsx */
+  --color-avatar-1: #222326;
+  --color-avatar-1-ink: #ff5fa2;
+  --color-avatar-2: #ff5fa2;
+  --color-avatar-2-ink: #18191b;
+  --color-avatar-3: #ffd25e;
+  --color-avatar-3-ink: #18191b;
+  --color-avatar-4: #8ec5ff;
+  --color-avatar-4-ink: #18191b;
+  --color-avatar-5: #a8e0a0;
+  --color-avatar-5-ink: #18191b;
+  --color-avatar-6: #c9b6ff;
+  --color-avatar-6-ink: #18191b;
 }
 
 [data-theme='plum'] {
@@ -36,6 +60,18 @@
   --color-accent: #ff9e7a;
   --color-on-plate: #ffffff;
   --color-on-accent: #2a1830;
+  --color-avatar-1: #3b1e3f;
+  --color-avatar-1-ink: #ff9e7a;
+  --color-avatar-2: #ff9e7a;
+  --color-avatar-2-ink: #2a1830;
+  --color-avatar-3: #f6c977;
+  --color-avatar-3-ink: #2a1830;
+  --color-avatar-4: #a9c8e8;
+  --color-avatar-4-ink: #2a1830;
+  --color-avatar-5: #b9ddb8;
+  --color-avatar-5-ink: #2a1830;
+  --color-avatar-6: #e3b4d6;
+  --color-avatar-6-ink: #2a1830;
 }
 
 @layer base {
@@ -58,5 +94,111 @@
   :focus-visible {
     outline: 2px solid var(--color-ink);
     outline-offset: 2px;
+  }
+}
+
+/*
+ * Motion (docs/design/themes.md, "Motion"). Only transform and opacity move; frequent actions
+ * (tabs, scrolling the feed, typing) stay still on purpose.
+ */
+@layer base {
+  /* Press feedback: anything pressable shrinks a little under the finger */
+  button:not(:disabled),
+  .press {
+    transition: transform 160ms var(--ease-out);
+  }
+  button:not(:disabled):active,
+  .press:active {
+    transform: scale(0.97);
+  }
+}
+
+@utility sheet-backdrop {
+  transition: opacity 240ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+@utility sheet-panel {
+  transition: transform 300ms var(--ease-drawer);
+  @starting-style {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes ayda-roll-in {
+  from {
+    transform: translateY(60%);
+    opacity: 0;
+  }
+}
+
+@keyframes ayda-pop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ayda-spark {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes ayda-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+@utility animate-spark {
+  animation: ayda-spark 560ms var(--ease-out) both;
+}
+
+@utility animate-rise {
+  animation: ayda-rise 320ms var(--ease-out) both;
+}
+
+@utility animate-roll-in {
+  animation: ayda-roll-in 420ms var(--ease-out) both;
+}
+
+@utility animate-pop {
+  animation: ayda-pop 360ms var(--ease-out) both;
+}
+
+/* Reduced motion: keep fades, drop movement */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  button:not(:disabled):active,
+  .press:active {
+    transform: none;
+  }
+  .sheet-panel {
+    transition: opacity 200ms ease;
+    @starting-style {
+      transform: none;
+      opacity: 0;
+    }
   }
 }

@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import type { Schemas } from '../../api/client'
 import { useDeletePost, useToggleLike } from '../../api/queries'
 import { VideoNote } from '../chat/VideoNote'
-import { formatAgo, t } from '../../i18n'
+import { formatAgo, formatNumber, t } from '../../i18n'
 import { haptic } from '../../telegram/webapp'
 import { Avatar } from '../../ui/Avatar'
 import { Icon } from '../../ui/Icon'
@@ -19,14 +20,14 @@ export function PostCard({ post, mine, onComments }: { post: Schemas['Post']; mi
       <header className="flex items-center gap-2.5">
         <Avatar user={post.author} size={40} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="text-[15px] font-extrabold">{name}</span>
+          <span className="text-[15px] font-extrabold break-words">{name}</span>
           <span className="truncate text-xs font-semibold text-muted">{subtitle}</span>
         </div>
-        <span className="rounded-[10px] bg-bg px-2.5 py-1 text-xs font-extrabold">{t.quest.categories[post.category]}</span>
+        <span className="shrink-0 self-start rounded-chip bg-bg px-2.5 py-1 text-xs font-extrabold whitespace-nowrap">{t.quest.categories[post.category]}</span>
       </header>
 
       {routine ? (
-        <div className="flex items-center gap-2.5 rounded-[18px] bg-bg p-3 text-muted">
+        <div className="flex items-center gap-2.5 rounded-field bg-bg p-3 text-muted">
           <Icon name="lock" size={20} />
           <span className="text-sm font-semibold">{t.feed.routineHidden}</span>
         </div>
@@ -34,7 +35,7 @@ export function PostCard({ post, mine, onComments }: { post: Schemas['Post']; mi
         <>
           {post.photos.length > 0 && <Photos photos={post.photos} />}
           {post.video && <PostVideo video={post.video} />}
-          {post.caption && <p className="m-0 px-1 text-[15px] leading-snug font-medium">{post.caption}</p>}
+          {post.caption && <Caption text={post.caption} />}
         </>
       )}
 
@@ -50,7 +51,7 @@ export function PostCard({ post, mine, onComments }: { post: Schemas['Post']; mi
           className={`flex h-11 items-center gap-1.5 rounded-field px-3.5 text-sm font-extrabold ${post.liked_by_me ? 'bg-accent text-on-accent' : 'bg-bg'}`}
         >
           <Icon name="heart" size={18} filled={post.liked_by_me} />
-          {post.like_count}
+          {formatNumber(post.like_count)}
         </button>
         <button
           type="button"
@@ -59,7 +60,7 @@ export function PostCard({ post, mine, onComments }: { post: Schemas['Post']; mi
           className="flex h-11 items-center gap-1.5 rounded-field bg-bg px-3.5 text-sm font-extrabold"
         >
           <Icon name="comment" size={18} />
-          {post.comment_count}
+          {formatNumber(post.comment_count)}
         </button>
         <span className="flex-1" />
         {mine && (
@@ -80,6 +81,24 @@ export function PostCard({ post, mine, onComments }: { post: Schemas['Post']; mi
   )
 }
 
+/** Long captions fold to four lines; "ещё" opens the rest in place. */
+const CAPTION_FOLD = 220
+
+function Caption({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const long = text.length > CAPTION_FOLD
+  return (
+    <div className="flex flex-col items-start gap-1 px-1">
+      <p className={`m-0 text-[15px] leading-snug font-medium [overflow-wrap:anywhere] ${long && !open ? 'line-clamp-4' : ''}`}>{text}</p>
+      {long && !open && (
+        <button type="button" onClick={() => setOpen(true)} className="text-sm font-extrabold text-muted">
+          {t.feed.captionMore}
+        </button>
+      )}
+    </div>
+  )
+}
+
 /** A proof's video or circle (ADR 0019). The play link is short-lived, so a failed load
  *  refetches the feed; the file itself is gone after 30 days. */
 function PostVideo({ video }: { video: Schemas['PostVideo'] }) {
@@ -94,7 +113,7 @@ function PostVideo({ video }: { video: Schemas['PostVideo'] }) {
   }
   if (video.status !== 'ready' || !video.url) {
     const text = video.status === 'expired' ? t.feed.videoExpired : video.status === 'failed' ? t.feed.videoFailed : t.feed.videoProcessing
-    return <span className="flex aspect-video items-center justify-center rounded-[20px] bg-bg p-6 text-center text-sm font-bold text-muted">{text}</span>
+    return <span className="flex aspect-video items-center justify-center rounded-media bg-bg p-6 text-center text-sm font-bold text-muted">{text}</span>
   }
   return (
     <video
@@ -106,7 +125,7 @@ function PostVideo({ video }: { video: Schemas['PostVideo'] }) {
       width={video.width ?? undefined}
       height={video.height ?? undefined}
       onError={refresh}
-      className="max-h-[480px] w-full rounded-[20px] bg-plate"
+      className="max-h-[480px] w-full rounded-media bg-plate"
     />
   )
 }
@@ -122,7 +141,7 @@ function Photos({ photos }: { photos: Schemas['Photo'][] }) {
           width={photo.width}
           height={photo.height}
           loading="lazy"
-          className={`aspect-[4/3] shrink-0 snap-center rounded-[20px] bg-plate object-cover ${photos.length > 1 ? 'w-[88%]' : 'w-full'}`}
+          className={`aspect-[4/3] shrink-0 snap-center rounded-media bg-plate object-cover ${photos.length > 1 ? 'w-[88%]' : 'w-full'}`}
         />
       ))}
     </div>

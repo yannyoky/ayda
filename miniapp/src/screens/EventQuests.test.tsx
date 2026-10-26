@@ -40,7 +40,8 @@ describe('Event quests (US-19)', () => {
     const list = await screen.findByRole('region', { name: 'Квесты дня' })
     const row = within(list).getByText(quest.title).closest('li')!
     expect(row).toHaveTextContent(`в ${time(quest.event.starts_at)} · Музей Мирового океана · Бесплатно`)
-    expect(within(row).getByRole('button', { name: `${quest.title}: подробнее на Timepad` })).toBeInTheDocument()
+    await user.click(within(row).getByRole('button', { name: new RegExp(`^${quest.title.replace(/[«»]/g, '.')}`) }))
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: `${quest.title}: подробнее на Timepad` })).toBeInTheDocument()
   })
 
   it('names another city of the region and the lowest price', async () => {

@@ -16,7 +16,7 @@ describe('sign-in with Telegram (US-01)', () => {
       if (response.status === 401) unauthorized.push(request.url)
     })
     renderApp()
-    expect(await screen.findByRole('heading', { name: 'Квесты дня' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Начнём день' })).toBeInTheDocument()
     expect(sent).toEqual({ init_data: 'query_id=AAE&user=%7B%7D&hash=abc' })
     // Nothing is requested before the session exists
     expect(unauthorized).toEqual([])

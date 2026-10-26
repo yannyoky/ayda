@@ -62,7 +62,7 @@ test('a new user gets quests for the day, completes one and sees it in the feed'
   await test.step('Today shows the quest as done', async () => {
     await page.getByRole('link', { name: 'Сегодня' }).click()
     const today = page.getByRole('region', { name: 'Квесты дня' })
-    await expect(today).toContainText('очки за 1 из 5')
+    await expect(today).toContainText('с очками 1 из 5')
     await expect(today.getByRole('button', { name: /^Готово:/ })).toHaveCount(0)
   })
 })

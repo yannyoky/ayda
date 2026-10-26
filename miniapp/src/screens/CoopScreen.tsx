@@ -64,13 +64,13 @@ export function CoopScreen() {
           </div>
         </div>
         {c.kind !== 'parts' && (c.place || c.starts_at) && (
-          <p className="m-0 rounded-[14px] bg-surface px-3 py-2 text-sm font-extrabold text-ink">
+          <p className="m-0 rounded-tile bg-surface px-3 py-2 text-sm font-extrabold text-ink">
             {[c.starts_at ? t.meetup.when(new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(c.starts_at))) : null, c.place?.name, c.place?.address]
               .filter(Boolean)
               .join(' · ')}
           </p>
         )}
-        <p className="m-0 rounded-[14px] bg-surface px-3 py-2 text-sm font-extrabold text-ink">{c.bonus_awarded ? t.coop.bonusDone : t.coop.rule}</p>
+        <p className="m-0 rounded-tile bg-surface px-3 py-2 text-sm font-extrabold text-ink">{c.bonus_awarded ? t.coop.bonusDone : t.coop.rule}</p>
       </section>
 
       <section aria-labelledby="coop-people" className="flex flex-col rounded-card bg-surface p-4">
@@ -85,7 +85,7 @@ export function CoopScreen() {
                 <Avatar user={p.user} size={40} />
                 <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{isMe ? t.coop.you(p.user.first_name) : p.user.first_name}</span>
                 {p.completed ? (
-                  <span className="flex items-center gap-1 rounded-[10px] bg-plate px-2.5 py-1 text-xs font-extrabold text-on-plate">
+                  <span className="flex items-center gap-1 rounded-chip bg-plate px-2.5 py-1 text-xs font-extrabold text-on-plate">
                     <Icon name="check" size={14} strokeWidth={3} />
                     {t.coop.done}
                   </span>
@@ -119,7 +119,7 @@ export function CoopScreen() {
                 type="button"
                 disabled={answer.isPending}
                 onClick={() => respond(false)}
-                className="h-14 flex-1 rounded-[20px] bg-surface text-base font-extrabold disabled:opacity-50"
+                className="h-14 flex-1 rounded-field bg-surface text-base font-extrabold disabled:opacity-50"
               >
                 {t.coop.decline}
               </button>
@@ -132,7 +132,7 @@ export function CoopScreen() {
         {c.conversation_id && (
           <Link
             to={`/chats/${c.conversation_id}`}
-            className="flex h-14 items-center justify-center gap-2 rounded-[20px] bg-surface text-base font-extrabold text-ink no-underline"
+            className="flex h-14 items-center justify-center gap-2 rounded-field bg-surface text-base font-extrabold text-ink no-underline"
           >
             <Icon name="chat" size={20} />
             {t.coop.toChat}

@@ -101,7 +101,7 @@ export function MeetupSheet({ conversationId, onClose }: { conversationId: strin
               type="button"
               disabled={pick.isPending || invalidTime}
               onClick={() => choose({ activity: offer.activity })}
-              className="h-12 rounded-[16px] bg-plate text-sm font-extrabold text-on-plate disabled:opacity-50"
+              className="h-12 rounded-field bg-plate text-sm font-extrabold text-on-plate disabled:opacity-50"
             >
               {t.meetup.createOnline}
             </button>
@@ -133,7 +133,7 @@ export function MeetupSheet({ conversationId, onClose }: { conversationId: strin
                   aria-label={t.meetup.choose(v.name)}
                   disabled={pick.isPending || invalidTime}
                   onClick={() => choose({ venue_id: v.id })}
-                  className="h-12 rounded-[16px] bg-plate text-sm font-extrabold text-on-plate disabled:opacity-50"
+                  className="h-12 rounded-field bg-plate text-sm font-extrabold text-on-plate disabled:opacity-50"
                 >
                   {t.chats.choose}
                 </button>

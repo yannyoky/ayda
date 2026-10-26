@@ -8,30 +8,48 @@ import { CheckinCard } from '../features/day/CheckinCard'
 import { OwnQuestSheet } from '../features/day/OwnQuestSheet'
 import { QuestRow } from '../features/day/QuestRow'
 import { TopEventsCard } from '../features/events/TopEventsCard'
-import { formatDayTitle, t } from '../i18n'
+import { formatShortDay, t } from '../i18n'
 import { Icon } from '../ui/Icon'
 import { ScreenHeader } from '../ui/primitives'
 import { InlineError } from '../ui/states'
+
+type Stage = 'checkin' | 'pick' | 'doing' | 'done'
+
+/** Where the day is: the header title follows it, so the screen always says what is next. */
+function dayStage(day: Schemas['Day']): Stage {
+  const mine = day.quests.filter((q) => q.state !== 'offered')
+  if (!day.checkin && mine.length === 0) return 'checkin'
+  if (mine.length === 0) return 'pick'
+  if (mine.some((q) => q.state === 'taken')) return 'doing'
+  return 'done'
+}
 
 export function TodayScreen() {
   const me = useMe().data as Schemas['Me']
   const today = useToday()
   const day = today.data
-  // A neutral header: the date, then the city and the weather. Streak and points live on the
-  // friends tab, so this screen keeps its room for the check-in and the quests.
+  // The date, city and weather are one quiet line; the title is the next step of the day.
+  // Streak and points live on the friends tab, so this screen keeps its room for the day itself.
   const weather = day?.weather
-  const place = [me.city?.name, weather && t.today.weather(weather.temperature_c, t.today.conditions[weather.condition])]
+  const eyebrow = [formatShortDay(new Date()), me.city?.name, weather && t.today.weather(weather.temperature_c, t.today.conditions[weather.condition])]
     .filter(Boolean)
     .join(' · ')
+  const stage = day ? dayStage(day) : null
+  const mine = day ? day.quests.filter((q) => q.state !== 'offered') : []
+  const completed = mine.filter((q) => q.state === 'completed').length
+  const title = stage ? (stage === 'doing' ? t.today.stage.doing(completed, mine.length) : t.today.stage[stage]) : t.nav.today
   return (
     <>
-      <ScreenHeader title={formatDayTitle(new Date())} subtitle={place || undefined} />
+      <ScreenHeader eyebrow={eyebrow} title={title} />
       {today.isError && <InlineError onRetry={() => void today.refetch()} />}
       {day && (
         <>
-          <CheckinCard key={day.checkin?.submitted_at ?? 'none'} checkin={day.checkin} />
+          {/* One card for the day: the check-in plate on top, the quests tucked under it */}
+          <div className="flex flex-col">
+            <CheckinCard key={day.checkin?.submitted_at ?? 'none'} checkin={day.checkin} />
+            {stage !== 'checkin' && <QuestsCard day={day} />}
+          </div>
           <CoopInvites />
-          <QuestsCard day={day} />
           <TopEventsCard />
         </>
       )}
@@ -48,13 +66,14 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
   const left = day.limits.max_taken - day.limits.taken
 
   return (
-    <section aria-labelledby="quests-title" className="flex flex-col rounded-card bg-surface p-4">
+    <section aria-labelledby="quests-title" className="-mt-7 flex flex-col rounded-b-card bg-surface px-4 pt-11 pb-4">
       <div className="flex items-center justify-between pb-1.5">
         <h2 id="quests-title" className="m-0 font-display text-base font-bold">
           {t.today.questsTitle}
         </h2>
         <span className="text-[13px] font-bold text-muted">{t.today.scoredOf(day.limits.scored, day.limits.max_scored)}</span>
       </div>
+      {mine.length > 0 && <Progress quests={mine} />}
 
       {day.pool_status === 'generating' && (
         <p role="status" className="m-0 flex items-center gap-3 py-3 text-[15px] font-semibold text-muted">
@@ -103,5 +122,22 @@ function QuestsCard({ day }: { day: Schemas['Day'] }) {
       {ownOpen && <OwnQuestSheet onClose={() => setOwnOpen(false)} />}
       {coopFor && <CoopSheet quest={coopFor} onClose={() => setCoopFor(null)} />}
     </section>
+  )
+}
+
+/** One segment per quest taken today, filled as they are done. */
+function Progress({ quests }: { quests: Schemas['DayQuest'][] }) {
+  const done = quests.filter((q) => q.state === 'completed').length
+  return (
+    <div role="progressbar" aria-label={t.today.progress} aria-valuemin={0} aria-valuemax={quests.length} aria-valuenow={done} className="flex gap-1 pb-1.5">
+      {quests.map((q) => (
+        <span key={q.id} className="h-1.5 flex-1 overflow-hidden rounded-full bg-track">
+          <span
+            className="block h-full origin-left rounded-full bg-accent transition-transform duration-500 ease-out"
+            style={{ transform: q.state === 'completed' ? 'none' : 'scaleX(0)' }}
+          />
+        </span>
+      ))}
+    </div>
   )
 }

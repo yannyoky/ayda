@@ -13,7 +13,7 @@ async function checkIn(user: ReturnType<typeof userEvent.setup>, text: string, m
 describe('Today: check-in and pool (US-05, US-06)', () => {
   it('shows the date, the city and no greeting or stats', async () => {
     renderApp()
-    expect(await screen.findByText(/^Калининград/)).toBeInTheDocument()
+    expect(await screen.findByText(/· Калининград ·/)).toBeInTheDocument()
     expect(screen.queryByText(/Привет/)).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Серия' })).not.toBeInTheDocument()
   })
@@ -30,7 +30,7 @@ describe('Today: check-in and pool (US-05, US-06)', () => {
   it('submits the check-in and goes straight to the picker', async () => {
     const user = userEvent.setup()
     renderApp()
-    await checkIn(user, 'дописать отчёт', 'Устал')
+    await checkIn(user, 'дописать отчёт', 'Без сил')
     expect(await screen.findByRole('heading', { name: 'Квесты на сегодня' })).toBeInTheDocument()
     expect(db.checkin).toMatchObject({ text: 'дописать отчёт', mood: 'tired' })
   })
@@ -82,7 +82,7 @@ describe('Quest picker (US-07, US-08)', () => {
     const list = await screen.findByRole('region', { name: 'Квесты дня' })
     expect(within(list).getByText('Дописать отчёт')).toBeInTheDocument()
     expect(within(list).getAllByRole('button', { name: /Готово/ })).toHaveLength(5)
-    expect(within(list).getByText('очки за 0 из 5')).toBeInTheDocument()
+    expect(within(list).getByText('с очками 0 из 5')).toBeInTheDocument()
     expect(db.takenCount()).toBe(5)
   })
 
@@ -108,5 +108,33 @@ describe('Quest picker (US-07, US-08)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Добавить' }))
     expect(await screen.findByText('Позвонить маме')).toBeInTheDocument()
     expect(db.quests.at(-1)).toMatchObject({ source: 'custom', state: 'taken', category: 'social', base_points: 10 })
+  })
+})
+
+describe('Today as one card (design pass)', () => {
+  it('names the next step in the title', async () => {
+    renderApp()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Начнём день' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Квесты дня' })).not.toBeInTheDocument()
+  })
+
+  it('counts done quests and keeps only "Готово" in the row', async () => {
+    const user = userEvent.setup()
+    db.submitCheckin({ text: '', mood: 'normal' })
+    const quest = db.quests[0]!
+    db.take(quest)
+    db.take(db.quests[1]!)
+    renderApp()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Сделано 0 из 2' })).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Сделано за день' })).toHaveAttribute('aria-valuemax', '2')
+    const row = screen.getByRole('button', { name: new RegExp(`^${quest.title}`) }).closest('li')!
+    expect(within(row).getAllByRole('button')).toHaveLength(2)
+
+    await user.click(within(row).getByRole('button', { name: new RegExp(`^${quest.title}`) }))
+    const sheet = screen.getByRole('dialog', { name: quest.title })
+    expect(within(sheet).getByRole('link', { name: `Обсудить с помощником: ${quest.title}` })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: `Позвать друзей на «${quest.title}»` })).toBeInTheDocument()
+    await user.click(within(sheet).getByRole('button', { name: 'Готово, отметить' }))
+    expect(await screen.findByRole('button', { name: 'Отметить' })).toBeInTheDocument()
   })
 })

@@ -30,7 +30,7 @@ export function Ladder({ entries }: { entries: Entry[] }) {
               <span className="w-6 font-display text-sm font-bold text-muted">{e.rank}</span>
               <span className="flex-1 truncate text-[15px] font-bold">{name(e)}</span>
               <span className="text-xs font-bold text-muted">{t.friends.streak(e.streak_days)}</span>
-              <span className={`w-14 text-right text-[15px] font-extrabold ${e.is_me ? 'rounded-lg bg-accent px-1.5 text-on-accent' : ''}`}>{formatNumber(e.points)}</span>
+              <span className={`w-14 text-right text-[15px] font-extrabold ${e.is_me ? 'rounded-chip bg-accent px-1.5 text-on-accent' : ''}`}>{formatNumber(e.points)}</span>
             </li>
           ))}
         </ol>
@@ -44,7 +44,7 @@ function Podium({ entry, height, leader = false }: { entry: Entry; height: strin
   return (
     <li
       aria-label={`${t.friends.rank(entry.rank)}: ${name(entry)}, ${formatNumber(entry.points)}`}
-      className={`flex ${height} flex-col justify-between rounded-3xl p-3 ${tone}`}
+      className={`flex ${height} flex-col justify-between rounded-card p-3 ${tone}`}
     >
       <span className="flex items-center justify-between">
         <span className={`font-display text-[22px] font-extrabold ${leader && !entry.is_me ? 'text-accent' : ''}`}>{entry.rank}</span>

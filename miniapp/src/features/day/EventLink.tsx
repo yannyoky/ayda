@@ -4,7 +4,8 @@ import { openExternal } from '../../telegram/webapp'
 import { Icon } from '../../ui/Icon'
 
 const styles = {
-  card: 'mx-2 mb-2 flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[rgb(0_0_0/0.06)] text-xs font-extrabold',
+  card: 'mx-2 mb-2 flex h-11 items-center justify-center gap-1.5 rounded-field bg-ink/6 text-xs font-extrabold',
+  sheet: 'press flex h-12 items-center justify-center gap-2 rounded-field bg-surface text-sm font-extrabold',
   inline: 'flex items-center gap-1 self-start py-0.5 text-xs font-extrabold underline underline-offset-2',
 }
 

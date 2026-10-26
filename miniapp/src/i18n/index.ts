@@ -4,10 +4,17 @@ import { ru } from './ru'
 export const t = ru
 
 const weekdayDate = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+const shortDay = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })
 const integer = new Intl.NumberFormat('ru-RU')
 
 export function formatDayTitle(date: Date): string {
   const s = weekdayDate.format(date)
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/** "Пн, 26 октября": the quiet date line above a screen title. */
+export function formatShortDay(date: Date): string {
+  const s = shortDay.format(date)
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 

@@ -114,7 +114,7 @@ function PlanStep({ recipeId, onBack, onDone }: { recipeId: string; onBack: () =
       {friendId && (
         <div role="radiogroup" aria-label={t.recipes.whoShops} className="grid grid-cols-2 gap-1.5 rounded-field bg-surface p-1">
           {(['me', 'friend'] as const).map((who) => (
-            <label key={who} className="flex h-10 items-center justify-center rounded-xl text-sm font-bold has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2">
+            <label key={who} className="flex h-10 items-center justify-center rounded-field text-sm font-bold has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2">
               <input type="radio" name="shopper" checked={shopper === who} onChange={() => setShopper(who)} className="sr-only" />
               {who === 'me' ? t.recipes.iShop : t.recipes.friendShops}
             </label>
@@ -127,7 +127,7 @@ function PlanStep({ recipeId, onBack, onDone }: { recipeId: string; onBack: () =
         </p>
       )}
       <div className="flex gap-2">
-        <button type="button" onClick={onBack} className="h-14 rounded-[20px] bg-surface px-5 text-base font-extrabold">
+        <button type="button" onClick={onBack} className="h-14 rounded-field bg-surface px-5 text-base font-extrabold">
           {t.recipes.back}
         </button>
         <PrimaryButton className="flex-1" disabled={pending} onClick={create}>

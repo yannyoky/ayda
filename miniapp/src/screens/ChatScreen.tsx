@@ -169,14 +169,20 @@ export function ChatScreen() {
   return (
     <main className="mx-auto flex h-dvh max-w-[480px] flex-col">
       <header className="flex items-center gap-3 px-4 pt-[max(16px,env(safe-area-inset-top))] pb-3">
-        <button type="button" aria-label={t.chats.back} onClick={back} className="flex size-11 items-center justify-center rounded-full bg-surface">
+        <button type="button" aria-label={t.chats.back} onClick={back} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
           <Icon name="back" size={20} />
         </button>
         <Avatar user={chat.peer ?? { first_name: chat.title }} size={40} />
         <h1 className="m-0 min-w-0 flex-1 truncate font-display text-lg font-bold">{chat.title}</h1>
         {chat.can_send && (
-          <button type="button" onClick={() => setOrganizing(true)} className="h-11 shrink-0 rounded-full bg-accent px-4 text-sm font-extrabold text-on-accent">
-            {t.meetup.button}
+          <button
+            type="button"
+            aria-label={t.meetup.button}
+            title={t.meetup.button}
+            onClick={() => setOrganizing(true)}
+            className="press flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent"
+          >
+            <Icon name="spark" size={20} strokeWidth={2.2} />
           </button>
         )}
         <button type="button" aria-label={t.chats.hide} onClick={hideChat} disabled={hide.isPending} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface">
@@ -225,7 +231,7 @@ export function ChatScreen() {
                   </div>
                 ) : m.attachment ? (
                   <div
-                    className={`flex items-center gap-2 rounded-[20px] px-3 py-2 ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
+                    className={`flex items-center gap-2 rounded-bubble px-3 py-2 ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
                   >
                     <VoiceMessage attachment={m.attachment} mine={mine} onExpired={() => void messages.refetch()} />
                     {mine && (
@@ -240,7 +246,7 @@ export function ChatScreen() {
                     type="button"
                     disabled={!mine}
                     onClick={() => setSelected((s) => (s === m.id ? null : m.id))}
-                    className={`rounded-[20px] px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
+                    className={`rounded-bubble px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${mine ? 'rounded-br-md bg-plate text-on-plate' : 'rounded-bl-md bg-surface text-ink'}`}
                   >
                     {m.text}
                     <span className={`ml-2 inline-block text-[11px] font-semibold ${mine ? 'text-on-plate/60' : 'text-muted'}`}>
@@ -272,7 +278,7 @@ export function ChatScreen() {
                 disabled={!p.failed}
                 onClick={() => void deliver(p)}
                 aria-label={p.failed ? t.chats.failed : p.recording ? (p.recording.kind === 'video_note' ? t.chats.circleSending : t.chats.voiceSending) : t.chats.sending}
-                className={`rounded-[20px] rounded-br-md px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${p.failed ? 'bg-surface text-ink outline-2 outline-accent' : 'bg-plate text-on-plate opacity-60'}`}
+                className={`rounded-bubble rounded-br-md px-3.5 py-2 text-left text-[15px] font-medium break-words whitespace-pre-wrap ${p.failed ? 'bg-surface text-ink outline-2 outline-accent' : 'bg-plate text-on-plate opacity-60'}`}
               >
                 {p.recording ? (
                   <span className="flex items-center gap-2 font-bold">
