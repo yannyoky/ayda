@@ -91,16 +91,16 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.13'
-      # Voice messages are re-encoded with ffmpeg (ADR 0019). The Azure Ubuntu mirror can be
+      # Voice messages are re-encoded with ffmpeg (ADR 0019), backups encrypted with age. The Azure Ubuntu mirror can be
       # very slow (25 min for ffmpeg), so the .deb files are cached and apt only downloads on a miss.
       - uses: actions/cache@v6
         with:
           path: ~/.cache/apt-ffmpeg
-          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v2
       - run: |
           mkdir -p ~/.cache/apt-ffmpeg/partial
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends -o Dir::Cache::Archives="$HOME/.cache/apt-ffmpeg" ffmpeg
+          sudo apt-get install -y -q --no-install-recommends -o Dir::Cache::Archives="$HOME/.cache/apt-ffmpeg" ffmpeg age
           sudo chown -R "$USER" ~/.cache/apt-ffmpeg
           ffmpeg -hide_banner -encoders | grep -q libx264
       - run: uv sync --locked
@@ -251,4 +251,4 @@ jobs:
           docker build -t ayda-backend:ci backend
           test "$(docker run --rm ayda-backend:ci id -u)" != 0
           docker run --rm ayda-backend:ci python -c "import ayda.main, ayda.worker, ayda.bot.__main__"
-          docker run --rm ayda-backend:ci sh -c 'ffmpeg -version >/dev/null && pg_dump --version'
+          docker run --rm ayda-backend:ci sh -c 'ffmpeg -version >/dev/null && pg_dump --version && age --version'

@@ -54,6 +54,10 @@ The backend image runs as the non-root user `app`; `api`, `worker`, `bot` and `m
 
 The worker uploads a `pg_dump` to `BACKUP_BUCKET` every day after 03:30 Moscow time and keeps 14 days (`docs/architecture.md`, "Backups and error tracking"). Beget issues a separate key pair for each bucket: put the backup bucket's keys into `BACKUP_S3_ACCESS_KEY_ID` and `BACKUP_S3_SECRET_ACCESS_KEY`, otherwise the upload fails with `AccessDenied`; with a provider whose keys cover every bucket, leave them empty. A failed backup is retried; when it gives up, the error shows up in GlitchTip.
 
+**Encryption.** Dumps hold every user's data, so they are encrypted with [age](https://age-encryption.org) before upload. Once, on your own computer: `age-keygen -o ayda-backup-key.txt`. Keep that file off the server (password manager plus an offline copy); without it no backup can be restored. Put the public key it prints (`age1...`) into `BACKUP_AGE_RECIPIENT` in `.env` and redeploy: new dumps are `db/<time>.dump.age`. Without the setting dumps are plain and the worker logs a warning.
+
+**Deletion.** The worker deletes dumps older than `BACKUP_KEEP_DAYS` with its own key, so whoever takes the server can delete the backups too. If the provider supports it, give the backup bucket a lifecycle rule that deletes objects after 14 days, set `BACKUP_KEEP_DAYS=0` and use a backup key without the delete right; or turn on versioning / object lock. Keep 14 days either way: an erased account must leave the backups within that time.
+
 By hand, on the VPS in `/opt/ayda`:
 
 ```sh
@@ -68,8 +72,12 @@ Restore the latest dump into a scratch database and compare a few counts with pr
 
 ```sh
 docker compose -f docker-compose.prod.yml exec postgres createdb -U ayda ayda_restore_check
-ayda python -m ayda.core.backup restore <key> \
+# an encrypted dump (.dump.age) needs the private key for the restore only:
+# copy ayda-backup-key.txt to /opt/ayda, chmod 644 it, and delete it right after
+docker compose -f docker-compose.prod.yml run --rm -v "$PWD/ayda-backup-key.txt:/tmp/key.txt:ro" \
+  migrate python -m ayda.core.backup restore <key> --identity /tmp/key.txt \
   --target-url "postgresql://ayda:<POSTGRES_PASSWORD from .env>@postgres:5432/ayda_restore_check"
+shred -u ayda-backup-key.txt
 docker compose -f docker-compose.prod.yml exec postgres psql -U ayda -d ayda_restore_check \
   -c "select count(*) from auth.users" -c "select max(occurred_at) from analytics.events"
 docker compose -f docker-compose.prod.yml exec postgres dropdb -U ayda ayda_restore_check

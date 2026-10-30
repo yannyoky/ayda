@@ -1,7 +1,9 @@
 import shutil
+import subprocess
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import make_url, text
@@ -13,6 +15,9 @@ from ayda.core.db import Database
 from ayda.core.jobs import enqueue
 from ayda.core.storage import Storage
 
+needs_age = pytest.mark.skipif(
+    shutil.which("age") is None or shutil.which("age-keygen") is None, reason="age not installed"
+)
 needs_pg_tools = pytest.mark.skipif(
     shutil.which("pg_dump") is None or shutil.which("pg_restore") is None,
     reason="pg_dump/pg_restore not installed",
@@ -29,6 +34,7 @@ def test_libpq_keeps_the_password_off_the_command_line() -> None:
 def test_backup_key_is_utc_and_sortable() -> None:
     now = datetime(2026, 10, 17, 3, 30, 5, tzinfo=UTC)
     assert backup.backup_key(now) == "db/2026-10-17T033005Z.dump"
+    assert backup.backup_key(now, encrypted=True) == "db/2026-10-17T033005Z.dump.age"
 
 
 async def test_backup_is_scheduled_once_a_day_after_the_backup_time(
@@ -123,3 +129,41 @@ def test_backup_bucket_uses_its_own_keys_when_set(s3_settings: Settings) -> None
     assert storage.bucket == own.backup_bucket
     assert _access_key(storage) == "backup-id"
     assert _access_key(Storage(own)) == "test"
+
+
+@needs_pg_tools
+@needs_age
+async def test_an_encrypted_backup_needs_the_private_key(
+    s3_settings: Settings, database: Database, restore_url: str, tmp_path: Path
+) -> None:
+    # Audit V7: the bucket holds only ciphertext; the private key never is on the server.
+    identity = tmp_path / "key.txt"
+    subprocess.run(["age-keygen", "-o", str(identity)], check=True, capture_output=True)
+    recipient = subprocess.run(
+        ["age-keygen", "-y", str(identity)], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    settings = s3_settings.model_copy(update={"backup_age_recipient": recipient})
+
+    key = await backup.create_backup(settings)
+    assert key.endswith(".dump.age")
+    stored = tmp_path / "stored"
+    await backup.backup_storage(settings).download_file(key, str(stored))
+    head = stored.read_bytes()[:64]
+    assert head.startswith(b"age-encryption.org/v1") and b"PGDMP" not in stored.read_bytes()
+
+    with pytest.raises(backup.BackupError, match="identity"):
+        await backup.restore_backup(settings, key, restore_url)
+    await backup.restore_backup(settings, key, restore_url, identity=str(identity))
+    restored = create_async_engine(restore_url)
+    async with restored.connect() as conn:
+        assert await conn.scalar(text("SELECT count(*) FROM alembic_version")) == 1
+    await restored.dispose()
+
+
+@needs_pg_tools
+async def test_keep_days_zero_leaves_old_dumps_to_the_bucket(s3_settings: Settings) -> None:
+    storage = backup.backup_storage(s3_settings)
+    await storage.put("db/old.dump", b"a", "application/octet-stream")
+    later = datetime.now(UTC) + timedelta(days=30)
+    await backup.create_backup(s3_settings.model_copy(update={"backup_keep_days": 0}), now=later)
+    assert "db/old.dump" in await backup.list_backups(s3_settings)

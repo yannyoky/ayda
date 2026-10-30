@@ -60,7 +60,12 @@ class Settings(BaseSettings):
     # unset: the S3 keys above.
     backup_s3_access_key_id: SecretStr | None = None
     backup_s3_secret_access_key: SecretStr | None = None
+    # Dumps older than this are deleted after each upload; 0 keeps them all (for a bucket
+    # whose own lifecycle rule deletes old objects, so the worker's key needs no delete right).
     backup_keep_days: int = 14
+    # age public key (age1...): dumps are encrypted with it before upload and the private key
+    # stays off the server (audit V7). Unset: plain dumps, with a warning in the log.
+    backup_age_recipient: str | None = None
     backup_at: time = time(3, 30)
     backup_timezone: str = "Europe/Moscow"
 
