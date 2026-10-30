@@ -639,7 +639,13 @@ private fun Progress(quests: List<DayQuest>) {
                 tween(500, easing = EaseOutQuint),
                 label = "progress",
             )
-            Box(Modifier.weight(1f).height(6.dp).clip(CircleShape).background(colors.track)) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(6.dp)
+                    .clip(CircleShape)
+                    .background(colors.track),
+            ) {
                 Box(
                     Modifier
                         .fillMaxSize()
