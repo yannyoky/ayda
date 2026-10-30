@@ -175,7 +175,7 @@ fun CircleCamera(
     }
 }
 
-/** A circle ("кружок"): a round video that plays with sound on tap. */
+/** A circle ("кружок") in a chat: loops silently, plays with sound on tap (see [CirclePlayer]). */
 @Composable
 fun VideoNoteContent(
     attachment: Attachment,
@@ -212,14 +212,7 @@ fun VideoNoteContent(
         }
         return
     }
-    PlayableVideo(
-        url,
-        attachment.durationMs,
-        CircleShape,
-        stringResource(R.string.chats_circle_play),
-        onExpired,
-        modifier = Modifier.size(200.dp),
-    )
+    CirclePlayer(url, attachment.durationMs, size = 200.dp, onExpired = onExpired)
 }
 
 /** A circle that is being sent or prepared: the round shape is there at once, with a spinner. */
@@ -235,8 +228,9 @@ fun PendingCircle() {
 }
 
 /**
- * A video that plays with sound on tap, clipped to [shape]. The play link is short-lived:
- * [onExpired] asks for a fresh one when playback fails.
+ * A video that plays with sound on tap, clipped to [shape]. It is loaded right away so the first
+ * frame shows instead of an empty box. The play link is short-lived: [onExpired] asks for a fresh
+ * one when loading fails.
  */
 @Composable
 fun PlayableVideo(
@@ -249,14 +243,52 @@ fun PlayableVideo(
 ) {
     val colors = LocalAydaColors.current
     val total = (durationMs ?: 0) / 1000f
-    var player by remember(url) { mutableStateOf<MediaPlayer?>(null) }
+    var player by remember { mutableStateOf<MediaPlayer?>(null) }
     var surface by remember { mutableStateOf<Surface?>(null) }
+    var ready by remember(url) { mutableStateOf(false) }
+    var failed by remember(url) { mutableStateOf(false) }
     var playing by remember(url) { mutableStateOf(false) }
     var position by remember(url) { mutableFloatStateOf(0f) }
-    DisposableEffect(url) {
+    DisposableEffect(url, surface) {
+        val target = surface
+        if (target == null) return@DisposableEffect onDispose {}
+        val created = MediaPlayer()
+        created.setAudioAttributes(
+            AudioAttributes
+                .Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .build(),
+        )
+        created.setSurface(target)
+        created.setOnPreparedListener {
+            ready = true
+            // A seek draws the first frame without starting playback.
+            it.seekTo(0)
+        }
+        created.setOnCompletionListener {
+            playing = false
+            position = 0f
+        }
+        created.setOnErrorListener { _, _, _ ->
+            playing = false
+            ready = false
+            failed = true
+            true
+        }
+        try {
+            created.setDataSource(url)
+            created.prepareAsync()
+            player = created
+        } catch (e: Exception) {
+            created.release()
+            failed = true
+        }
         onDispose {
-            player?.release()
-            player = null
+            created.release()
+            if (player === created) player = null
+            ready = false
+            playing = false
         }
     }
     LaunchedEffect(playing) {
@@ -269,41 +301,9 @@ fun PlayableVideo(
     fun toggle() {
         val current = player
         when {
-            current == null -> {
-                val created = MediaPlayer()
-                created.setAudioAttributes(
-                    AudioAttributes
-                        .Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build(),
-                )
-                surface?.let(created::setSurface)
-                created.setOnPreparedListener {
-                    it.start()
-                    playing = true
-                }
-                created.setOnCompletionListener {
-                    playing = false
-                    position = 0f
-                }
-                created.setOnErrorListener { _, _, _ ->
-                    playing = false
-                    player?.release()
-                    player = null
-                    // The play link is short-lived: ask for fresh messages.
-                    onExpired()
-                    true
-                }
-                try {
-                    created.setDataSource(url)
-                    created.prepareAsync()
-                    player = created
-                } catch (e: Exception) {
-                    created.release()
-                    onExpired()
-                }
-            }
+            // The play link is short-lived: ask for fresh messages.
+            failed -> onExpired()
+            current == null || !ready -> Unit
             current.isPlaying -> {
                 current.pause()
                 playing = false
@@ -333,9 +333,7 @@ fun PlayableVideo(
                                 width: Int,
                                 height: Int,
                             ) {
-                                val created = Surface(texture)
-                                surface = created
-                                player?.setSurface(created)
+                                surface = Surface(texture)
                             }
 
                             override fun onSurfaceTextureSizeChanged(
