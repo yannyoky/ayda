@@ -38,6 +38,8 @@ data class AydaColors(
     val accent: Color,
     val onPlate: Color,
     val onAccent: Color,
+    /** Letter avatar tints as (tile, letter), picked per user with [app.ayda.shared.AvatarTints]. */
+    val avatars: List<Pair<Color, Color>>,
 )
 
 fun Palette.toColors() =
@@ -52,6 +54,7 @@ fun Palette.toColors() =
         accent = Color(accent),
         onPlate = Color(onPlate),
         onAccent = Color(onAccent),
+        avatars = avatars.map { Color(it.tile) to Color(it.letter) },
     )
 
 fun AydaColors.toColorScheme(): ColorScheme =

@@ -9,6 +9,9 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -45,11 +49,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,6 +68,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
 import app.ayda.android.media.PhotoCompressor
+import app.ayda.android.ui.EaseOutQuint
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.chat.CircleCamera
@@ -66,6 +77,8 @@ import app.ayda.android.ui.chat.formatSeconds
 import app.ayda.api.models.Completion
 import app.ayda.api.models.CreateUploadRequest
 import app.ayda.api.models.Visibility
+import app.ayda.shared.Motion
+import app.ayda.shared.Radii
 import app.ayda.shared.day.CompleteState
 import app.ayda.shared.day.CompleteViewModel
 import app.ayda.shared.day.PhotoError
@@ -80,6 +93,11 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * US-09/US-10: mark a taken quest done, choose who sees it, attach 1-3 photos, a video or a
@@ -512,53 +530,142 @@ private fun androidx.compose.foundation.layout.RowScope.PhotoButton(
     }
 }
 
+/** Eight sparks fly out of the check once: a small celebration for a rare moment. */
+private const val SPARKS = 8
+private const val SPARK_REACH = 64
+
+/**
+ * "Засчитано!" (docs/design/themes.md, "Motion"): the check pops, sparks fly out, the points
+ * count up and the lines rise in one after another, with a success haptic. With "Remove
+ * animations" on, Compose finishes every animation at once, so the final numbers show.
+ */
 @Composable
 private fun Success(
     result: Completion,
     onClose: () -> Unit,
 ) {
     val colors = LocalAydaColors.current
+    val haptics = LocalHapticFeedback.current
     val b = result.pointsBreakdown
+    val pop = remember { Animatable(0f) }
+    val sparks = remember { Animatable(0f) }
+    val count = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+        launch {
+            pop.animateTo(1f, tween(Motion.CHECK_POP, easing = LinearEasing))
+        }
+        launch { sparks.animateTo(1f, tween(Motion.SPARKS, delayMillis = 120, easing = EaseOutQuint)) }
+        count.animateTo(1f, tween(Motion.COUNT_UP, easing = LinearEasing))
+    }
+    // Strong ease-out: most of the number lands quickly, the last digits settle
+    val points = (result.pointsAwarded * (1 - (1 - count.value).pow(4))).roundToInt()
     Column(
-        Modifier.fillMaxWidth().background(colors.accent, MaterialTheme.shapes.large).padding(24.dp),
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(colors.accent)
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            stringResource(R.string.complete_success),
-            style = MaterialTheme.typography.headlineSmall,
-            color = colors.onAccent,
-        )
-        Text(
-            "+${result.pointsAwarded}",
-            style = MaterialTheme.typography.displayLarge.copy(fontSize = 88.sp, lineHeight = 92.sp),
-            color = colors.onAccent,
-        )
-        Text(
-            stringResource(
-                R.string.complete_breakdown,
-                b.base,
-                decimal(b.visibilityMultiplier),
-                decimal(b.streakMultiplier),
-            ),
-            style = MaterialTheme.typography.labelLarge,
-            color = colors.onAccent,
-            textAlign = TextAlign.Center,
-        )
-        val bonus = result.coopBonus ?: 0
-        if (bonus > 0) {
+        Box(Modifier.size(80.dp), contentAlignment = Alignment.Center) {
+            val reach = with(LocalDensity.current) { SPARK_REACH.dp.toPx() }
+            repeat(SPARKS) { i ->
+                val angle = i * 2 * PI / SPARKS
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .graphicsLayer {
+                            val p = sparks.value
+                            translationX = (cos(angle) * reach * p).toFloat()
+                            translationY = (sin(angle) * reach * p).toFloat()
+                            val scale = 1f - 0.6f * p
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = if (p == 0f) 0f else 1f - p
+                        }.background(colors.plate, CircleShape),
+                )
+            }
+            Box(
+                Modifier
+                    .size(80.dp)
+                    .graphicsLayer {
+                        // 0.9 -> 1.06 at 60% -> 1, fading in on the way up
+                        val p = pop.value
+                        val scale = if (p <= 0.6f) 0.9f + p / 0.6f * 0.16f else 1.06f - (p - 0.6f) / 0.4f * 0.06f
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = (p / 0.6f).coerceAtMost(1f)
+                    }.background(colors.plate, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { AydaIcon(R.drawable.ic_check, colors.accent, size = 40) }
+        }
+        Rise(80) {
             Text(
-                stringResource(R.string.complete_coop_bonus, bonus),
-                style = MaterialTheme.typography.titleMedium,
+                stringResource(R.string.complete_success),
+                style = MaterialTheme.typography.headlineSmall,
                 color = colors.onAccent,
             )
         }
-        val days = result.streak.currentDays
+        val final = "+${result.pointsAwarded}"
         Text(
-            stringResource(R.string.complete_streak, days, pluralStringResource(R.plurals.today_days, days)),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.background(colors.surface, MaterialTheme.shapes.small).padding(12.dp, 6.dp),
+            "+$points",
+            style = MaterialTheme.typography.displayLarge.copy(fontSize = 88.sp, lineHeight = 92.sp),
+            color = colors.onAccent,
+            modifier = Modifier.semantics { contentDescription = final },
         )
+        Rise(160) {
+            Text(
+                stringResource(
+                    R.string.complete_breakdown,
+                    b.base,
+                    decimal(b.visibilityMultiplier),
+                    decimal(b.streakMultiplier),
+                ),
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.onAccent,
+                textAlign = TextAlign.Center,
+            )
+        }
+        val bonus = result.coopBonus ?: 0
+        if (bonus > 0) {
+            Rise(200) {
+                Text(
+                    stringResource(R.string.complete_coop_bonus, bonus),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.onAccent,
+                )
+            }
+        }
+        val days = result.streak.currentDays
+        Rise(240) {
+            Text(
+                stringResource(R.string.complete_streak, days, pluralStringResource(R.plurals.today_days, days)),
+                style = MaterialTheme.typography.titleMedium,
+                modifier =
+                    Modifier
+                        .background(colors.surface, RoundedCornerShape(Radii.CHIP.dp))
+                        .padding(12.dp, 6.dp),
+            )
+        }
     }
     PrimaryButton(stringResource(R.string.complete_to_today), onClick = onClose)
+}
+
+/** A line that fades in and rises 8dp, [delay] ms after the screen opens. */
+@Composable
+private fun Rise(
+    delay: Int,
+    content: @Composable () -> Unit,
+) {
+    val p = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { p.animateTo(1f, tween(320, delayMillis = delay, easing = EaseOutQuint)) }
+    val shift = with(LocalDensity.current) { 8.dp.toPx() }
+    Box(
+        Modifier.graphicsLayer {
+            alpha = p.value
+            translationY = (1f - p.value) * shift
+        },
+    ) { content() }
 }

@@ -48,3 +48,5 @@ Motion only explains a change or answers a touch. Frequent actions (tabs, scroll
 | Quest marked done | check pops, sparks fly out, points count up, success haptic | 360–700ms |
 
 Curves: `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`, `--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)`. Only `transform` and `opacity` move. With `prefers-reduced-motion` the movement is dropped and only fades stay.
+
+On Android the same tokens live in `mobile/shared` (`Palette.avatars`, `AvatarTints`, `Radii`, `Motion`; the tint hash matches the Mini App's, so a friend has one colour on both). Bottom sheets are Material `ModalBottomSheet`, which already slides up and closes by a swipe or a flick. With "Remove animations" in the system settings Compose finishes every animation at once.

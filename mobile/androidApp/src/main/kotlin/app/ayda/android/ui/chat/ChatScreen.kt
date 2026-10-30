@@ -30,8 +30,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +63,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
 import app.ayda.android.ui.LocalAydaColors
+import app.ayda.android.ui.PressButton
 import app.ayda.android.ui.QuietButton
 import app.ayda.android.ui.day.AydaIcon
 import app.ayda.android.ui.day.Russian
@@ -155,6 +154,23 @@ private fun ChatContent(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (chat.canSend) {
+                    // The meetup is the chat's main action: a round accent spark, so a long title keeps its room
+                    PressButton(
+                        onClick = onMeetup,
+                        containerColor = colors.accent,
+                        contentColor = colors.onAccent,
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        AydaIcon(
+                            R.drawable.ic_spark,
+                            colors.onAccent,
+                            contentDescription = stringResource(R.string.meetup_button),
+                        )
+                    }
+                }
                 IconButton(
                     onClick = model::askHide,
                     modifier = Modifier.size(44.dp).clip(RoundedCornerShape(50)).background(colors.surface),
@@ -166,23 +182,6 @@ private fun ChatContent(
                         contentDescription = stringResource(R.string.chats_hide),
                     )
                 }
-            }
-        }
-        if (chat != null && chat.canSend) {
-            // The meetup is the chat's main action, so it is an accent pill, not a quiet link.
-            // It sits under the header so a long chat title is never squeezed out.
-            Button(
-                onClick = onMeetup,
-                shape = RoundedCornerShape(50),
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = colors.accent,
-                        contentColor = colors.onAccent,
-                    ),
-                contentPadding = PaddingValues(16.dp, 10.dp),
-                modifier = Modifier.padding(horizontal = 16.dp),
-            ) {
-                Text(stringResource(R.string.meetup_button), style = MaterialTheme.typography.labelLarge)
             }
         }
         chat?.deletesAt?.let { deletesAt ->

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,9 +15,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
+import app.ayda.android.ui.AydaMark
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.chat.small
 import app.ayda.android.ui.day.AydaIcon
@@ -104,6 +107,7 @@ fun AssistantScreen(
                     contentDescription = stringResource(R.string.chats_back),
                 )
             }
+            AydaMark(40)
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.assistant_title), style = MaterialTheme.typography.headlineSmall)
                 if (quest != null) {
@@ -233,9 +237,13 @@ private fun Messages(
             item(key = "typing") { Typing() }
             item(key = "waiting") { Bubble(state.waiting.orEmpty(), mine = true, faded = true) }
         }
-        items(state.messages.asReversed(), key = { it.id }) { message ->
+        val reversed = state.messages.asReversed()
+        itemsIndexed(reversed, key = { _, it -> it.id }) { index, message ->
+            // The list is reversed: the message below this one comes first. The mark sits by the
+            // last bubble of the assistant's run, like a chat avatar.
+            val lastOfRun = reversed.getOrNull(index - 1)?.role != message.role
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Bubble(message.text, mine = message.role == AssistantMessage.Role.user)
+                Bubble(message.text, mine = message.role == AssistantMessage.Role.user, mark = lastOfRun)
                 message.cards.forEach { card -> CardView(card, model, questStates, state.closedPlaces, onCook) }
             }
         }
@@ -247,19 +255,37 @@ private fun Bubble(
     text: String,
     mine: Boolean,
     faded: Boolean = false,
+    mark: Boolean = false,
 ) {
     val colors = LocalAydaColors.current
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
+    if (mine) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.onPlate,
+                modifier =
+                    Modifier
+                        .widthIn(max = 300.dp)
+                        .clip(bubbleMine)
+                        .background(colors.plate)
+                        .alpha(if (faded) 0.6f else 1f)
+                        .padding(14.dp, 8.dp),
+            )
+        }
+        return
+    }
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (mark) AydaMark(28) else Spacer(Modifier.width(28.dp))
         Text(
             text,
             style = MaterialTheme.typography.bodyLarge,
-            color = if (mine) colors.onPlate else colors.ink,
+            color = colors.ink,
             modifier =
                 Modifier
                     .widthIn(max = 300.dp)
-                    .clip(if (mine) bubbleMine else bubbleTheirs)
-                    .background(if (mine) colors.plate else colors.surface)
-                    .alpha(if (faded) 0.6f else 1f)
+                    .clip(bubbleTheirs)
+                    .background(colors.surface)
                     .padding(14.dp, 8.dp),
         )
     }
@@ -269,17 +295,20 @@ private fun Bubble(
 private fun Typing() {
     val colors = LocalAydaColors.current
     val label = stringResource(R.string.assistant_typing)
-    Row(
-        Modifier
-            .semantics { liveRegion = LiveRegionMode.Polite }
-            .clip(bubbleTheirs)
-            .background(colors.surface)
-            .padding(14.dp, 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        CircularProgressIndicator(color = colors.accent, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, color = colors.muted)
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AydaMark(28)
+        Row(
+            Modifier
+                .semantics { liveRegion = LiveRegionMode.Polite }
+                .clip(bubbleTheirs)
+                .background(colors.surface)
+                .padding(14.dp, 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CircularProgressIndicator(color = colors.accent, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, color = colors.muted)
+        }
     }
 }
 
