@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.ayda.android.R
 import app.ayda.shared.Motion
@@ -185,7 +186,7 @@ fun <T> Segmented(
         )
         Box(
             Modifier
-                .offset(x = offset)
+                .offset { IntOffset(offset.roundToPx(), 0) }
                 .width(width)
                 .fillMaxHeight()
                 .background(pill, RoundedCornerShape(Radii.SEGMENT.dp)),
