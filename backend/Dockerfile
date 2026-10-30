@@ -13,5 +13,8 @@ COPY . .
 RUN uv sync --locked --no-dev
 ARG APP_RELEASE=""
 ENV APP_RELEASE=$APP_RELEASE
+# The app never runs as root (audit V3): code and venv stay root-owned and read-only to it.
+RUN useradd --system --uid 10001 --no-create-home --home-dir /nonexistent app
+USER app
 EXPOSE 8000
 CMD ["sh", "-c", "alembic upgrade head && uvicorn ayda.main:app --host 0.0.0.0 --port 8000"]

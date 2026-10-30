@@ -12,9 +12,20 @@ x-backend: &backend
     CENTRIFUGO_PUBLIC_URL: wss://${AYDA_DOMAIN:?}/connection/websocket
     INVITE_BASE_URL: https://${AYDA_DOMAIN:?}
   restart: unless-stopped
+  # The image runs as a non-root user; no Linux capabilities and no privilege gain (audit V3).
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
   logging: &logging
     driver: json-file
     options: { max-size: 20m, max-file: "5" }
+
+# Secrets from .env that a service never uses are blanked for it, so a hole in one service
+# leaks fewer keys (audit V3). The worker keeps them all: backups, push, listings, mail.
+x-no-worker-secrets: &no_worker_secrets
+  BACKUP_S3_ACCESS_KEY_ID: ""
+  BACKUP_S3_SECRET_ACCESS_KEY: ""
+  FCM_SERVICE_ACCOUNT_JSON: ""
+  TIMEPAD_TOKEN: ""
 
 services:
   postgres:
@@ -46,6 +57,15 @@ services:
 
   api:
     <<: *backend
+    environment:
+      <<: *no_worker_secrets
+      ENVIRONMENT: prod
+      DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:?}@postgres:5432/ayda
+      CENTRIFUGO_API_URL: http://centrifugo:8000/api
+      CENTRIFUGO_PUBLIC_URL: wss://${AYDA_DOMAIN:?}/connection/websocket
+      INVITE_BASE_URL: https://${AYDA_DOMAIN:?}
+    mem_limit: 1g
+    cpus: 2
     command:
       [
         "uvicorn", "ayda.main:app", "--host", "0.0.0.0", "--port", "8000",
@@ -66,6 +86,10 @@ services:
   worker:
     <<: *backend
     command: ["python", "-m", "ayda.worker"]
+    # ffmpeg re-encodes uploaded video here: a heavy file must not starve the whole server.
+    mem_limit: 1536m
+    cpus: 2
+    pids_limit: 256
     depends_on:
       migrate: { condition: service_completed_successfully }
 
@@ -74,10 +98,19 @@ services:
     <<: *backend
     command: ["python", "-m", "ayda.bot"]
     environment:
+      <<: *no_worker_secrets
+      # The bot needs Telegram and the database only.
+      GROQ_API_KEY: ""
+      CF_ACCOUNT_ID: ""
+      CF_API_TOKEN: ""
+      S3_ACCESS_KEY_ID: ""
+      S3_SECRET_ACCESS_KEY: ""
+      SMTP_PASSWORD: ""
       ENVIRONMENT: prod
       DATABASE_URL: postgresql+asyncpg://ayda:${POSTGRES_PASSWORD:?}@postgres:5432/ayda
       TELEGRAM_WEBHOOK_URL: https://${AYDA_DOMAIN:?}/telegram/webhook
       MINIAPP_URL: https://${AYDA_DOMAIN:?}/
+    mem_limit: 512m
     depends_on:
       migrate: { condition: service_completed_successfully }
 

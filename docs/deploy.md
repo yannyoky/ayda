@@ -41,10 +41,14 @@ Pull requests touching `deploy/` or `infra/` validate the Compose file and build
 `python -m ayda.smoke` calls every external service through the app's own clients with the server's settings and prints one line each: weather (Open-Meteo), listings (Timepad, KudaGo), each Overpass instance in `VENUES_OVERPASS_URLS`, each LLM provider in `LLM_PROVIDERS`, Telegram and S3. Run it on the VPS after the first deploy and whenever places, listings or the assistant stop working:
 
 ```sh
-cd /opt/ayda && docker compose -f docker-compose.prod.yml exec api python -m ayda.smoke
+cd /opt/ayda && docker compose -f docker-compose.prod.yml exec worker python -m ayda.smoke
 ```
 
 `FAIL` names the service and the error type (never keys or response bodies); `SKIP` means it is not configured. The exit code is 1 if anything failed. The same checks run weekly from GitHub (workflow Live checks, `pytest -m live`), but GitHub runners are outside Russia, so only the run on the VPS shows what production can reach.
+
+## Service isolation
+
+The backend image runs as the non-root user `app`; `api`, `worker`, `bot` and `migrate` have no Linux capabilities and cannot gain privileges. Every service reads `.env`, but secrets it never uses are blanked in `docker-compose.prod.yml`: only the worker keeps the backup keys, `FCM_SERVICE_ACCOUNT_JSON` and `TIMEPAD_TOKEN`, and the bot gets no LLM, S3 or SMTP keys. Memory and CPU are capped (worker 1.5 GB, api 1 GB, bot 512 MB), so a heavy video upload cannot take the whole server down.
 
 ## Backups
 

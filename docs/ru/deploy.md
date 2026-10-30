@@ -41,10 +41,14 @@ api / worker / bot ──▶ postgres     worker ──▶ S3 (photos, daily pg_
 `python -m ayda.smoke` обращается ко всем внешним сервисам через клиенты самого приложения с настройками сервера и печатает по строке на каждый: погода (Open-Meteo), афиша (Timepad, KudaGo), каждый сервер Overpass из `VENUES_OVERPASS_URLS`, каждый LLM-провайдер из `LLM_PROVIDERS`, Telegram и S3. Запускайте на VPS после первого деплоя и всякий раз, когда перестают работать места, афиша или ассистент:
 
 ```sh
-cd /opt/ayda && docker compose -f docker-compose.prod.yml exec api python -m ayda.smoke
+cd /opt/ayda && docker compose -f docker-compose.prod.yml exec worker python -m ayda.smoke
 ```
 
 `FAIL` называет сервис и тип ошибки (без ключей и тел ответов); `SKIP` значит, что сервис не настроен. Код выхода 1, если что-то упало. Те же проверки раз в неделю запускаются из GitHub (workflow Live checks, `pytest -m live`), но раннеры GitHub находятся вне России, поэтому только запуск на VPS показывает, что доступно продакшену.
+
+## Изоляция сервисов
+
+Образ бэкенда работает от пользователя `app`, а не от root; у `api`, `worker`, `bot` и `migrate` нет Linux capabilities и нет способа повысить права. Все сервисы читают `.env`, но ненужные им секреты обнулены в `docker-compose.prod.yml`: ключи бэкапов, `FCM_SERVICE_ACCOUNT_JSON` и `TIMEPAD_TOKEN` есть только у worker, а бот не получает ключей LLM, S3 и SMTP. Память и CPU ограничены (worker 1,5 ГБ, api 1 ГБ, bot 512 МБ), так что тяжёлое видео не положит весь сервер.
 
 ## Бэкапы
 
