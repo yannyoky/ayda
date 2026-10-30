@@ -7,13 +7,19 @@
 {$AYDA_DOMAIN} {
 	encode zstd gzip
 	header {
-		Strict-Transport-Security "max-age=31536000"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
+		# Scripts only from our origin and Telegram's Mini App bridge; framing only by Telegram Web.
+		Content-Security-Policy "script-src 'self' https://telegram.org; object-src 'none'; base-uri 'self'; frame-ancestors 'self' https://web.telegram.org"
 		-Server
 	}
 
 	handle /api/* {
+		# JSON only: media goes straight to S3 with presigned URLs (audit V6).
+		request_body {
+			max_size 1MB
+		}
 		reverse_proxy api:8000
 	}
 	handle /telegram/webhook {

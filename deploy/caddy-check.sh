@@ -32,4 +32,12 @@ grep -q '<b>' <<<"$body" && fail "/app/* reflects the request path"
 grep -q 'injected' <<<"$body" && fail "/app/* reflects the request path"
 grep -q 'intent://localhost/app/signed-in#Intent' <<<"$body" || fail "/app/* intent link changed"
 
+# Audit M4: security headers on every response.
+headers="$(curl -s -D - -o /dev/null "http://localhost:$PORT/app/signed-in")"
+grep -qi "^content-security-policy: script-src 'self' https://telegram.org;" <<<"$headers" \
+  || fail "no Content-Security-Policy"
+grep -qi "frame-ancestors 'self' https://web.telegram.org" <<<"$headers" || fail "no frame-ancestors"
+grep -qi "^strict-transport-security: max-age=31536000; includeSubDomains" <<<"$headers" \
+  || fail "no HSTS includeSubDomains"
+
 echo "Caddyfile checks passed"
