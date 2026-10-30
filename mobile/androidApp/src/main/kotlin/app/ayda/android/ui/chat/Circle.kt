@@ -328,6 +328,8 @@ fun PlayableVideo(
                 TextureView(ctx).apply {
                     surfaceTextureListener =
                         object : TextureView.SurfaceTextureListener {
+                            // The surface is released in onSurfaceTextureDestroyed.
+                            @SuppressLint("Recycle")
                             override fun onSurfaceTextureAvailable(
                                 texture: SurfaceTexture,
                                 width: Int,

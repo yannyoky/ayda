@@ -1,5 +1,6 @@
 package app.ayda.android.ui.chat
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.media.AudioAttributes
@@ -283,6 +284,8 @@ fun CirclePlayer(
                 TextureView(ctx).apply {
                     surfaceTextureListener =
                         object : TextureView.SurfaceTextureListener {
+                            // The surface is released in onSurfaceTextureDestroyed.
+                            @SuppressLint("Recycle")
                             override fun onSurfaceTextureAvailable(
                                 texture: SurfaceTexture,
                                 width: Int,
