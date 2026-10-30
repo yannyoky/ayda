@@ -318,3 +318,18 @@ def test_names_are_compared_across_alphabets() -> None:
     assert name_score("Ростерхит", "Roasterhit") >= 0.78
     assert name_score("ростер хит", "РОСТЕРХИТ") == 1.0
     assert name_score("Ростерхит", "Кофейня на углу") < 0.78
+
+
+async def test_over_the_daily_limit_code_guesses_without_the_assistant(
+    app: FastAPI, client: httpx.AsyncClient, database: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Audit V6: one user cannot burn the shared free LLM quota.
+    monkeypatch.setattr("ayda.app.meetup.LLM_DAILY_LIMIT", 1)
+    llm = FakeProvider(answers=[intent()] * 2)
+    use_tools(app, [llm], forecast())
+    alice, _, conversation = await chat_between(client, database, "Го в кафе в 18:30?")
+
+    assert (await suggest(client, alice, conversation)).json()["source"] == "llm"
+    second = (await suggest(client, alice, conversation)).json()
+    assert second["source"] == "code" and second["kind"] == "venue"
+    assert len(llm.calls) == 1

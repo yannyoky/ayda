@@ -6,7 +6,7 @@ never says a dish is safe: allergens are shown and named ones filter recipes out
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +36,8 @@ from ayda.modules.assistant import recipes
 CANDIDATES = 12
 PICKS = 3
 LLM_DEADLINE_S = 12.0
+# Suggestions per user per 24 hours that may go to the LLM; more get the code order (audit V6).
+LLM_DAILY_LIMIT = 20
 SHOPPING_MINUTES = 40
 MAX_ITEMS = 20
 ITEM_CHARS = 120
@@ -82,6 +84,13 @@ def _find(recipe_id: str) -> recipes.Recipe:
     return found
 
 
+async def _llm_allowed(session: AsyncSession, user: auth.User, now: datetime) -> bool:
+    used = await analytics.count_since(
+        session, user.id, EventType.RECIPES_SUGGESTED, now - timedelta(days=1)
+    )
+    return used < LLM_DAILY_LIMIT
+
+
 async def suggest(
     session: AsyncSession,
     tools: DayTools,
@@ -101,7 +110,7 @@ async def suggest(
     why: dict[str, str] = {}
     source = "code"
     chosen = found[:PICKS]
-    if len(found) >= 2:
+    if len(found) >= 2 and await _llm_allowed(session, user, now):
         summary: list[dict[str, object]] = [
             {"id": r.id, "title": r.title, "minutes": r.minutes, "meal": r.meal, "tags": r.tags}
             for r in found

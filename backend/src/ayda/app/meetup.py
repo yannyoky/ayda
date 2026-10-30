@@ -35,6 +35,9 @@ DEFAULT_TIME = time(19, 0)
 DEFAULT_KINDS = ("cafe", "restaurant", "pub")
 DEFAULT_DURATION = 90
 LLM_DEADLINE_S = 12.0
+# Taps per user per 24 hours that may go to the LLM; more get the code-only guess, so one
+# script cannot burn the free daily quota for everyone (audit V6).
+LLM_DAILY_LIMIT = 30
 MAX_FRIENDS = 3
 
 NOTE_TOO_LATE = "На сегодня уже поздно: план живёт до конца дня. Попробуйте завтра."
@@ -90,7 +93,14 @@ async def suggest(
     await chat_app.get_conversation(session, user.id, conversation_id)
     rows = await chat.recent_messages(session, conversation_id, MESSAGES_READ)
     texts = [m.text[:MESSAGE_CHARS] for m in rows]
-    result = await assistant.plan_meetup(tools.assistant, texts, deadline_s=LLM_DEADLINE_S)
+    used = await analytics.count_since(
+        session, user.id, EventType.MEETUP_SUGGESTED, now - timedelta(days=1)
+    )
+    result = (
+        await assistant.plan_meetup(tools.assistant, texts, deadline_s=LLM_DEADLINE_S)
+        if used < LLM_DAILY_LIMIT
+        else None
+    )
     if result is not None:
         intent, source = result.value, "llm"
     else:

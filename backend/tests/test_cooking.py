@@ -211,3 +211,20 @@ async def test_cooking_alone_rejects_bad_input(client: httpx.AsyncClient) -> Non
     assert (await cook("nope")).status_code == 404
     assert (await cook("pancakes", at_home=["gold"])).status_code == 422
     assert (await cook("pancakes", servings=9)).status_code == 422
+
+
+async def test_over_the_daily_limit_code_picks_without_the_assistant(
+    app: FastAPI, client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Audit V6: one user cannot burn the shared free LLM quota.
+    monkeypatch.setattr(cooking, "LLM_DAILY_LIMIT", 1)
+    llm = FakeProvider(answers=[picks("syrniki", "pancakes")] * 2)
+    use_tools(app, [llm], forecast())
+    alice, bob = await friends(client)
+
+    assert (await suggest(client, alice, meal="breakfast")).json()["source"] == "llm"
+    second = (await suggest(client, alice, meal="breakfast")).json()
+    assert second["source"] == "code" and second["recipes"]
+    assert len(llm.calls) == 1
+    # The limit is per user.
+    assert (await suggest(client, bob, meal="breakfast")).json()["source"] == "llm"

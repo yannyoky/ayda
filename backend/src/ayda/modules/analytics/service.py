@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.modules.analytics.models import Event
@@ -147,6 +147,18 @@ async def record(
     if occurred_at is not None:
         event.occurred_at = occurred_at
     session.add(event)
+
+
+async def count_since(
+    session: AsyncSession, user_id: uuid.UUID, type: EventType, since: datetime
+) -> int:
+    """How many events of this type the user has had since `since` (e.g. for daily limits)."""
+    found = await session.scalar(
+        select(func.count())
+        .select_from(Event)
+        .where(Event.user_id == user_id, Event.type == type.value, Event.occurred_at >= since)
+    )
+    return found or 0
 
 
 async def anonymize_user(session: AsyncSession, user_id: uuid.UUID) -> uuid.UUID:
