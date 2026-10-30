@@ -1,3 +1,4 @@
+import re
 import secrets
 from datetime import time
 from functools import lru_cache
@@ -5,6 +6,9 @@ from typing import Any, Literal, Self
 
 from pydantic import SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Telegram's secret_token alphabet; at least 16 characters so it cannot be guessed.
+_WEBHOOK_SECRET = re.compile(r"[A-Za-z0-9_-]{16,256}")
 
 
 class Settings(BaseSettings):
@@ -120,6 +124,14 @@ class Settings(BaseSettings):
             for name in ("telegram_bot_token", "centrifugo_api_key", "centrifugo_token_secret"):
                 if getattr(self, name) is None:
                     raise ValueError(f"{name.upper()} is required in prod")
+        if self.telegram_webhook_url:
+            # Without the secret anyone could post a fake "confirm sign-in" tap (audit V1).
+            secret = self.telegram_webhook_secret
+            if secret is None or not _WEBHOOK_SECRET.fullmatch(secret.get_secret_value()):
+                raise ValueError(
+                    "TELEGRAM_WEBHOOK_SECRET is required with TELEGRAM_WEBHOOK_URL: "
+                    "16-256 characters A-Z, a-z, 0-9, _ or -"
+                )
         return self
 
     @property
