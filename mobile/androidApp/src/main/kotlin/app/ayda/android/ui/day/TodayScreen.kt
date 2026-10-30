@@ -1,52 +1,79 @@
 package app.ayda.android.ui.day
 
+import android.content.Context
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import androidx.core.content.edit
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.ayda.android.R
 import app.ayda.android.ui.Card
+import app.ayda.android.ui.EaseOutQuint
 import app.ayda.android.ui.LocalAydaColors
+import app.ayda.android.ui.PressButton
 import app.ayda.android.ui.PrimaryButton
 import app.ayda.android.ui.QuietButton
+import app.ayda.android.ui.Segmented
+import app.ayda.android.ui.Unbounded
 import app.ayda.android.ui.assistant.EventView
-import app.ayda.android.ui.coop.CoopButton
 import app.ayda.android.ui.coop.CoopInvites
 import app.ayda.api.models.AssistantEvent
 import app.ayda.api.models.Day
@@ -57,7 +84,10 @@ import app.ayda.api.models.PoolStatus
 import app.ayda.api.models.QuestState
 import app.ayda.api.models.Visibility
 import app.ayda.api.models.Weather
+import app.ayda.shared.Motion
+import app.ayda.shared.Radii
 import app.ayda.shared.coop.CoopsViewModel
+import app.ayda.shared.day.DayStage
 import app.ayda.shared.day.TodayState
 import app.ayda.shared.day.TodayViewModel
 import java.text.NumberFormat
@@ -65,8 +95,9 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 /**
- * The morning half of the loop (US-05..US-08): the check-in and the day's quests. Streak and
- * points live on the friends tab, so this screen keeps its room for the day itself.
+ * The morning half of the loop (US-05..US-08): the check-in and the day's quests as one card,
+ * under a title that says the next step. Streak and points live on the friends tab, so this
+ * screen keeps its room for the day itself.
  */
 @Composable
 fun TodayScreen(
@@ -104,7 +135,7 @@ fun TodayScreen(
                 .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Header(state.day, me)
+        Header(state, me)
         state.loadError?.let { error ->
             Card {
                 Text(error, style = MaterialTheme.typography.bodyLarge)
@@ -112,19 +143,31 @@ fun TodayScreen(
             }
         }
         val day = state.day ?: return@Column
+        // One card for the day: the check-in plate on top, the quests tucked under it
+        Column(Modifier.fillMaxWidth()) {
+            Box(Modifier.zIndex(1f)) {
+                if (state.showCheckinForm) {
+                    CheckinForm(state, model)
+                } else {
+                    CheckinDone(day, model, onChat = { onAssistant(null) })
+                }
+            }
+            if (state.stage != DayStage.Checkin) {
+                QuestsCard(
+                    state,
+                    day,
+                    onPick,
+                    model::openOwnQuest,
+                    QuestActions(
+                        onComplete = onComplete,
+                        onDiscuss = { onAssistant(it) },
+                        onOpenCoop = onOpenCoop,
+                        onInvite = onInviteCoop,
+                    ),
+                )
+            }
+        }
         CoopInvites(coops, onOpen = onOpenCoop)
-        if (state.showCheckinForm) {
-            CheckinForm(
-                state,
-                model,
-            )
-        } else {
-            CheckinDone(day, model, onChat = { onAssistant(null) })
-        }
-        QuestsCard(state, day, onPick, onComplete, model::openOwnQuest) {
-            DiscussButton(it) { onAssistant(it) }
-            CoopButton(it, onOpenCoop, onInviteCoop)
-        }
         TopEvents(state.topEvents)
     }
     if (state.ownQuest != null) OwnQuestSheet(state, model)
@@ -149,22 +192,34 @@ private fun TopEvents(items: List<AssistantEvent>) {
     }
 }
 
-private val dayTitle = DateTimeFormatter.ofPattern("EEEE, d MMMM", Russian)
+private val shortDay = DateTimeFormatter.ofPattern("EE, d MMMM", Russian)
 
 @Composable
 private fun Header(
-    day: Day?,
+    state: TodayState,
     me: Me,
 ) {
     val colors = LocalAydaColors.current
-    // A neutral header: the date, then where and what the weather is, no greeting.
+    val day = state.day
+    // The date, city and weather are one quiet line; the title is the next step of the day.
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         val date = day?.let { java.time.LocalDate.parse(it.localDate.toString()) } ?: java.time.LocalDate.now()
-        Text(dayTitle.format(date).replaceFirstChar(Char::titlecase), style = MaterialTheme.typography.headlineLarge)
-        val place = listOfNotNull(me.city?.name, day?.weather?.text()).joinToString(" · ")
-        if (place.isNotEmpty()) {
-            Text(place, style = MaterialTheme.typography.labelLarge, color = colors.muted)
-        }
+        val eyebrow =
+            listOfNotNull(
+                shortDay.format(date).replaceFirstChar(Char::titlecase),
+                me.city?.name,
+                day?.weather?.text(),
+            ).joinToString(" · ")
+        Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = colors.muted)
+        val title =
+            when (state.stage) {
+                null -> stringResource(R.string.nav_today)
+                DayStage.Checkin -> stringResource(R.string.today_stage_checkin)
+                DayStage.Pick -> stringResource(R.string.today_stage_pick)
+                DayStage.Doing -> stringResource(R.string.today_stage_doing, state.completedCount, state.mine.size)
+                DayStage.Done -> stringResource(R.string.today_stage_done)
+            }
+        Text(title, style = MaterialTheme.typography.headlineLarge)
     }
 }
 
@@ -207,30 +262,20 @@ private fun CheckinForm(
                     unfocusedTextColor = colors.onPlate,
                     focusedBorderColor = colors.accent,
                     unfocusedBorderColor = Color.Transparent,
-                    focusedPlaceholderColor = colors.onPlate.copy(alpha = 0.5f),
-                    unfocusedPlaceholderColor = colors.onPlate.copy(alpha = 0.5f),
+                    focusedPlaceholderColor = colors.onPlate.copy(alpha = 0.6f),
+                    unfocusedPlaceholderColor = colors.onPlate.copy(alpha = 0.6f),
                     cursorColor = colors.accent,
                 ),
         )
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            Mood.entries.forEachIndexed { index, mood ->
-                SegmentedButton(
-                    selected = state.mood == mood,
-                    onClick = { model.onMoodChange(mood) },
-                    shape = SegmentedButtonDefaults.itemShape(index, Mood.entries.size),
-                    icon = {},
-                    colors =
-                        SegmentedButtonDefaults.colors(
-                            activeContainerColor = colors.accent,
-                            activeContentColor = colors.onAccent,
-                            inactiveContainerColor = colors.plate2,
-                            inactiveContentColor = colors.onPlate,
-                            activeBorderColor = Color.Transparent,
-                            inactiveBorderColor = Color.Transparent,
-                        ),
-                ) { Text(mood.label()) }
-            }
-        }
+        Segmented(
+            options = Mood.entries.map { it to it.label() },
+            selected = state.mood,
+            onSelect = model::onMoodChange,
+            track = colors.plate2,
+            pill = colors.accent,
+            selectedText = colors.onAccent,
+            text = colors.onPlate.copy(alpha = 0.7f),
+        )
         Text(
             stringResource(R.string.today_checkin_hint),
             style = MaterialTheme.typography.bodyMedium,
@@ -266,106 +311,141 @@ private fun CheckinDone(
 ) {
     val colors = LocalAydaColors.current
     val checkin = day.checkin ?: return
-    Column(
+    Row(
         Modifier.fillMaxWidth().background(colors.plate, MaterialTheme.shapes.large).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                Modifier.size(44.dp).background(colors.plate2, MaterialTheme.shapes.small),
-                contentAlignment = Alignment.Center,
-            ) { AydaIcon(R.drawable.ic_check, colors.accent) }
-            Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.today_checkin_done, checkin.mood.label().lowercase(Russian)),
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.onPlate,
+            )
+            if (checkin.text.isNotBlank()) {
                 Text(
-                    stringResource(R.string.today_checkin_done, checkin.mood.label().lowercase(Russian)),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.onPlate,
+                    checkin.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onPlate.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                if (checkin.text.isNotBlank()) {
-                    Text(
-                        checkin.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onPlate.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
-            Button(
-                onClick = model::editCheckin,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = colors.plate2, contentColor = colors.onPlate),
-            ) { Text(stringResource(R.string.today_checkin_redo), style = MaterialTheme.typography.labelLarge) }
         }
         // ADR 0013: the check-in goes on as a chat with the assistant
-        Button(
+        PressButton(
             onClick = onChat,
-            modifier = Modifier.fillMaxWidth().height(44.dp),
-            shape = MaterialTheme.shapes.medium,
-            colors = ButtonDefaults.buttonColors(containerColor = colors.plate2, contentColor = colors.onPlate),
+            containerColor = colors.accent,
+            contentColor = colors.onAccent,
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.size(44.dp),
         ) {
-            AydaIcon(R.drawable.ic_chat, colors.onPlate, size = 18)
-            Text(
-                stringResource(R.string.assistant_open),
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 8.dp),
+            AydaIcon(
+                R.drawable.ic_spark_filled,
+                colors.onAccent,
+                contentDescription = stringResource(R.string.assistant_open),
             )
         }
+        PressButton(
+            onClick = model::editCheckin,
+            containerColor = colors.plate2,
+            contentColor = colors.onPlate,
+            contentPadding = PaddingValues(14.dp, 0.dp),
+            modifier = Modifier.height(44.dp),
+        ) { Text(stringResource(R.string.today_checkin_redo), style = MaterialTheme.typography.labelLarge) }
     }
 }
 
-/** Opens the quest's own topic in the assistant chat; for quests still to do. */
-@Composable
-private fun DiscussButton(
-    quest: DayQuest,
-    onClick: () -> Unit,
-) {
-    val colors = LocalAydaColors.current
-    if (quest.state != QuestState.taken) return
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.size(40.dp).clip(MaterialTheme.shapes.small).background(colors.bg),
-    ) {
-        AydaIcon(
-            R.drawable.ic_chat,
-            colors.ink,
-            size = 18,
-            contentDescription = stringResource(R.string.assistant_discuss_quest, quest.title),
-        )
+private const val STREAK_PREFS = "ayda.ui"
+private const val STREAK_SEEN = "streak.seen"
+
+/** Big numbers shrink so "1000 дней" still fits the half-width tile. */
+private fun streakSize(streak: Int) =
+    when ("$streak".length) {
+        in 0..2 -> 52.sp
+        3 -> 44.sp
+        else -> 36.sp
     }
-}
 
 /** Streak and points, shown on the friends tab next to the ladder. */
 @Composable
-fun StatsRow(day: Day) {
+fun StatsRow(
+    day: Day,
+    onToday: () -> Unit,
+) {
     val colors = LocalAydaColors.current
     val streak = day.streak.currentDays
+    val context = LocalContext.current
+    // The number rolls up once, the first time the user sees a longer streak
+    val grew =
+        remember {
+            val prefs = context.getSharedPreferences(STREAK_PREFS, Context.MODE_PRIVATE)
+            val seen = if (prefs.contains(STREAK_SEEN)) prefs.getInt(STREAK_SEEN, 0) else null
+            seen != null && streak > seen
+        }
+    LaunchedEffect(streak) {
+        context.getSharedPreferences(STREAK_PREFS, Context.MODE_PRIVATE).edit { putInt(STREAK_SEEN, streak) }
+    }
     Row(Modifier.fillMaxWidth().height(136.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxSize()
-                .background(colors.accent, MaterialTheme.shapes.large)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                stringResource(R.string.today_streak),
-                style = MaterialTheme.typography.labelLarge,
-                color = colors.onAccent,
-            )
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("$streak", style = MaterialTheme.typography.displayLarge, color = colors.onAccent)
+        if (streak == 0) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .background(colors.plate, MaterialTheme.shapes.large)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Text(
-                    pluralStringResource(R.plurals.today_days, streak),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.onAccent,
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    stringResource(R.string.today_streak),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.onPlate.copy(alpha = 0.7f),
                 )
+                Text(
+                    stringResource(R.string.today_streak_start),
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = Unbounded),
+                    color = colors.onPlate,
+                )
+                PressButton(
+                    onClick = onToday,
+                    containerColor = colors.accent,
+                    contentColor = colors.onAccent,
+                    shape = RoundedCornerShape(Radii.CHIP.dp),
+                    contentPadding = PaddingValues(10.dp, 0.dp),
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text(stringResource(R.string.today_streak_start_cta), style = MaterialTheme.typography.labelLarge)
+                    AydaIcon(R.drawable.ic_arrow, colors.onAccent, size = 14, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+        } else {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .background(colors.accent, MaterialTheme.shapes.large)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(R.string.today_streak),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.onAccent,
+                )
+                Row(
+                    Modifier.clipToBounds(),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    StreakNumber(streak, grew)
+                    Text(
+                        pluralStringResource(R.plurals.today_days, streak),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.onAccent,
+                        maxLines = 1,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
             }
         }
         Column(
@@ -380,14 +460,44 @@ fun StatsRow(day: Day) {
             Text(
                 NumberFormat.getIntegerInstance(Russian).format(day.pointsWeek),
                 style = MaterialTheme.typography.headlineLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 stringResource(R.string.today_points_today, day.pointsToday),
                 style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.background(colors.bg, MaterialTheme.shapes.small).padding(8.dp, 4.dp),
+                modifier =
+                    Modifier
+                        .background(colors.bg, RoundedCornerShape(Radii.CHIP.dp))
+                        .padding(8.dp, 4.dp),
             )
         }
     }
+}
+
+/** The streak number; when it grew since the last visit it rolls up into place once. */
+@Composable
+private fun StreakNumber(
+    streak: Int,
+    grew: Boolean,
+) {
+    val colors = LocalAydaColors.current
+    val fontSize = streakSize(streak)
+    val progress = remember { Animatable(if (grew) 0f else 1f) }
+    LaunchedEffect(Unit) {
+        if (grew) progress.animateTo(1f, tween(Motion.STREAK_ROLL, easing = EaseOutQuint))
+    }
+    Text(
+        "$streak",
+        style = MaterialTheme.typography.displayLarge.copy(fontSize = fontSize, lineHeight = fontSize),
+        color = colors.onAccent,
+        maxLines = 1,
+        modifier =
+            Modifier.graphicsLayer {
+                translationY = (1f - progress.value) * size.height * 0.6f
+                alpha = progress.value
+            },
+    )
 }
 
 @Composable
@@ -407,24 +517,41 @@ private fun Weather.text(): String {
     return stringResource(R.string.today_weather, condition, if (degrees > 0) "+$degrees" else "$degrees")
 }
 
+/** What a quest row on Today can do; the row itself only shows "Готово", the rest is in its sheet. */
+private class QuestActions(
+    val onComplete: (DayQuest) -> Unit,
+    val onDiscuss: (DayQuest) -> Unit,
+    val onOpenCoop: (String) -> Unit,
+    val onInvite: (DayQuest) -> Unit,
+)
+
 @Composable
 private fun QuestsCard(
     state: TodayState,
     day: Day,
     onPick: () -> Unit,
-    onComplete: (DayQuest) -> Unit,
     onOwn: () -> Unit,
-    coopButton: @Composable (DayQuest) -> Unit,
+    actions: QuestActions,
 ) {
     val colors = LocalAydaColors.current
+    // Tucked under the check-in plate: its top hides behind the plate's rounded bottom
     Column(
-        Modifier.fillMaxWidth().background(colors.surface, MaterialTheme.shapes.large).padding(16.dp),
+        Modifier
+            .fillMaxWidth()
+            .layout { measurable, constraints ->
+                val tuck = TUCK.dp.roundToPx()
+                val placeable = measurable.measure(constraints)
+                layout(placeable.width, placeable.height - tuck) { placeable.place(0, -tuck) }
+            }.background(
+                colors.surface,
+                RoundedCornerShape(bottomStart = Radii.CARD.dp, bottomEnd = Radii.CARD.dp),
+            ).padding(start = 16.dp, end = 16.dp, top = (TUCK + 16).dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(R.string.today_quests_title),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium.copy(fontFamily = Unbounded),
                 modifier = Modifier.weight(1f),
             )
             Text(
@@ -433,6 +560,7 @@ private fun QuestsCard(
                 color = colors.muted,
             )
         }
+        if (state.mine.isNotEmpty()) Progress(state.mine)
         when (day.poolStatus) {
             PoolStatus.generating -> Muted(stringResource(R.string.today_generating))
             PoolStatus.failed -> Muted(stringResource(R.string.today_pool_failed))
@@ -441,7 +569,7 @@ private fun QuestsCard(
         if (state.mine.isNotEmpty()) {
             state.mine.forEachIndexed { index, quest ->
                 if (index > 0) HorizontalDivider(color = colors.bg)
-                QuestRow(quest, onDone = { onComplete(quest) }, coopButton = { coopButton(quest) })
+                QuestRow(quest, actions)
             }
         } else if (day.poolStatus == PoolStatus.ready || day.poolStatus == PoolStatus.failed) {
             Muted(stringResource(R.string.today_none_taken))
@@ -450,15 +578,11 @@ private fun QuestsCard(
             // Stacked, not side by side: with a large system font the two labels don't fit in a row.
             Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.offered.isNotEmpty()) {
-                    Button(
+                    PressButton(
                         onClick = onPick,
+                        containerColor = colors.plate,
+                        contentColor = colors.onPlate,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = colors.plate,
-                                contentColor = colors.onPlate,
-                            ),
                     ) {
                         Text(
                             if (state.mine.isEmpty()) {
@@ -476,15 +600,60 @@ private fun QuestsCard(
                         )
                     }
                 }
-                Button(
+                PressButton(
                     onClick = onOwn,
+                    containerColor = colors.bg,
+                    contentColor = colors.ink,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.bg, contentColor = colors.ink),
                 ) {
                     AydaIcon(R.drawable.ic_plus, colors.ink, size = 18)
                     Text(stringResource(R.string.today_own), style = MaterialTheme.typography.titleMedium)
                 }
+            }
+        }
+    }
+}
+
+/** How far the quests card slides under the check-in plate, in dp. */
+private const val TUCK = 28
+
+/** One segment per quest taken today, filled as they are done. */
+@Composable
+private fun Progress(quests: List<DayQuest>) {
+    val colors = LocalAydaColors.current
+    val done = quests.count { it.state == QuestState.completed }
+    val label = stringResource(R.string.today_progress)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp)
+            .semantics {
+                contentDescription = label
+                progressBarRangeInfo = ProgressBarRangeInfo(done.toFloat(), 0f..quests.size.toFloat(), quests.size)
+            },
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        quests.forEach { quest ->
+            val fill by animateFloatAsState(
+                if (quest.state == QuestState.completed) 1f else 0f,
+                tween(500, easing = EaseOutQuint),
+                label = "progress",
+            )
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(6.dp)
+                    .clip(CircleShape)
+                    .background(colors.track),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = fill
+                            transformOrigin = TransformOrigin(0f, 0.5f)
+                        }.background(colors.accent, CircleShape),
+                )
             }
         }
     }
@@ -499,104 +668,192 @@ private fun Muted(text: String) =
         modifier = Modifier.padding(vertical = 8.dp),
     )
 
-/** A taken, completed or expired quest; an event quest shows its time, place, price and source. */
+@Composable
+private fun questMeta(quest: DayQuest): String {
+    val event = quest.event
+    return when {
+        quest.state == QuestState.completed ->
+            stringResource(R.string.today_completed) + quest.visibility?.let { " · " + it.doneText() }.orEmpty()
+        quest.state == QuestState.expired -> stringResource(R.string.today_expired)
+        event != null -> eventSummary(event)
+        else ->
+            listOfNotNull(
+                quest.coopId?.let { stringResource(R.string.coop_together) },
+                stringResource(R.string.quest_minutes, quest.durationMin),
+                quest.why,
+            ).joinToString(" · ")
+    }
+}
+
+/**
+ * A taken, completed or expired quest. The row keeps only "Готово" so the title has room; a tap
+ * on the title opens a sheet with the rest: discuss it with the assistant, do it with friends
+ * (US-18) or open its co-op, and the event link (US-19).
+ */
 @Composable
 private fun QuestRow(
     quest: DayQuest,
-    onDone: () -> Unit,
-    coopButton: @Composable () -> Unit,
+    actions: QuestActions,
 ) {
     val colors = LocalAydaColors.current
+    val haptics = LocalHapticFeedback.current
+    val taken = quest.state == QuestState.taken
     val completed = quest.state == QuestState.completed
     val expired = quest.state == QuestState.expired
-    val event = quest.event
-    val meta =
-        when {
-            completed ->
-                stringResource(R.string.today_completed) +
-                    quest.visibility?.let { " · " + it.doneText() }.orEmpty()
-            expired -> stringResource(R.string.today_expired)
-            event != null -> eventSummary(event)
-            else ->
-                listOfNotNull(
-                    quest.coopId?.let { stringResource(R.string.coop_together) },
-                    stringResource(R.string.quest_minutes, quest.durationMin),
-                    quest.why,
-                ).joinToString(" · ")
-        }
-    // The title gets the whole width; the buttons sit on their own line under the text.
-    Column(
+    var open by rememberSaveable(quest.id) { mutableStateOf(false) }
+    val done = {
+        haptics.performHapticFeedback(HapticFeedbackType.VirtualKey)
+        open = false
+        actions.onComplete(quest)
+    }
+    Row(
         Modifier.fillMaxWidth().padding(vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (completed) {
-                Box(
-                    Modifier.size(44.dp).background(colors.plate, MaterialTheme.shapes.small),
-                    contentAlignment = Alignment.Center,
-                ) { AydaIcon(R.drawable.ic_check, colors.onPlate) }
-            } else {
-                CategoryTile(quest.category)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    quest.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (completed || expired) colors.muted else colors.ink,
-                    textDecoration = if (completed || expired) TextDecoration.LineThrough else null,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    meta,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.muted,
-                    maxLines = if (event != null) 3 else 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (event != null && !completed && !expired) EventLink(event)
-            }
-            if (quest.state != QuestState.taken) {
-                Text(
-                    stringResource(R.string.quest_points, quest.pointsAwarded ?: quest.basePoints),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    softWrap = false,
-                )
-            }
-        }
-        if (quest.state == QuestState.taken) {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-            ) {
-                Text(
-                    stringResource(R.string.quest_points, quest.basePoints),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.muted,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.weight(1f).padding(start = 56.dp),
-                )
-                coopButton()
-                Button(
-                    onClick = onDone,
-                    shape = MaterialTheme.shapes.medium,
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = colors.accent,
-                            contentColor = colors.onAccent,
-                        ),
-                ) { Text(stringResource(R.string.today_done), style = MaterialTheme.typography.titleMedium) }
-            }
+        if (completed) {
+            Box(
+                Modifier.size(44.dp).background(colors.plate, MaterialTheme.shapes.small),
+                contentAlignment = Alignment.Center,
+            ) { AydaIcon(R.drawable.ic_check, colors.onPlate) }
         } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { coopButton() }
+            CategoryTile(quest.category)
         }
+        Column(
+            Modifier
+                .weight(1f)
+                .clip(MaterialTheme.shapes.small)
+                .clickable(enabled = taken, role = Role.Button, onClick = { open = true }),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                quest.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (completed || expired) colors.muted else colors.ink,
+                textDecoration = if (completed || expired) TextDecoration.LineThrough else null,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                questMeta(quest),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (taken) {
+            PressButton(
+                onClick = done,
+                containerColor = colors.accent,
+                contentColor = colors.onAccent,
+                contentPadding = PaddingValues(14.dp, 0.dp),
+                modifier = Modifier.height(40.dp),
+            ) { Text(stringResource(R.string.today_done), style = MaterialTheme.typography.titleMedium) }
+        } else {
+            Text(
+                stringResource(R.string.quest_points, quest.pointsAwarded ?: quest.basePoints),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
+    }
+    if (open) QuestSheet(quest, actions, onClose = { open = false }, onDone = done)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QuestSheet(
+    quest: DayQuest,
+    actions: QuestActions,
+    onClose: () -> Unit,
+    onDone: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    val coopId = quest.coopId
+    // ModalBottomSheet slides up, and a swipe or a flick down closes it (docs/design/themes.md)
+    ModalBottomSheet(onDismissRequest = onClose, containerColor = colors.bg) {
+        Column(
+            Modifier
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(quest.title, style = MaterialTheme.typography.headlineSmall)
+                Text(questMeta(quest), style = MaterialTheme.typography.labelLarge, color = colors.muted)
+                quest.event?.let { EventLink(it) }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SheetAction(
+                    R.drawable.ic_spark,
+                    stringResource(R.string.today_action_discuss),
+                    stringResource(R.string.assistant_discuss_quest, quest.title),
+                ) {
+                    onClose()
+                    actions.onDiscuss(quest)
+                }
+                if (coopId != null) {
+                    SheetAction(
+                        R.drawable.ic_friends,
+                        stringResource(R.string.today_action_coop),
+                        stringResource(R.string.coop_open, quest.title),
+                    ) {
+                        onClose()
+                        actions.onOpenCoop(coopId)
+                    }
+                } else {
+                    SheetAction(
+                        R.drawable.ic_friends,
+                        stringResource(R.string.today_action_invite),
+                        stringResource(R.string.coop_invite_to, quest.title),
+                    ) {
+                        onClose()
+                        actions.onInvite(quest)
+                    }
+                }
+            }
+            PressButton(
+                onClick = onDone,
+                containerColor = colors.accent,
+                contentColor = colors.onAccent,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            ) { Text(stringResource(R.string.today_action_done), style = MaterialTheme.typography.titleMedium) }
+        }
+    }
+}
+
+@Composable
+private fun SheetAction(
+    icon: Int,
+    label: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    val colors = LocalAydaColors.current
+    PressButton(
+        onClick = onClick,
+        containerColor = colors.surface,
+        contentColor = colors.ink,
+        contentPadding = PaddingValues(16.dp, 0.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .semantics { contentDescription = description },
+    ) {
+        Box(
+            Modifier.size(36.dp).background(colors.bg, MaterialTheme.shapes.small),
+            contentAlignment = Alignment.Center,
+        ) { AydaIcon(icon, colors.ink, size = 18) }
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
+        )
     }
 }
 

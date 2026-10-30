@@ -139,30 +139,6 @@ fun CoopInvites(
     }
 }
 
-/** The co-op button on a quest row: opens the co-op, or offers to invite friends to a taken quest. */
-@Composable
-fun CoopButton(
-    quest: DayQuest,
-    onOpen: (String) -> Unit,
-    onInvite: (DayQuest) -> Unit,
-) {
-    val colors = LocalAydaColors.current
-    val coopId = quest.coopId
-    if (coopId == null && quest.state != QuestState.taken) return
-    IconButton(
-        onClick = { if (coopId != null) onOpen(coopId) else onInvite(quest) },
-        modifier = Modifier.size(40.dp).clip(MaterialTheme.shapes.small).background(colors.bg),
-    ) {
-        AydaIcon(
-            R.drawable.ic_friends,
-            colors.ink,
-            size = 18,
-            contentDescription =
-                stringResource(if (coopId != null) R.string.coop_open else R.string.coop_invite_to, quest.title),
-        )
-    }
-}
-
 /** US-18: pick 1-3 friends to do a taken quest together. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

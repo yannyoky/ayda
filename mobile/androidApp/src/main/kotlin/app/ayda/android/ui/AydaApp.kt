@@ -305,9 +305,12 @@ private fun SignedInHome(
                 }
                 Screen.Friends -> {
                     val model = viewModel(key = "friends-${me.id}-$friendsRev") { FriendsViewModel(client) }
-                    FriendsScreen(model, todayState.day, onWrite = { friend ->
-                        chats.openDirect(friend.id) { openChat(it.id) }
-                    })
+                    FriendsScreen(
+                        model,
+                        todayState.day,
+                        onWrite = { friend -> chats.openDirect(friend.id) { openChat(it.id) } },
+                        onToday = { screen = Screen.Today },
+                    )
                 }
                 Screen.Profile -> {
                     val model =

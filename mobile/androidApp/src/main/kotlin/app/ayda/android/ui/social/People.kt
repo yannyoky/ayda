@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,9 +26,11 @@ import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.Unbounded
 import app.ayda.android.ui.day.Russian
 import app.ayda.api.models.UserSummary
+import app.ayda.shared.AvatarTints
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import java.text.BreakIterator
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.time.Clock
@@ -42,7 +48,19 @@ fun privateImage(url: String): ImageRequest =
         .diskCachePolicy(CachePolicy.DISABLED)
         .build()
 
-/** The Telegram avatar, or the first letter on a plate when there is none. */
+/** First user-perceived character, so an emoji or a combined letter is never cut in half. */
+fun initial(name: String): String {
+    val trimmed = name.trim()
+    if (trimmed.isEmpty()) return "?"
+    val breaks = BreakIterator.getCharacterInstance(Russian)
+    breaks.setText(trimmed)
+    return trimmed.substring(0, breaks.next()).uppercase(Russian)
+}
+
+/**
+ * The Telegram avatar, or the first character on one of six tints (docs/design/themes.md) when
+ * there is none or it fails to load. The tint comes from the user id, so a friend keeps one colour.
+ */
 @Composable
 fun Avatar(
     user: UserSummary,
@@ -51,19 +69,23 @@ fun Avatar(
     val colors = LocalAydaColors.current
     val shape = RoundedCornerShape((size * 0.35f).dp)
     val url = user.avatarUrl
-    if (url != null) {
+    var broken by remember(url) { mutableStateOf(false) }
+    if (url != null && !broken) {
         AsyncImage(
             model = privateImage(url),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            onError = { broken = true },
             modifier = Modifier.size(size.dp).clip(shape).background(colors.plate),
         )
     } else {
-        Box(Modifier.size(size.dp).background(colors.plate, shape), contentAlignment = Alignment.Center) {
+        val (tile, letter) = colors.avatars[AvatarTints.indexOf(user.id)]
+        Box(Modifier.size(size.dp).background(tile, shape), contentAlignment = Alignment.Center) {
             Text(
-                user.firstName.take(1).uppercase(Russian),
-                style = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.Bold, fontSize = (size * 0.36f).sp),
-                color = colors.accent,
+                initial(user.firstName),
+                style = TextStyle(fontFamily = Unbounded, fontWeight = FontWeight.Bold, fontSize = (size * 0.4f).sp),
+                color = letter,
+                maxLines = 1,
             )
         }
     }

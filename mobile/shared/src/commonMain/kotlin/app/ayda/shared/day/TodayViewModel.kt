@@ -83,7 +83,27 @@ data class TodayState(
     val canReplace: Boolean get() = !busy && (day?.limits?.replacementsLeft ?: 0) > 0
     val showCheckinForm: Boolean get() = day != null && (day.checkin == null || editingCheckin)
     val generating: Boolean get() = day?.poolStatus == PoolStatus.generating
+
+    /** Where the day is; the Today title follows it. Null until the day is loaded. */
+    val stage: DayStage?
+        get() = day?.let { dayStage(hasCheckin = it.checkin != null, mine = mine.map(DayQuest::state)) }
+    val completedCount: Int get() = mine.count { it.state == QuestState.completed }
 }
+
+/** The next step of the day: check in, pick quests, do them, or nothing left. */
+enum class DayStage { Checkin, Pick, Doing, Done }
+
+/** Same rules as the Mini App's Today title (PR #241). */
+fun dayStage(
+    hasCheckin: Boolean,
+    mine: List<QuestState>,
+): DayStage =
+    when {
+        mine.isEmpty() && !hasCheckin -> DayStage.Checkin
+        mine.isEmpty() -> DayStage.Pick
+        mine.any { it == QuestState.taken } -> DayStage.Doing
+        else -> DayStage.Done
+    }
 
 /**
  * The Today screen and the quest picker (US-05..US-08, US-19): morning check-in, the daily

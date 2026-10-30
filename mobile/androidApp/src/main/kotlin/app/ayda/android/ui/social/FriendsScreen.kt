@@ -20,16 +20,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -43,6 +39,7 @@ import app.ayda.android.R
 import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
+import app.ayda.android.ui.Segmented
 import app.ayda.android.ui.day.AydaIcon
 import app.ayda.android.ui.day.Russian
 import app.ayda.android.ui.day.StatsRow
@@ -65,6 +62,7 @@ fun FriendsScreen(
     /** Today's streak and points, moved here from the Today screen. */
     day: Day?,
     onWrite: (Friend) -> Unit,
+    onToday: () -> Unit,
 ) {
     val state by model.state.collectAsStateWithLifecycle()
     val colors = LocalAydaColors.current
@@ -95,7 +93,7 @@ fun FriendsScreen(
             }
             Text(stringResource(R.string.friends_title), style = MaterialTheme.typography.headlineLarge)
         }
-        day?.let { StatsRow(it) }
+        day?.let { StatsRow(it, onToday) }
         WeekSwitch(state.week, model::selectWeek)
         state.error?.let { Text(it, style = MaterialTheme.typography.labelLarge) }
         val ladder = state.ladder
@@ -148,31 +146,15 @@ private fun WeekSwitch(
     week: WeekGetLadder,
     onSelect: (WeekGetLadder) -> Unit,
 ) {
-    val colors = LocalAydaColors.current
-    val weeks =
-        listOf(
-            WeekGetLadder.current to R.string.friends_week_current,
-            WeekGetLadder.previous to R.string.friends_week_previous,
-        )
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        weeks.forEachIndexed { index, (value, label) ->
-            SegmentedButton(
-                selected = week == value,
-                onClick = { onSelect(value) },
-                shape = SegmentedButtonDefaults.itemShape(index, weeks.size),
-                icon = {},
-                colors =
-                    SegmentedButtonDefaults.colors(
-                        activeContainerColor = colors.plate,
-                        activeContentColor = colors.onPlate,
-                        inactiveContainerColor = colors.surface,
-                        inactiveContentColor = colors.muted,
-                        activeBorderColor = Color.Transparent,
-                        inactiveBorderColor = Color.Transparent,
-                    ),
-            ) { Text(stringResource(label)) }
-        }
-    }
+    Segmented(
+        options =
+            listOf(
+                WeekGetLadder.current to stringResource(R.string.friends_week_current),
+                WeekGetLadder.previous to stringResource(R.string.friends_week_previous),
+            ),
+        selected = week,
+        onSelect = onSelect,
+    )
 }
 
 private fun points(n: Int): String = NumberFormat.getIntegerInstance(Russian).format(n)
