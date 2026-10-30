@@ -1,4 +1,5 @@
 import pytest
+from pydantic import SecretStr
 
 from ayda.core.config import Settings
 from ayda.core.push import LogPushSender
@@ -21,3 +22,29 @@ def test_empty_value_keeps_a_non_optional_default(monkeypatch: pytest.MonkeyPatc
     # An empty list of sources still means "no sources", as documented.
     monkeypatch.setenv("EVENTS_SOURCES", "")
     assert Settings(environment="test").events_sources == ""
+
+
+def test_webhook_url_requires_a_secret() -> None:
+    # Audit V1: without the secret anyone could post a fake "confirm sign-in" tap.
+    url = "https://ayda.example/telegram/webhook"
+    with pytest.raises(ValueError, match="TELEGRAM_WEBHOOK_SECRET"):
+        Settings(environment="test", telegram_webhook_url=url)
+    with pytest.raises(ValueError, match="TELEGRAM_WEBHOOK_SECRET"):
+        Settings(
+            environment="test", telegram_webhook_url=url, telegram_webhook_secret=SecretStr("short")
+        )
+    with pytest.raises(ValueError, match="TELEGRAM_WEBHOOK_SECRET"):
+        Settings(
+            environment="test",
+            telegram_webhook_url=url,
+            telegram_webhook_secret=SecretStr("has spaces and = signs 0123456789"),
+        )
+    secret = "a" * 64  # gitleaks:allow
+    settings = Settings(
+        environment="test", telegram_webhook_url=url, telegram_webhook_secret=SecretStr(secret)
+    )
+    assert settings.telegram_webhook_secret is not None
+
+
+def test_polling_needs_no_webhook_secret() -> None:
+    assert Settings(environment="test").telegram_webhook_secret is None

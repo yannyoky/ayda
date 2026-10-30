@@ -27,11 +27,9 @@ async def run(settings: Settings) -> None:
             await bot.delete_webhook(drop_pending_updates=False)
             await dispatcher.start_polling(bot)  # pyright: ignore[reportUnknownMemberType]
             return
-        secret = (
-            settings.telegram_webhook_secret.get_secret_value()
-            if settings.telegram_webhook_secret
-            else None
-        )
+        # Settings refuse a webhook URL without a secret (audit V1).
+        assert settings.telegram_webhook_secret is not None
+        secret = settings.telegram_webhook_secret.get_secret_value()
         await bot.set_webhook(settings.telegram_webhook_url, secret_token=secret)
         app = web.Application()
         SimpleRequestHandler(dispatcher=dispatcher, bot=bot, secret_token=secret).register(
