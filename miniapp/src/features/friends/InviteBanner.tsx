@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { useAcceptInvite } from '../../api/queries'
+import { SIGN_OUT_PARAM } from '../../app/launch'
 import { t } from '../../i18n'
 import { haptic, startParam } from '../../telegram/webapp'
 import { Icon } from '../../ui/Icon'
@@ -17,9 +18,9 @@ export function InviteBanner() {
 
   useEffect(() => {
     const code = startParam()
-    // Bot buttons open the app with `r-morning` / `r-evening` (reminders) or `c<hex>` (a chat);
-    // those are not invite codes, which are 12 characters long
-    if (code?.startsWith('r-') || isChatParam(code)) return
+    // Bot buttons open the app with `r-morning` / `r-evening` (reminders), `c<hex>` (a chat) or
+    // `signout`; those are not invite codes, which are 12 characters long
+    if (code?.startsWith('r-') || isChatParam(code) || code === SIGN_OUT_PARAM) return
     if (started.current || !code) return
     started.current = true
     accept.mutate(code, { onSuccess: () => haptic('success') })

@@ -29,6 +29,7 @@ from ayda.modules.auth.service import (
     upsert_telegram_user,
     user_city_ids,
 )
+from ayda.modules.auth.sessions import end_all_sessions, token_revoked
 from ayda.modules.auth.telegram import InitData, InitDataError, TelegramUser, validate_init_data
 from ayda.modules.auth.telegram_login import (
     CODE_PREFIX,
@@ -38,7 +39,7 @@ from ayda.modules.auth.telegram_login import (
     exchange_request,
     find_pending,
 )
-from ayda.modules.auth.tokens import TokenError, issue_token, read_token
+from ayda.modules.auth.tokens import TokenError, issue_token, read_token, read_token_claims
 
 __all__ = [
     "CODE_PREFIX",
@@ -60,6 +61,7 @@ __all__ = [
     "consent_required",
     "create_request",
     "delete_user",
+    "end_all_sessions",
     "exchange_request",
     "find_or_create_email_user",
     "find_pending",
@@ -76,11 +78,13 @@ __all__ = [
     "mark_bot_reachable",
     "normalize_email",
     "read_token",
+    "read_token_claims",
     "register_device",
     "remove_device",
     "request_deletion",
     "revoke_refresh_token",
     "rotate_refresh_token",
+    "token_revoked",
     "unlink_identity",
     "upsert_telegram_user",
     "user_city_ids",

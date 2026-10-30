@@ -80,7 +80,7 @@ Conventions: primary keys are UUID v7 (`uuid`) unless noted; times are `timestam
 
 **auth.refresh_tokens**: id, user_id FK cascade, family_id, token_hash (SHA-256) unique, expires_at (60 days), used_at, revoked_at, created_at. Native sessions only; each refresh marks the token used and issues the next one in the family; a used token presented again revokes the family. Logout revokes the family, account deletion revokes all of the user's tokens.
 
-The API issues short-lived signed access tokens (12 hours) after the initData check or an email code; the Mini App signs in again with initData, native apps use refresh tokens.
+The API issues short-lived signed access tokens (12 hours) after the initData check or an email code; the Mini App signs in again with initData, native apps use refresh tokens. A native sign-in confirmed through Telegram can be phished (someone sends the victim the confirmation link), so after it the bot tells the Telegram account, always by bot and never by push, with an "it was not me" button. It opens the Mini App's "sign out everywhere" (`POST /auth/sign-out-everywhere`): access tokens issued before that moment are refused (`auth.users.sessions_revoked_at`, compared with the token's `iat`), refresh tokens are revoked and push devices forgotten.
 
 ### habits
 

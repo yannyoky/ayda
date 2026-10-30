@@ -10,6 +10,7 @@ import { FeedScreen } from '../screens/FeedScreen'
 import { FriendsScreen } from '../screens/FriendsScreen'
 import { PickScreen } from '../screens/PickScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
+import { SignOutEverywhereScreen } from '../screens/SignOutEverywhereScreen'
 import { TodayScreen } from '../screens/TodayScreen'
 import { Bootstrap } from './Bootstrap'
 import { launchPath } from './launch'
@@ -35,6 +36,7 @@ function createRouter(initialPath: string) {
       { path: 'quest/:id/done', element: <CompleteScreen /> },
       { path: 'chats/:id', element: <ChatScreen /> },
       { path: 'coops/:id', element: <CoopScreen /> },
+      { path: 'signout', element: <SignOutEverywhereScreen /> },
     ],
     { initialEntries: [initialPath] },
   )

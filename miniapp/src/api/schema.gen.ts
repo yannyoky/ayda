@@ -199,6 +199,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/sign-out-everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End every session of the current user
+         * @description Access tokens issued before now stop working, every refresh token is revoked and push
+         *     devices are forgotten. Offered after a native sign-in confirmed through Telegram
+         *     ("it was not me"), since the confirmation link can be phished. The caller signs in again.
+         */
+        post: operations["signOutEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -2631,6 +2653,25 @@ export interface operations {
                 content?: never;
             };
             422: components["responses"]["Problem"];
+        };
+    };
+    signOutEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every session ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
         };
     };
     getMe: {

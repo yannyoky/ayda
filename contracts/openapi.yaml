@@ -343,6 +343,21 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
 
+  /auth/sign-out-everywhere:
+    post:
+      tags: [auth]
+      operationId: signOutEverywhere
+      summary: End every session of the current user
+      description: |
+        Access tokens issued before now stop working, every refresh token is revoked and push
+        devices are forgotten. Offered after a native sign-in confirmed through Telegram
+        ("it was not me"), since the confirmation link can be phished. The caller signs in again.
+      responses:
+        '204':
+          description: Every session ended
+        '401':
+          $ref: '#/components/responses/Problem'
+
   /me:
     get:
       tags: [profile]

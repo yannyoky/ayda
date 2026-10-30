@@ -43,11 +43,13 @@ async def get_current_user(
     if credentials is None:
         raise _unauthorized()
     try:
-        user_id = auth.read_token(credentials.credentials, settings.token_secret)
+        user_id, issued_at = auth.read_token_claims(credentials.credentials, settings.token_secret)
     except auth.TokenError:
         raise _unauthorized() from None
     user = await auth.get_user(session, user_id)
     if user is None or user.deletion_requested_at is not None:
+        raise _unauthorized()
+    if auth.token_revoked(user, issued_at):
         raise _unauthorized()
     return user
 
