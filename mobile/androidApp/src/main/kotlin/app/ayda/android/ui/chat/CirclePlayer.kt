@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -146,7 +145,11 @@ fun CirclePlayer(
         current.setVolume(0f, 0f)
         current.isLooping = true
         current.seekTo(0)
-        if (autoplay) current.start() else if (current.isPlaying) current.pause()
+        if (autoplay) {
+            current.start()
+        } else if (current.isPlaying) {
+            current.pause()
+        }
         mode = CircleMode.Preview
         position = 0
     }
@@ -171,7 +174,8 @@ fun CirclePlayer(
             reported = false
             if (it.duration > 0) length = it.duration
             // Without autoplay a seek still draws the first frame instead of an empty circle.
-            if (autoplay && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) it.start() else it.seekTo(0)
+            val visible = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            if (autoplay && visible) it.start() else it.seekTo(0)
         }
         created.setOnCompletionListener { toPreview(it) }
         created.setOnErrorListener { _, _, _ ->
