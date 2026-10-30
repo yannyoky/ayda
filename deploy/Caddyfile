@@ -26,9 +26,10 @@
 	}
 	# After a native sign-in confirmed in the Mini App (ADR 0009) Telegram opens this link and Android hands it to the app.
 	# Without a verified App Link it lands here: the button opens the app by package name.
+	# The page must never echo the request path: Caddy decodes it, so it would be reflected XSS (audit K1).
 	handle /app/* {
 		header Content-Type "text/html; charset=utf-8"
-		respond `<!doctype html><meta name="viewport" content="width=device-width"><title>Ayda</title><body style="font-family:sans-serif;text-align:center;padding:48px 16px"><p>Вход подтверждён.</p><p><a href="intent://{host}{path}#Intent;scheme=https;package=app.ayda;end" style="display:inline-block;padding:14px 24px;border-radius:16px;background:#FF5FA2;color:#fff;text-decoration:none">Открыть Ayda</a></p></body>` 200
+		respond `<!doctype html><meta name="viewport" content="width=device-width"><title>Ayda</title><body style="font-family:sans-serif;text-align:center;padding:48px 16px"><p>Вход подтверждён.</p><p><a href="intent://{host}/app/signed-in#Intent;scheme=https;package=app.ayda;end" style="display:inline-block;padding:14px 24px;border-radius:16px;background:#FF5FA2;color:#fff;text-decoration:none">Открыть Ayda</a></p></body>` 200
 	}
 	handle /.well-known/assetlinks.json {
 		header Content-Type application/json
