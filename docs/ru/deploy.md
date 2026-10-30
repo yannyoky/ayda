@@ -54,6 +54,10 @@ cd /opt/ayda && docker compose -f docker-compose.prod.yml exec worker python -m 
 
 Воркер каждый день после 03:30 по Москве выгружает `pg_dump` в `BACKUP_BUCKET` и хранит 14 дней (`docs/architecture.md`, «Бэкапы и отслеживание ошибок»). Beget выдаёт отдельную пару ключей на каждый бакет: ключи бакета бэкапов нужно вписать в `BACKUP_S3_ACCESS_KEY_ID` и `BACKUP_S3_SECRET_ACCESS_KEY`, иначе загрузка падает с `AccessDenied`; если у провайдера ключи общие для всех бакетов, оставьте их пустыми. Неудачный бэкап повторяется; если попытки исчерпаны, ошибка появляется в GlitchTip.
 
+**Шифрование.** В дампах данные всех пользователей, поэтому перед загрузкой они шифруются [age](https://age-encryption.org). Один раз, на своём компьютере: `age-keygen -o ayda-backup-key.txt`. Этот файл на сервер не кладите (менеджер паролей плюс копия офлайн): без него ни один бэкап не восстановить. Публичный ключ, который команда печатает (`age1...`), впишите в `BACKUP_AGE_RECIPIENT` в `.env` и задеплойте: новые дампы будут `db/<time>.dump.age`. Без этой настройки дампы не шифруются, и воркер пишет предупреждение в лог.
+
+**Удаление.** Дампы старше `BACKUP_KEEP_DAYS` воркер удаляет своим ключом, значит, тот, кто захватит сервер, сможет удалить и бэкапы. Если провайдер умеет, задайте бакету бэкапов правило жизненного цикла «удалять объекты старше 14 дней», поставьте `BACKUP_KEEP_DAYS=0` и выдайте ключ бэкапов без права удаления; или включите версионирование / object lock. В любом случае храните 14 дней: удалённый аккаунт должен уйти из бэкапов за этот срок.
+
 Вручную, на VPS в `/opt/ayda`:
 
 ```sh
@@ -68,8 +72,12 @@ ayda python -m ayda.core.backup create
 
 ```sh
 docker compose -f docker-compose.prod.yml exec postgres createdb -U ayda ayda_restore_check
-ayda python -m ayda.core.backup restore <key> \
+# зашифрованному дампу (.dump.age) нужен приватный ключ, только на время восстановления:
+# скопируйте ayda-backup-key.txt в /opt/ayda, сделайте chmod 644 и сразу после удалите
+docker compose -f docker-compose.prod.yml run --rm -v "$PWD/ayda-backup-key.txt:/tmp/key.txt:ro" \
+  migrate python -m ayda.core.backup restore <key> --identity /tmp/key.txt \
   --target-url "postgresql://ayda:<POSTGRES_PASSWORD from .env>@postgres:5432/ayda_restore_check"
+shred -u ayda-backup-key.txt
 docker compose -f docker-compose.prod.yml exec postgres psql -U ayda -d ayda_restore_check \
   -c "select count(*) from auth.users" -c "select max(occurred_at) from analytics.events"
 docker compose -f docker-compose.prod.yml exec postgres dropdb -U ayda ayda_restore_check

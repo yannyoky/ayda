@@ -1,14 +1,17 @@
 """Daily PostgreSQL backups to the private backup bucket, and the restore used to check them.
 
-`pg_dump --format=custom` of the whole database, uploaded as `db/<UTC time>.dump`; dumps
-older than `BACKUP_KEEP_DAYS` are deleted after each successful upload. The password goes to
-pg_dump through PGPASSWORD, never on the command line.
+`pg_dump --format=custom` of the whole database, uploaded as `db/<UTC time>.dump`, or
+`.dump.age` when `BACKUP_AGE_RECIPIENT` is set: then the dump is encrypted with that age
+public key and only the holder of the private key, kept off the server, can read it. Dumps
+older than `BACKUP_KEEP_DAYS` are deleted after each successful upload (0 keeps all). The
+password goes to pg_dump through PGPASSWORD, never on the command line.
 
 CLI (run inside the backend image on the VPS):
     python -m ayda.core.backup create
     python -m ayda.core.backup list
-    python -m ayda.core.backup restore <key> --target-url <database url>
-Restore into an empty database and check it before switching anything to it.
+    python -m ayda.core.backup restore <key> --target-url <database url> [--identity <file>]
+Restore into an empty database and check it before switching anything to it. An encrypted
+dump needs `--identity`: the age private key file, copied in for the restore and removed after.
 """
 
 import argparse
@@ -80,8 +83,12 @@ def backup_storage(settings: Settings) -> Storage:
     return Storage(settings, bucket=settings.backup_bucket, keys=keys)
 
 
-def backup_key(now: datetime) -> str:
-    return f"{PREFIX}{now.astimezone(UTC):%Y-%m-%dT%H%M%SZ}.dump"
+ENCRYPTED_SUFFIX = ".age"
+
+
+def backup_key(now: datetime, encrypted: bool = False) -> str:
+    suffix = ENCRYPTED_SUFFIX if encrypted else ""
+    return f"{PREFIX}{now.astimezone(UTC):%Y-%m-%dT%H%M%SZ}.dump{suffix}"
 
 
 async def create_backup(
@@ -91,14 +98,23 @@ async def create_backup(
     now = now or datetime.now(UTC)
     storage = storage or backup_storage(settings)
     conn = Libpq.from_url(settings.database_url)
-    key = backup_key(now)
+    recipient = settings.backup_age_recipient
+    key = backup_key(now, encrypted=recipient is not None)
     with tempfile.TemporaryDirectory() as tmp:
         path = str(Path(tmp) / "ayda.dump")
         await _run(
             "pg_dump", "--format=custom", "--no-owner", "--file", path, *conn.args, env=conn.env()
         )
+        if recipient is not None:
+            plain, path = path, path + ENCRYPTED_SUFFIX
+            await _run("age", "--encrypt", "--recipient", recipient, "--output", path, plain,
+                       env=dict(os.environ))  # fmt: skip
+            Path(plain).unlink()
+        else:
+            log.warning("BACKUP_AGE_RECIPIENT is not set: the backup is not encrypted")
         await storage.upload_file(path, key)
-    await prune(storage, now - timedelta(days=settings.backup_keep_days))
+    if settings.backup_keep_days > 0:
+        await prune(storage, now - timedelta(days=settings.backup_keep_days))
     log.info("backup uploaded: %s", key)
     return key
 
@@ -115,14 +131,28 @@ async def list_backups(settings: Settings, storage: Storage | None = None) -> li
 
 
 async def restore_backup(
-    settings: Settings, key: str, target_url: str, storage: Storage | None = None
+    settings: Settings,
+    key: str,
+    target_url: str,
+    storage: Storage | None = None,
+    identity: str | None = None,
 ) -> None:
-    """Restore a dump into `target_url` (an existing, preferably empty, database)."""
+    """Restore a dump into `target_url` (an existing, preferably empty, database).
+    An encrypted dump (`.age`) needs `identity`, the path of the age private key file."""
     storage = storage or backup_storage(settings)
     conn = Libpq.from_url(target_url)
+    encrypted = key.endswith(ENCRYPTED_SUFFIX)
+    if encrypted and identity is None:
+        raise BackupError("the dump is encrypted: pass the age private key file (--identity)")
     with tempfile.TemporaryDirectory() as tmp:
         path = str(Path(tmp) / "ayda.dump")
-        await storage.download_file(key, path)
+        if encrypted:
+            assert identity is not None
+            await storage.download_file(key, path + ENCRYPTED_SUFFIX)
+            await _run("age", "--decrypt", "--identity", identity, "--output", path,
+                       path + ENCRYPTED_SUFFIX, env=dict(os.environ))  # fmt: skip
+        else:
+            await storage.download_file(key, path)
         await _run(
             "pg_restore",
             "--no-owner",
@@ -159,6 +189,7 @@ async def _cli(argv: list[str] | None = None) -> None:
     restore = sub.add_parser("restore")
     restore.add_argument("key")
     restore.add_argument("--target-url", required=True)
+    restore.add_argument("--identity", help="age private key file, for an encrypted dump")
     args = parser.parse_args(argv)
     settings = get_settings()
     if args.command == "create":
@@ -167,7 +198,7 @@ async def _cli(argv: list[str] | None = None) -> None:
         for key in await list_backups(settings):
             print(key)
     else:
-        await restore_backup(settings, args.key, args.target_url)
+        await restore_backup(settings, args.key, args.target_url, identity=args.identity)
         print(f"restored {args.key}")
 
 
