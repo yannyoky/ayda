@@ -48,6 +48,8 @@ export const handlers = [
     return HttpResponse.json(session)
   }),
 
+  http.post(`${API}/auth/sign-out-everywhere`, authed(() => new HttpResponse(null, { status: 204 }))),
+
   http.post<never, { init_data: string; code: string }, DefaultBodyType>(`${API}/auth/telegram/login-requests/approve`, async ({ request }) => {
     const body = await request.json()
     if (!body?.init_data) return problem(401, 'Не удалось проверить вход')

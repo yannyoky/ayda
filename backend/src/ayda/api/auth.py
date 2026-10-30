@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.api.deps import AppMailer, AppSettings, DbSession, OptionalUser
+from ayda.api.deps import AppMailer, AppSettings, CurrentUser, DbSession, OptionalUser
 from ayda.api.schemas import (
     EmailStart,
     EmailVerify,
@@ -15,6 +15,7 @@ from ayda.api.schemas import (
     TelegramLoginRequestOut,
     TelegramSignIn,
 )
+from ayda.app import security
 from ayda.app.profile import build_me
 from ayda.app.reminders import reminder_opened
 from ayda.core.config import Settings
@@ -166,6 +167,13 @@ async def sign_out(body: RefreshTokenInput, session: DbSession) -> Response:
     return Response(status_code=204)
 
 
+@router.post("/auth/sign-out-everywhere", operation_id="signOutEverywhere", status_code=204)
+async def sign_out_everywhere(user: CurrentUser, session: DbSession) -> Response:
+    await auth.end_all_sessions(session, user)
+    await session.commit()
+    return Response(status_code=204)
+
+
 def _client(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
@@ -264,6 +272,9 @@ async def exchange_telegram_login_request(
     await analytics.record(
         session, EventType.SIGNED_IN, user.id, {"provider": "telegram", "new": created}
     )
+    if not created:
+        # The confirmation link can be phished: tell the Telegram account (audit V5).
+        await security.notify_new_sign_in(session, user.id)
     token, refresh_expires_at = await auth.issue_refresh_token(session, user.id)
     result = await _native_session(session, settings, user, token, refresh_expires_at)
     return Response(

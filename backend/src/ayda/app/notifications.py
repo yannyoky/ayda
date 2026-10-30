@@ -74,6 +74,8 @@ DEFAULT_PUSH_TEXT = ("Айда", "Есть новости")
 Renderer = Callable[[AsyncSession, auth.User, Mapping[str, Any]], Awaitable[Message | None]]
 # kind -> renderer; None from a renderer means "nothing to say anymore", so the send is skipped.
 RENDERERS: dict[str, Renderer] = {}
+# Kinds that always go by the bot, never by push (security notices: ayda.app.security).
+BOT_ONLY_KINDS: set[str] = set()
 
 
 def app_button(settings: Settings, text: str, start_param: str | None = None) -> Button:
@@ -126,10 +128,13 @@ async def send(
         return SendResult(False, "no-user")
     kind: str = payload["kind"]
     params: Mapping[str, Any] = payload.get("params", {})
+    bot_only = kind in BOT_ONLY_KINDS
     devices = (
-        [] if user.notification_channel == "telegram" else await auth.list_devices(session, user.id)
+        []
+        if bot_only or user.notification_channel == "telegram"
+        else await auth.list_devices(session, user.id)
     )
-    use_push = user.notification_channel == "push" or bool(devices)
+    use_push = not bot_only and (user.notification_channel == "push" or bool(devices))
     if use_push and not devices:
         return SendResult(False, "no-device")
     if not use_push:

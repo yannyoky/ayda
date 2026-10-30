@@ -46,3 +46,7 @@ async def remove_device(session: AsyncSession, user_id: uuid.UUID, device_id: uu
 async def forget_token(session: AsyncSession, token: str) -> None:
     """FCM said the token is no longer valid (app removed or data cleared)."""
     await session.execute(delete(Device).where(Device.token == token))
+
+
+async def forget_user_devices(session: AsyncSession, user_id: uuid.UUID) -> None:
+    await session.execute(delete(Device).where(Device.user_id == user_id))

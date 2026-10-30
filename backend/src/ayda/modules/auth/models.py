@@ -45,6 +45,8 @@ class User(Base):
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Access tokens issued before this moment are refused ("sign out everywhere").
+    sessions_revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Consent(Base):

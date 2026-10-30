@@ -10,7 +10,7 @@ from typing import Any, Literal
 from aiogram import Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ayda.app import chat, coop, notifications, privacy, realtime, reminders
+from ayda.app import chat, coop, notifications, privacy, realtime, reminders, security
 from ayda.app import events as local_events
 from ayda.bot.sender import AiogramSender
 from ayda.core import backup, jobs
@@ -62,6 +62,7 @@ def build_worker(
         venues = local_events.venue_source(settings, local_events.venue_http())
     reminders.register(settings)
     chat.register(settings)
+    security.register(settings)
     chat.use_storage(storage)
     coop.register(settings)
 
