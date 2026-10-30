@@ -41,6 +41,19 @@ Alerts appear under **Security → Secret scanning**.
 
 A fake value that has to stay in the code (a test fixture, an example from provider docs) gets a `# gitleaks:allow` comment on the same line. A finding in an old commit that cannot be changed goes into `.gitleaksignore` as its fingerprint (`commit:file:rule:line`, gitleaks prints it). Never allow a real secret this way.
 
+## The Telegram bot token
+
+The production bot's token is a master key: whoever knows it can sign Telegram `initData` for any user and sign in to any account. It lives only in `/opt/ayda/.env` on the server and in the protected `production` environment, never in repository-level secrets, which every workflow on `main` can read. The weekly Live checks use a separate test bot (`TELEGRAM_TEST_BOT_TOKEN`; without it the Telegram check is skipped).
+
+If the token may have leaked: in @BotFather send `/revoke` and pick the bot, put the new token into `TELEGRAM_BOT_TOKEN` in `/opt/ayda/.env` (and the `production` environment, if it is there), and run the Deploy workflow. The old token stops working at once, so every `initData` signed with it is rejected. Sessions issued before stay valid; if accounts may have been entered, end them all: put a new `AUTH_TOKEN_SECRET` into `.env` (it signs access tokens) and revoke the refresh tokens:
+
+```sh
+docker compose -f docker-compose.prod.yml exec postgres psql -U ayda -d ayda \
+  -c "update auth.refresh_tokens set revoked_at = now() where revoked_at is null"
+```
+
+Everyone then signs in again.
+
 ## If a secret did leak
 
 1. Revoke or rotate the secret at the provider first (BotFather `/revoke`, Cloudflare API tokens, Beget S3 keys, and so on). Once a secret is pushed to a public repo, treat it as known to everyone, even if the commit is removed later.
