@@ -100,6 +100,15 @@ def price_from_text(text: str) -> int | None:
     return min(numbers) if numbers else None
 
 
+def https_url(value: object) -> str:
+    """A link from a listing, only if it is https: no javascript: or plain http (audit M5).
+    A ValueError skips the event like any other malformed field."""
+    url = str(value).strip()
+    if not url.lower().startswith("https://") or any(c.isspace() for c in url):
+        raise ValueError("not an https link")
+    return url
+
+
 # --- Timepad -----------------------------------------------------------------------------
 
 
@@ -178,7 +187,7 @@ class TimepadSource:
                 region_code=city.region_code,
                 is_free=is_free,
                 price_min=None if is_free or not paid else min(paid),
-                url=str(item["url"]),
+                url=https_url(item["url"]),
                 category=_category([str(c.get("name", "")) for c in categories], "learning"),
             )
         except (KeyError, TypeError, ValueError):
@@ -267,7 +276,7 @@ class KudaGoSource:
                 region_code=city.region_code,
                 is_free=is_free,
                 price_min=price,
-                url=str(item["site_url"]),
+                url=https_url(item["site_url"]),
                 category=_category(cast(list[str], item.get("categories") or []), "city"),
             )
             out: list[ListingData] = []

@@ -91,7 +91,7 @@ async def suggest(
 ) -> MeetupOffer:
     """The card for a chat. Only the last few messages are read, only now."""
     await chat_app.get_conversation(session, user.id, conversation_id)
-    rows = await chat.recent_messages(session, conversation_id, MESSAGES_READ)
+    rows = await chat.recent_messages(session, conversation_id, MESSAGES_READ, user.id)
     texts = [m.text[:MESSAGE_CHARS] for m in rows]
     used = await analytics.count_since(
         session, user.id, EventType.MEETUP_SUGGESTED, now - timedelta(days=1)
