@@ -22,7 +22,7 @@ from ayda.core.logging import configure_logging
 from ayda.core.push import FcmSender, LogPushSender
 from ayda.core.realtime import Realtime
 from ayda.core.storage import Storage
-from ayda.modules import social
+from ayda.modules import auth, social
 from ayda.modules.events import EventSource, OverpassSource
 
 
@@ -88,6 +88,9 @@ def build_worker(
 
     async def purge_checkin_texts(session: AsyncSession, now: datetime) -> None:
         await privacy.purge_old_checkin_texts(session, now)
+
+    async def purge_refresh_tokens(session: AsyncSession, now: datetime) -> None:
+        await auth.purge_expired_refresh_tokens(session, now)
 
     async def purge_assistant_chats(session: AsyncSession, now: datetime) -> None:
         await privacy.purge_old_assistant_chats(session, now)
@@ -161,6 +164,7 @@ def build_worker(
         Periodic("weekly", 60, schedule_weekly),
         Periodic("checkins.purge_texts", 3600, purge_checkin_texts),
         Periodic("assistant.purge_chats", 3600, purge_assistant_chats),
+        Periodic("auth.purge_refresh_tokens", 3600, purge_refresh_tokens),
         Periodic("chat.purge_coops", 3600, purge_coop_chats),
         Periodic("chat.delete_unsent", 3600, delete_unsent_attachments),
         Periodic("chat.expire_video_notes", 3600, expire_video_notes),

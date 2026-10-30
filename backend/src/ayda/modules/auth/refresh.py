@@ -10,7 +10,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ayda.core.ids import uuid7
@@ -94,3 +94,10 @@ async def revoke_user_refresh_tokens(
         .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
         .values(revoked_at=now or datetime.now(UTC))
     )
+
+
+async def purge_expired_refresh_tokens(session: AsyncSession, now: datetime) -> int:
+    """Delete refresh tokens past their expiry (audit M8). Used ones are kept until then:
+    presenting a used token is how a stolen one is detected."""
+    result = await session.execute(delete(RefreshToken).where(RefreshToken.expires_at < now))
+    return result.rowcount or 0  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
