@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from ayda.modules.events import CityRef, KudaGoSource, TimepadSource
-from ayda.modules.events.sources import MAX_PAGES, parse_time, price_from_text
+from ayda.modules.events.sources import MAX_PAGES, https_url, parse_time, price_from_text
 
 KALININGRAD = CityRef(435, "Калининград", "39")
 MOSCOW = CityRef(1069, "Москва", "77")
@@ -198,3 +198,11 @@ def test_parse_time_accepts_both_offsets() -> None:
     expected = datetime(2026, 10, 17, 16, 0, tzinfo=UTC)
     assert parse_time("2026-10-17T19:00:00+0300") == expected
     assert parse_time("2026-10-17T19:00:00+03:00") == expected
+
+
+def test_only_https_links_are_kept() -> None:
+    # Audit M5: a listing link is shown as a button, so no javascript: or plain http.
+    assert https_url(" https://afisha.example/e/1 ") == "https://afisha.example/e/1"
+    for bad in ("javascript:alert(1)", "http://afisha.example/e/1", "https://a b", "", None):
+        with pytest.raises(ValueError):
+            https_url(bad)

@@ -13,6 +13,7 @@ from ayda.modules.auth.models import Device, User, UserIdentity
 from ayda.modules.auth.refresh import (
     RefreshError,
     issue_refresh_token,
+    purge_expired_refresh_tokens,
     revoke_refresh_token,
     rotate_refresh_token,
 )
@@ -77,6 +78,7 @@ __all__ = [
     "list_identities",
     "mark_bot_reachable",
     "normalize_email",
+    "purge_expired_refresh_tokens",
     "read_token",
     "read_token_claims",
     "register_device",

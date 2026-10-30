@@ -282,12 +282,22 @@ async def last_messages(
 
 
 async def recent_messages(
-    session: AsyncSession, conversation_id: uuid.UUID, limit: int
+    session: AsyncSession, conversation_id: uuid.UUID, limit: int, user_id: uuid.UUID
 ) -> list[Message]:
-    """The last `limit` messages that are not deleted, oldest first."""
+    """The last `limit` messages that are not deleted and that `user_id` has not hidden with
+    "Удалить у себя", oldest first."""
+    hidden_at = (
+        select(Member.hidden_at)
+        .where(Member.conversation_id == conversation_id, Member.user_id == user_id)
+        .scalar_subquery()
+    )
     rows = await session.scalars(
         select(Message)
-        .where(Message.conversation_id == conversation_id, Message.deleted_at.is_(None))
+        .where(
+            Message.conversation_id == conversation_id,
+            Message.deleted_at.is_(None),
+            hidden_at.is_(None) | (Message.created_at > hidden_at),
+        )
         .order_by(Message.id.desc())
         .limit(limit)
     )

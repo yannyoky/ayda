@@ -33,6 +33,13 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v6
+      # The version goes into shell commands: pass it through env and accept only X.Y.Z (audit M2).
+      - name: Check the version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be X.Y.Z"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -53,14 +60,14 @@ jobs:
         run: >
           ./gradlew assembleRelease
           -Payda.apiBaseUrl=https://${{ vars.AYDA_DOMAIN }}/api/v1
-          -Payda.versionName=${{ inputs.version }}
+          -Payda.versionName="$VERSION"
           -Payda.versionCode=${{ github.run_number }}
       - name: Verify the signature and show the certificate fingerprint
         run: |
           apk=$(ls androidApp/build/outputs/apk/release/*.apk)
-          cp "$apk" "ayda-${{ inputs.version }}.apk"
+          cp "$apk" "ayda-$VERSION.apk"
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          "$apksigner" verify --print-certs "ayda-${{ inputs.version }}.apk" | tee certs.txt
+          "$apksigner" verify --print-certs "ayda-$VERSION.apk" | tee certs.txt
           sha=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' certs.txt | sed 's/../&:/g; s/:$//' | tr a-f A-F)
           {
             echo "### Signing certificate"
@@ -72,9 +79,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
-          gh release create "android-v${{ inputs.version }}"
-          "ayda-${{ inputs.version }}.apk"
-          --title "Android ${{ inputs.version }}"
+          gh release create "android-v$VERSION"
+          "ayda-$VERSION.apk"
+          --title "Android $VERSION"
           --notes "Signed APK. Install it from this page; updates come as new releases."
           --prerelease
       - name: Remove the keystore

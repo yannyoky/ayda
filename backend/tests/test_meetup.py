@@ -333,3 +333,23 @@ async def test_over_the_daily_limit_code_guesses_without_the_assistant(
     second = (await suggest(client, alice, conversation)).json()
     assert second["source"] == "code" and second["kind"] == "venue"
     assert len(llm.calls) == 1
+
+
+async def test_messages_hidden_with_delete_for_me_are_not_sent(
+    app: FastAPI, client: httpx.AsyncClient, database: Database
+) -> None:
+    # Audit M12: "Удалить у себя" hides older messages from the assistant too.
+    llm = FakeProvider(answers=[intent()])
+    use_tools(app, [llm], forecast())
+    alice, bob, conversation = await chat_between(client, database, "старое")
+    hidden = await client.delete(f"/conversations/{conversation}", headers=alice.headers)
+    assert hidden.status_code == 204
+    sent = await client.post(
+        f"/conversations/{conversation}/messages",
+        json={"text": "новое", "client_id": str(uuid.uuid4())},
+        headers=bob.headers,
+    )
+    assert sent.status_code == 201, sent.text
+
+    assert (await suggest(client, alice, conversation)).status_code == 200
+    assert json.loads(llm.calls[0][1])["messages"] == ["новое"]
