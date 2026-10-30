@@ -41,6 +41,7 @@ jobs:
               - '.github/workflows/ci.yml'
             deploy:
               - 'deploy/**'
+              - 'backend/Dockerfile'
               - '.github/workflows/ci.yml'
       # Skip a component until its project files exist
       - id: exists
@@ -232,3 +233,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: bash deploy/caddy-check.sh
+      - run: touch deploy/.env && docker compose -f deploy/docker-compose.prod.yml config --quiet
+        env:
+          AYDA_TAG: ci
+          POSTGRES_PASSWORD: ci
+          GLITCHTIP_DB_PASSWORD: ci
+          GLITCHTIP_SECRET_KEY: ci
+          AYDA_DOMAIN: ayda.example
+          ERRORS_DOMAIN: errors.ayda.example
+          ACME_EMAIL: ci@ayda.example
+          TELEGRAM_BOT_USERNAME: ayda_test_bot
+          CENTRIFUGO_TOKEN_SECRET: ci
+          CENTRIFUGO_API_KEY: ci
+      # The production backend image runs as a non-root user (audit V3) and still starts.
+      - name: Backend image
+        run: |
+          docker build -t ayda-backend:ci backend
+          test "$(docker run --rm ayda-backend:ci id -u)" != 0
+          docker run --rm ayda-backend:ci python -c "import ayda.main, ayda.worker, ayda.bot.__main__"
+          docker run --rm ayda-backend:ci sh -c 'ffmpeg -version >/dev/null && pg_dump --version'
