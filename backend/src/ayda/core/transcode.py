@@ -4,6 +4,9 @@ Every upload is decoded and written anew: voice as mono AAC in M4A, a circle as 
 480x480 H.264 + AAC MP4, a video as H.264 + AAC MP4 at most 720 px on the long side.
 Browsers, iOS and Android play all of them. Metadata of the original (device, app,
 location) is dropped.
+
+Uploads are untrusted, so ffmpeg reads them only with the demuxers that our clients produce
+and only from the local file: no playlists, concat lists or network (audit V2).
 """
 
 import asyncio
@@ -16,6 +19,9 @@ VIDEO_NOTE_SIDE = 480
 MAX_VIDEO_SECONDS = 60
 VIDEO_LONG_SIDE = 720
 TIMEOUT_S = 120
+# Demuxer names (`ffmpeg -formats`): "mov" covers mp4/m4a/3gp, "matroska" covers webm.
+VIDEO_FORMATS = "mov,matroska"
+VOICE_FORMATS = "mov,matroska,ogg,aac,mp3"
 
 
 class InvalidMedia(ValueError):
@@ -37,6 +43,10 @@ async def _run(*args: str) -> bytes:
     return out
 
 
+def _input(source: Path, formats: str) -> tuple[str, ...]:
+    return ("-format_whitelist", formats, "-protocol_whitelist", "file", "-i", str(source))
+
+
 async def duration_ms(path: Path) -> int:
     out = await _run(
         "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(path)
@@ -51,7 +61,7 @@ async def duration_ms(path: Path) -> int:
 async def transcode_voice(source: Path, target: Path) -> int:
     """Write `target` as M4A (AAC, mono, ~32 kbit/s), at most 5 minutes; returns its length."""
     await _run(
-        "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(source),
+        "ffmpeg", "-nostdin", "-v", "error", "-y", *_input(source, VOICE_FORMATS),
         "-t", str(MAX_VOICE_SECONDS), "-vn", "-sn", "-dn", "-map_metadata", "-1",
         "-ac", "1", "-ar", "24000", "-c:a", "aac", "-b:a", "32k",
         "-movflags", "+faststart", "-f", "mp4", str(target),
@@ -68,7 +78,7 @@ async def transcode_video_note(source: Path, target: Path) -> int:
     side = VIDEO_NOTE_SIDE
     crop = f"crop='min(iw,ih)':'min(iw,ih)',scale={side}:{side},setsar=1"
     await _run(
-        "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(source),
+        "ffmpeg", "-nostdin", "-v", "error", "-y", *_input(source, VIDEO_FORMATS),
         "-t", str(MAX_VIDEO_NOTE_SECONDS), "-map", "0:v:0", "-map", "0:a:0?",
         "-sn", "-dn", "-map_metadata", "-1", "-map_chapters", "-1",
         "-vf", crop, "-r", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
@@ -103,7 +113,7 @@ async def transcode_video(source: Path, target: Path) -> tuple[int, int, int]:
         "scale=trunc(iw/2)*2:trunc(ih/2)*2,setsar=1"
     )
     await _run(
-        "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(source),
+        "ffmpeg", "-nostdin", "-v", "error", "-y", *_input(source, VIDEO_FORMATS),
         "-t", str(MAX_VIDEO_SECONDS), "-map", "0:v:0", "-map", "0:a:0?",
         "-sn", "-dn", "-map_metadata", "-1", "-map_chapters", "-1",
         "-vf", fit, "-r", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
