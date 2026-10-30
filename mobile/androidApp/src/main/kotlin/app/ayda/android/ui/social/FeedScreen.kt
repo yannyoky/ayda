@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -51,6 +50,7 @@ import app.ayda.android.R
 import app.ayda.android.ui.Card
 import app.ayda.android.ui.LocalAydaColors
 import app.ayda.android.ui.PrimaryButton
+import app.ayda.android.ui.chat.CirclePlayer
 import app.ayda.android.ui.chat.PlayableVideo
 import app.ayda.android.ui.day.AydaIcon
 import app.ayda.android.ui.day.label
@@ -292,14 +292,7 @@ private fun ProofVideo(
     }
     if (note) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            PlayableVideo(
-                url,
-                video.durationMs,
-                CircleShape,
-                stringResource(R.string.chats_circle_play),
-                onExpired,
-                modifier = Modifier.size(220.dp),
-            )
+            CirclePlayer(url, video.durationMs, size = 220.dp, onExpired = onExpired)
         }
         return
     }

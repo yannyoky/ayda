@@ -50,6 +50,7 @@ const paths = {
   ),
   play: <path d="M7 5v14l11-7z" />,
   pause: <path d="M8 5v14M16 5v14" />,
+  muted: <path d="M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6" />,
   plus: <path d="M12 5v14M5 12h14" />,
   chevron: <path d="m9 18 6-6-6-6" />,
   back: <path d="m15 18-6-6 6-6" />,
