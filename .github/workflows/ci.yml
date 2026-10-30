@@ -17,6 +17,7 @@ jobs:
       miniapp: ${{ steps.filter.outputs.miniapp == 'true' && steps.exists.outputs.miniapp == 'true' }}
       mobile: ${{ steps.filter.outputs.mobile == 'true' && steps.exists.outputs.mobile == 'true' }}
       contracts: ${{ steps.filter.outputs.contracts }}
+      deploy: ${{ steps.filter.outputs.deploy }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -37,6 +38,9 @@ jobs:
               - '.github/workflows/ci.yml'
             contracts:
               - 'contracts/**'
+              - '.github/workflows/ci.yml'
+            deploy:
+              - 'deploy/**'
               - '.github/workflows/ci.yml'
       # Skip a component until its project files exist
       - id: exists
@@ -220,3 +224,11 @@ jobs:
         with:
           node-version: '22'
       - run: npx -y @redocly/cli@2.56.1 lint openapi.yaml
+
+  caddy:
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash deploy/caddy-check.sh
